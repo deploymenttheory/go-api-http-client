@@ -1,17 +1,19 @@
-// http_client_auth_token_management.go
+// api_handler.go
 package httpclient
 
 import (
 	"fmt"
 	"net/http"
 
-	"github.com/deploymenttheory/go-api-sdk-jamfpro/internal/apihandlers/graph"
-	"github.com/deploymenttheory/go-api-sdk-jamfpro/internal/apihandlers/jamfpro"
+	"github.com/deploymenttheory/go-api-http-client/internal/apihandlers/jamfpro"
 )
 
 // APIHandler is an interface for encoding, decoding, and determining content types for different API implementations.
 // It encapsulates behavior for encoding and decoding requests and responses.
 type APIHandler interface {
+	GetBaseDomain() string
+	ConstructAPIResourceEndpoint(endpointPath string) string
+	ConstructAPIAuthEndpoint(endpointPath string) string
 	MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error)
 	MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) // New method for multipart
 	UnmarshalResponse(resp *http.Response, out interface{}) error
@@ -29,11 +31,11 @@ func LoadAPIHandler(config Config, apiType string) (APIHandler, error) {
 		apiHandler = &jamfpro.JamfAPIHandler{
 			// Initialize with necessary parameters
 		}
-	case "graph":
-		// Assuming GetAPIHandler returns a GraphAPIHandler
-		apiHandler = &graph.GraphAPIHandler{
-			// Initialize with necessary parameters
-		}
+	/*case "graph":
+	// Assuming GetAPIHandler returns a GraphAPIHandler
+	apiHandler = &graph.GraphAPIHandler{
+		// Initialize with necessary parameters
+	}*/
 	default:
 		return nil, fmt.Errorf("unsupported API type: %s", apiType)
 	}

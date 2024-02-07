@@ -48,6 +48,8 @@ import (
 	"strings"
 
 	_ "embed"
+
+	"github.com/deploymenttheory/go-api-http-client/internal/httpclient"
 )
 
 // Endpoint constants represent the URL suffixes used for Jamf API token interactions.
@@ -93,22 +95,6 @@ func loadDefaultConfig() error {
 	return json.Unmarshal(jamfpro_api_exceptions_configuration, &configMap)
 }
 
-// LoadUserConfig allows users to apply their own configuration by providing a JSON file.
-// The custom configuration will override the default settings previously loaded.
-// It reads the file from the provided filename path and unmarshals its content into the configMap.
-// If reading or unmarshalling fails, an error is returned.
-func LoadUserConfig(filename string) error {
-	// Read the user-provided JSON configuration file and unmarshal it into the global configMap.
-	userConfigBytes, err := os.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	// Override the default configuration with the user's custom settings.
-	return json.Unmarshal(userConfigBytes, &configMap)
-}
-
-// Structs
-
 // EndpointConfig is a struct that holds configuration details for a specific API endpoint.
 // It includes what type of content it can accept and what content type it should send.
 type EndpointConfig struct {
@@ -116,67 +102,38 @@ type EndpointConfig struct {
 	ContentType *string `json:"content_type"` // ContentType, if not nil, specifies the MIME type to set for requests sent to the endpoint. A pointer is used to distinguish between a missing field and an empty string.
 }
 
-// UnifiedAPIHandler is a struct that implements the APIHandler interface.
-// It holds a Logger instance to facilitate logging across various API handling methods.
-// This handler is responsible for encoding and decoding request and response data,
-// determining content types, and other API interactions as defined by the APIHandler interface.
+// JamfAPIHandler implements the APIHandler interface for the Jamf Pro API.
 type JamfAPIHandler struct {
-	logger Logger // logger is used to output logs for the API handling processes.
+	logger             httpclient.Logger // logger is used to output logs for the API handling processes.
+	OverrideBaseDomain string            // OverrideBaseDomain is used to override the base domain for URL construction.
+	InstanceName       string            // InstanceName is the name of the Jamf instance.
 }
 
 // Functions
 
 // GetBaseDomain returns the appropriate base domain for URL construction.
 // It uses OverrideBaseDomain if set, otherwise falls back to DefaultBaseDomain.
-func (c *Client) GetBaseDomain() string {
-	if c.OverrideBaseDomain != "" {
-		return c.OverrideBaseDomain
+func (j *JamfAPIHandler) GetBaseDomain() string {
+	if j.OverrideBaseDomain != "" {
+		return j.OverrideBaseDomain
 	}
 	return DefaultBaseDomain
 }
 
 // ConstructAPIResourceEndpoint returns the full URL for a Jamf API resource endpoint path.
-func (c *Client) ConstructAPIResourceEndpoint(endpointPath string) string {
-	baseDomain := c.GetBaseDomain()
-	url := fmt.Sprintf("https://%s%s%s", c.InstanceName, baseDomain, endpointPath)
-	c.logger.Info("Request will be made to API   URL:", "URL", url)
+func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(endpointPath string) string {
+	baseDomain := j.GetBaseDomain()
+	url := fmt.Sprintf("https://%s%s%s", j.InstanceName, baseDomain, endpointPath)
+	j.logger.Info("Request will be made to API   URL:", "URL", url)
 	return url
 }
 
 // ConstructAPIAuthEndpoint returns the full URL for a Jamf API auth endpoint path.
-func (c *Client) ConstructAPIAuthEndpoint(endpointPath string) string {
-	baseDomain := c.GetBaseDomain()
-	url := fmt.Sprintf("https://%s%s%s", c.InstanceName, baseDomain, endpointPath)
-	c.logger.Info("Request will be made to API authentication URL:", "URL", url)
+func (j *JamfAPIHandler) ConstructAPIAuthEndpoint(endpointPath string) string {
+	baseDomain := j.GetBaseDomain()
+	url := fmt.Sprintf("https://%s%s%s", j.InstanceName, baseDomain, endpointPath)
+	j.logger.Info("Request will be made to API authentication URL:", "URL", url)
 	return url
-}
-
-/*
-// APIHandler is an interface for encoding, decoding, and determining content types for different API implementations.
-// It encapsulates behavior for encoding and decoding requests and responses.
-type APIHandler interface {
-	MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error)
-	MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) // New method for multipart
-	UnmarshalResponse(resp *http.Response, out interface{}) error
-	GetContentTypeHeader(method string) string
-	GetAcceptHeader() string
-	SetLogger(logger Logger)
-}
-*/
-// GetAPIHandler initializes and returns an APIHandler with a configured logger.
-func GetAPIHandler(config Config) APIHandler {
-	handler := &JamfAPIHandler{}
-	logger := NewDefaultLogger()
-	logger.SetLevel(config.LogLevel) // Use the LogLevel from the config
-	handler.SetLogger(logger)
-	return handler
-}
-
-// SetLogger assigns a Logger instance to the UnifiedAPIHandler.
-// This allows for logging throughout the handler's operations,
-// enabling consistent logging that follows the configuration of the provided Logger.
-func (u *JamfAPIHandler) SetLogger(logger Logger) {
-	u.logger = logger
 }
 
 // GetContentTypeHeader determines the appropriate Content-Type header for a given API endpoint.

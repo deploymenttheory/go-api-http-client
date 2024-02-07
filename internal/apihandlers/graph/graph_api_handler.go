@@ -37,6 +37,8 @@ import (
 	"strings"
 
 	_ "embed"
+
+	"github.com/deploymenttheory/go-api-http-client/internal/httpclient"
 )
 
 // Endpoint constants represent the URL suffixes used for Graph API token interactions.
@@ -107,7 +109,7 @@ type EndpointConfig struct {
 // This handler is responsible for encoding and decoding request and response data,
 // determining content types, and other API interactions as defined by the APIHandler interface.
 type GraphAPIHandler struct {
-	logger                       Logger // logger is used to output logs for the API handling processes.
+	logger                       httpclient.Logger // logger is used to output logs for the API handling processes.
 	endpointAcceptedFormatsCache map[string][]string
 }
 
@@ -115,22 +117,10 @@ type GraphAPIHandler struct {
 
 // ConstructMSGraphAPIEndpoint constructs the full URL for an MS Graph API endpoint.
 // The function takes version (e.g., "/v1.0" or "/beta") and the specific API path.
-func (c *Client) ConstructMSGraphAPIEndpoint(endpointPath string) string {
+func (g *GraphAPIHandler) ConstructMSGraphAPIEndpoint(endpointPath string) string {
 	url := fmt.Sprintf("https://%s%s", DefaultBaseDomain, endpointPath)
-	c.logger.Info("Request will be made to MS Graph API URL:", "URL", url)
+	g.logger.Info("Request will be made to MS Graph API URL:", "URL", url)
 	return url
-}
-
-// APIHandler is an interface for encoding, decoding, and determining content types for different API implementations.
-// It encapsulates behavior for encoding and decoding requests and responses.
-type APIHandler interface {
-	MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error)
-	MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) // New method for multipart
-	UnmarshalResponse(resp *http.Response, out interface{}) error
-	GetContentTypeHeader(method string) string
-	GetAcceptHeader() string
-	SetLogger(logger Logger)
-	FetchSupportedRequestFormats(endpoint string) ([]string, error)
 }
 
 // GetAPIHandler initializes and returns an APIHandler with a configured logger.
