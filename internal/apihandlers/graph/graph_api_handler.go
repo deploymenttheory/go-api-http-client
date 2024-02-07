@@ -106,7 +106,7 @@ type EndpointConfig struct {
 // It holds a Logger instance to facilitate logging across various API handling methods.
 // This handler is responsible for encoding and decoding request and response data,
 // determining content types, and other API interactions as defined by the APIHandler interface.
-type UnifiedGraphAPIHandler struct {
+type GraphAPIHandler struct {
 	logger                       Logger // logger is used to output logs for the API handling processes.
 	endpointAcceptedFormatsCache map[string][]string
 }
@@ -135,7 +135,7 @@ type APIHandler interface {
 
 // GetAPIHandler initializes and returns an APIHandler with a configured logger.
 func GetAPIHandler(config Config) APIHandler {
-	handler := &UnifiedGraphAPIHandler{}
+	handler := &GraphAPIHandler{}
 	logger := NewDefaultLogger()
 	logger.SetLevel(config.LogLevel) // Use the LogLevel from the config
 	handler.SetLogger(logger)
@@ -145,7 +145,7 @@ func GetAPIHandler(config Config) APIHandler {
 // SetLogger assigns a Logger instance to the UnifiedAPIHandler.
 // This allows for logging throughout the handler's operations,
 // enabling consistent logging that follows the configuration of the provided Logger.
-func (u *UnifiedGraphAPIHandler) SetLogger(logger Logger) {
+func (u *GraphAPIHandler) SetLogger(logger Logger) {
 	u.logger = logger
 }
 
@@ -157,7 +157,7 @@ func (u *UnifiedGraphAPIHandler) SetLogger(logger Logger) {
 // - For all url endpoints it defaults to "application/json" for the graph beta and V1.0 API's.
 // If the endpoint does not match any of the predefined patterns, "application/json" is used as a fallback.
 // This method logs the decision process at various stages for debugging purposes.
-func (u *UnifiedGraphAPIHandler) GetContentTypeHeader(endpoint string) string {
+func (u *GraphAPIHandler) GetContentTypeHeader(endpoint string) string {
 	// Dynamic lookup from configuration should be the first priority
 	for key, config := range configMap {
 		if strings.HasPrefix(endpoint, key) {
@@ -188,7 +188,7 @@ func (u *UnifiedGraphAPIHandler) GetContentTypeHeader(endpoint string) string {
 //
 // Returns:
 // - The chosen Content-Type for the request, as a string.
-func (u *UnifiedGraphAPIHandler) GetContentTypeHeader(endpoint string) string {
+func (u *GraphAPIHandler) GetContentTypeHeader(endpoint string) string {
 	// Initialize the cache if it's not already initialized
 	if u.endpointAcceptedFormatsCache == nil {
 		u.endpointAcceptedFormatsCache = make(map[string][]string)
@@ -275,7 +275,7 @@ func (u *UnifiedGraphAPIHandler) GetContentTypeHeader(endpoint string) string {
 //     returns an error.
 //   - It is the responsibility of the caller to handle any errors and to decide on the default action
 //     if no formats are returned or in case of an error.
-func (u *UnifiedGraphAPIHandler) FetchSupportedRequestFormats(endpoint string) ([]string, error) {
+func (u *GraphAPIHandler) FetchSupportedRequestFormats(endpoint string) ([]string, error) {
 	url := fmt.Sprintf("https://%s%s", DefaultBaseDomain, endpoint)
 	req, err := http.NewRequest(http.MethodOptions, url, nil)
 	if err != nil {
@@ -300,7 +300,7 @@ func (u *UnifiedGraphAPIHandler) FetchSupportedRequestFormats(endpoint string) (
 }
 
 // MarshalRequest encodes the request body according to the endpoint for the API.
-func (u *UnifiedGraphAPIHandler) MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error) {
+func (u *GraphAPIHandler) MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error) {
 	var (
 		data []byte
 		err  error
@@ -341,7 +341,7 @@ func (u *UnifiedGraphAPIHandler) MarshalRequest(body interface{}, method string,
 }
 
 // UnmarshalResponse decodes the response body from XML or JSON format depending on the Content-Type header.
-func (u *UnifiedGraphAPIHandler) UnmarshalResponse(resp *http.Response, out interface{}) error {
+func (u *GraphAPIHandler) UnmarshalResponse(resp *http.Response, out interface{}) error {
 	// Handle DELETE method
 	if resp.Request.Method == "DELETE" {
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
@@ -449,7 +449,7 @@ func (u *UnifiedGraphAPIHandler) UnmarshalResponse(resp *http.Response, out inte
 // the server is informed of the client's versatile content handling capabilities while
 // indicating a preference for XML. The specified MIME types cover common content formats like
 // images, JSON, XML, HTML, plain text, and certificates, with a fallback option for all other types.
-func (u *UnifiedGraphAPIHandler) GetAcceptHeader() string {
+func (u *GraphAPIHandler) GetAcceptHeader() string {
 	weightedAcceptHeader := "application/x-x509-ca-cert;q=0.95," +
 		"application/pkix-cert;q=0.94," +
 		"application/pem-certificate-chain;q=0.93," +
@@ -468,7 +468,7 @@ func (u *UnifiedGraphAPIHandler) GetAcceptHeader() string {
 }
 
 // MarshalMultipartFormData takes a map with form fields and file paths and returns the encoded body and content type.
-func (u *UnifiedGraphAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) {
+func (u *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -506,7 +506,7 @@ func (u *UnifiedGraphAPIHandler) MarshalMultipartRequest(fields map[string]strin
 }
 
 // handleBinaryData checks if the response should be treated as binary data and assigns to out if so.
-func (u *UnifiedGraphAPIHandler) handleBinaryData(contentType, contentDisposition string, bodyBytes []byte, out interface{}) error {
+func (u *GraphAPIHandler) handleBinaryData(contentType, contentDisposition string, bodyBytes []byte, out interface{}) error {
 	if strings.Contains(contentType, "application/octet-stream") || strings.HasPrefix(contentDisposition, "attachment") {
 		if outPointer, ok := out.(*[]byte); ok {
 			*outPointer = bodyBytes

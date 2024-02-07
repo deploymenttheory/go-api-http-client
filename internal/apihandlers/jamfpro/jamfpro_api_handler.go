@@ -120,7 +120,7 @@ type EndpointConfig struct {
 // It holds a Logger instance to facilitate logging across various API handling methods.
 // This handler is responsible for encoding and decoding request and response data,
 // determining content types, and other API interactions as defined by the APIHandler interface.
-type UnifiedJamfAPIHandler struct {
+type JamfAPIHandler struct {
 	logger Logger // logger is used to output logs for the API handling processes.
 }
 
@@ -151,6 +151,7 @@ func (c *Client) ConstructAPIAuthEndpoint(endpointPath string) string {
 	return url
 }
 
+/*
 // APIHandler is an interface for encoding, decoding, and determining content types for different API implementations.
 // It encapsulates behavior for encoding and decoding requests and responses.
 type APIHandler interface {
@@ -161,10 +162,10 @@ type APIHandler interface {
 	GetAcceptHeader() string
 	SetLogger(logger Logger)
 }
-
+*/
 // GetAPIHandler initializes and returns an APIHandler with a configured logger.
 func GetAPIHandler(config Config) APIHandler {
-	handler := &UnifiedJamfAPIHandler{}
+	handler := &JamfAPIHandler{}
 	logger := NewDefaultLogger()
 	logger.SetLevel(config.LogLevel) // Use the LogLevel from the config
 	handler.SetLogger(logger)
@@ -174,7 +175,7 @@ func GetAPIHandler(config Config) APIHandler {
 // SetLogger assigns a Logger instance to the UnifiedAPIHandler.
 // This allows for logging throughout the handler's operations,
 // enabling consistent logging that follows the configuration of the provided Logger.
-func (u *UnifiedJamfAPIHandler) SetLogger(logger Logger) {
+func (u *JamfAPIHandler) SetLogger(logger Logger) {
 	u.logger = logger
 }
 
@@ -186,7 +187,7 @@ func (u *UnifiedJamfAPIHandler) SetLogger(logger Logger) {
 // - For url endpoints starting with "/api", it defaults to "application/json" for the JamfPro API.
 // If the endpoint does not match any of the predefined patterns, "application/json" is used as a fallback.
 // This method logs the decision process at various stages for debugging purposes.
-func (u *UnifiedJamfAPIHandler) GetContentTypeHeader(endpoint string) string {
+func (u *JamfAPIHandler) GetContentTypeHeader(endpoint string) string {
 	// Dynamic lookup from configuration should be the first priority
 	for key, config := range configMap {
 		if strings.HasPrefix(endpoint, key) {
@@ -215,7 +216,7 @@ func (u *UnifiedJamfAPIHandler) GetContentTypeHeader(endpoint string) string {
 }
 
 // MarshalRequest encodes the request body according to the endpoint for the API.
-func (u *UnifiedJamfAPIHandler) MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error) {
+func (u *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error) {
 	var (
 		data []byte
 		err  error
@@ -256,7 +257,7 @@ func (u *UnifiedJamfAPIHandler) MarshalRequest(body interface{}, method string, 
 }
 
 // UnmarshalResponse decodes the response body from XML or JSON format depending on the Content-Type header.
-func (u *UnifiedJamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{}) error {
+func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{}) error {
 	// Handle DELETE method
 	if resp.Request.Method == "DELETE" {
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
@@ -350,7 +351,7 @@ func (u *UnifiedJamfAPIHandler) UnmarshalResponse(resp *http.Response, out inter
 // the server is informed of the client's versatile content handling capabilities while
 // indicating a preference for XML. The specified MIME types cover common content formats like
 // images, JSON, XML, HTML, plain text, and certificates, with a fallback option for all other types.
-func (u *UnifiedJamfAPIHandler) GetAcceptHeader() string {
+func (u *JamfAPIHandler) GetAcceptHeader() string {
 	weightedAcceptHeader := "application/x-x509-ca-cert;q=0.95," +
 		"application/pkix-cert;q=0.94," +
 		"application/pem-certificate-chain;q=0.93," +
@@ -369,7 +370,7 @@ func (u *UnifiedJamfAPIHandler) GetAcceptHeader() string {
 }
 
 // MarshalMultipartFormData takes a map with form fields and file paths and returns the encoded body and content type.
-func (u *UnifiedJamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) {
+func (u *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -407,7 +408,7 @@ func (u *UnifiedJamfAPIHandler) MarshalMultipartRequest(fields map[string]string
 }
 
 // handleBinaryData checks if the response should be treated as binary data and assigns to out if so.
-func (u *UnifiedJamfAPIHandler) handleBinaryData(contentType, contentDisposition string, bodyBytes []byte, out interface{}) error {
+func (u *JamfAPIHandler) handleBinaryData(contentType, contentDisposition string, bodyBytes []byte, out interface{}) error {
 	if strings.Contains(contentType, "application/octet-stream") || strings.HasPrefix(contentDisposition, "attachment") {
 		if outPointer, ok := out.(*[]byte); ok {
 			*outPointer = bodyBytes

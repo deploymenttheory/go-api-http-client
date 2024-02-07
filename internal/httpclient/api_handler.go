@@ -1,0 +1,46 @@
+// http_client_auth_token_management.go
+package httpclient
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/deploymenttheory/go-api-sdk-jamfpro/internal/apihandlers/graph"
+	"github.com/deploymenttheory/go-api-sdk-jamfpro/internal/apihandlers/jamfpro"
+)
+
+// APIHandler is an interface for encoding, decoding, and determining content types for different API implementations.
+// It encapsulates behavior for encoding and decoding requests and responses.
+type APIHandler interface {
+	MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error)
+	MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) // New method for multipart
+	UnmarshalResponse(resp *http.Response, out interface{}) error
+	GetContentTypeHeader(method string) string
+	GetAcceptHeader() string
+}
+
+// LoadAPIHandler returns an APIHandler based on the provided API type.
+// 'apiType' parameter could be "jamf" or "graph" to specify which API handler to load.
+func LoadAPIHandler(config Config, apiType string) (APIHandler, error) {
+	var apiHandler APIHandler
+	switch apiType {
+	case "jamfpro":
+		// Assuming GetAPIHandler returns a JamfAPIHandler
+		apiHandler = &jamfpro.JamfAPIHandler{
+			// Initialize with necessary parameters
+		}
+	case "graph":
+		// Assuming GetAPIHandler returns a GraphAPIHandler
+		apiHandler = &graph.GraphAPIHandler{
+			// Initialize with necessary parameters
+		}
+	default:
+		return nil, fmt.Errorf("unsupported API type: %s", apiType)
+	}
+
+	// Set the logger level for the handler if needed
+	logger := NewDefaultLogger() // Or use config.Logger if it's not nil
+	logger.SetLevel(config.LogLevel)
+
+	return apiHandler, nil
+}

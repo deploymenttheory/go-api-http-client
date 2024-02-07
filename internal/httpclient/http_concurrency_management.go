@@ -5,11 +5,11 @@ package httpclient
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 //------ Constants and Data Structures:
@@ -76,12 +76,19 @@ func (c *ConcurrencyManager) Acquire(ctx context.Context) (uuid.UUID, error) {
 
 		utilizedTokens := len(c.sem)
 		availableTokens := cap(c.sem) - utilizedTokens
-		c.logger.Trace(fmt.Sprintf("[ConcurrencyTokenID: %s] Acquired concurrency token in %v. Details [Utilized tokens: %d. Available tokens: %d.]", requestID, acquisitionTime, utilizedTokens, availableTokens))
-
+		c.logger.Debug("Acquired concurrency token",
+			zap.String("ConcurrencyTokenID", requestID.String()),
+			zap.Duration("AcquisitionTime", acquisitionTime),
+			zap.Int("UtilizedTokens", utilizedTokens),
+			zap.Int("AvailableTokens", availableTokens),
+		)
 		return requestID, nil
 
 	case <-ctx.Done():
-		c.logger.Warn(fmt.Sprintf("[ConcurrencyTokenID: %s] Failed to acquire concurrency token, context done", requestID))
+		c.logger.Warn("Failed to acquire concurrency token, context done",
+			zap.String("ConcurrencyTokenID", requestID.String()),
+			zap.Error(ctx.Err()),
+		)
 		return requestID, ctx.Err()
 	}
 }
@@ -89,11 +96,17 @@ func (c *ConcurrencyManager) Acquire(ctx context.Context) (uuid.UUID, error) {
 // Release returns a token back to the pool, allowing other requests to proceed.
 // It uses the provided requestID for logging and debugging purposes.
 func (c *ConcurrencyManager) Release(requestID uuid.UUID) {
-	<-c.sem
+	<-c.sem // Release a token back to the semaphore
 	if c.debugMode {
-		utilizedTokens := len(c.sem)
-		availableTokens := cap(c.sem) - len(c.sem)
-		c.logger.Trace(fmt.Sprintf("[ConcurrencyTokenID: %s] Released concurrency token. Details [Utilized tokens: %d. Available tokens: %d.]", requestID, utilizedTokens, availableTokens))
+		utilizedTokens := len(c.sem)                   // Tokens currently in use
+		availableTokens := cap(c.sem) - utilizedTokens // Tokens available for use
+
+		// Using zap fields for structured logging in debug mode
+		c.logger.Debug("Released concurrency token",
+			zap.String("ConcurrencyTokenID", requestID.String()),
+			zap.Int("UtilizedTokens", utilizedTokens),
+			zap.Int("AvailableTokens", availableTokens),
+		)
 	}
 }
 
@@ -196,8 +209,13 @@ func (c *Client) AdjustConcurrencyBasedOnMetrics() {
 	if newLimit != currentLimit {
 		c.ConcurrencyMgr.AdjustConcurrencyLimit(newLimit)
 
-		c.logger.Debug(fmt.Sprintf("Adjusted concurrency from %d to %d based on average acquisition time of %v", currentLimit, newLimit, avgAcquisitionTime))
-
+		c.logger.Debug("Adjusted concurrency",
+			zap.Int("OldLimit", currentLimit),
+			zap.Int("NewLimit", newLimit),
+			zap.String("Reason", "Based on average acquisition time"),
+			zap.Duration("AverageAcquisitionTime", avgAcquisitionTime),
+			zap.Duration("HistoricalAverageAcquisitionTime", historicalAvgAcquisitionTime),
+		)
 	}
 }
 

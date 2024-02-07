@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // ParseISO8601Date attempts to parse a string date in ISO 8601 format.
@@ -27,7 +29,12 @@ func EnsureHTTPScheme(url string) string {
 func CheckDeprecationHeader(resp *http.Response, logger Logger) {
 	deprecationHeader := resp.Header.Get("Deprecation")
 	if deprecationHeader != "" {
-		logger.Warn("API endpoint is deprecated as of", "Date", deprecationHeader)
+		// logger is an instance of defaultLogger that wraps a *zap.Logger
+		zapLogger := logger.(*defaultLogger).logger // Type assertion to access the underlying *zap.Logger
+		zapLogger.Warn("API endpoint is deprecated",
+			zap.String("Date", deprecationHeader),
+			zap.String("Endpoint", resp.Request.URL.String()),
+		)
 	}
 }
 

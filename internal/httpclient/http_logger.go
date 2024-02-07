@@ -8,19 +8,22 @@ type LogLevel int
 
 const (
 	LogLevelNone LogLevel = iota
-	LogLevelWarning
-	LogLevelInfo
 	LogLevelDebug
+	LogLevelInfo
+	LogLevelWarning
+	LogLevelError
+	LogLevelPanic
+	LogLevelFatal
 )
 
 // Logger interface as defined earlier
 type Logger interface {
 	SetLevel(level LogLevel)
-	Trace(msg string, keysAndValues ...interface{})
 	Debug(msg string, keysAndValues ...interface{})
 	Info(msg string, keysAndValues ...interface{})
 	Warn(msg string, keysAndValues ...interface{})
 	Error(msg string, keysAndValues ...interface{})
+	Panic(msg string, keysAndValues ...interface{})
 	Fatal(msg string, keysAndValues ...interface{})
 }
 
@@ -64,13 +67,6 @@ func toZapFields(keysAndValues ...interface{}) []zap.Field {
 	return fields
 }
 
-// Trace method implementation
-func (d *defaultLogger) Trace(msg string, keysAndValues ...interface{}) {
-	if d.logLevel >= LogLevelDebug {
-		d.logger.Debug(msg, toZapFields(keysAndValues...)...)
-	}
-}
-
 // Debug method implementation
 func (d *defaultLogger) Debug(msg string, keysAndValues ...interface{}) {
 	if d.logLevel >= LogLevelDebug {
@@ -99,9 +95,16 @@ func (d *defaultLogger) Error(msg string, keysAndValues ...interface{}) {
 	}
 }
 
+// Panic method implementation
+func (d *defaultLogger) Panic(msg string, keysAndValues ...interface{}) {
+	if d.logLevel >= LogLevelPanic {
+		d.logger.Panic(msg, toZapFields(keysAndValues...)...)
+	}
+}
+
 // Fatal method implementation
 func (d *defaultLogger) Fatal(msg string, keysAndValues ...interface{}) {
-	if d.logLevel > LogLevelNone {
+	if d.logLevel >= LogLevelFatal {
 		d.logger.Fatal(msg, toZapFields(keysAndValues...)...)
 	}
 }
