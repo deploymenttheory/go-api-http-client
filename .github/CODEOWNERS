@@ -7,6 +7,6 @@
 
 * @segraef
 
-.azuredevops/** @segraef
-.github/** @segraef
-.pipelines/** @segraef
+.azuredevops/** @ShocOne
+.github/** @ShocOne
+.pipelines/** @ShocOne
