@@ -1,7 +1,7 @@
-// jamfpro_api_handler.go
+// graph_api_handler.go
 /* ------------------------------Summary----------------------------------------
 This is a api handler module for the http_client to accommodate specifics of
-jamf's api(s). It handles the encoding (marshalling) and decoding (unmarshalling)
+microsoft's graph api(s). It handles the encoding (marshalling) and decoding (unmarshalling)
 of data. It also sets the correct content headers for the various http methods.
 
 This module integrates with the http_client logger for wrapped error handling
@@ -9,19 +9,7 @@ for human readable return codes. It also supports the http_client tiered logging
 functionality for logging support.
 
 The logic of this module is defined as follows:
-Classic API:
-
-For requests (GET, POST, PUT, DELETE):
-- Encoding (Marshalling): Use XML format.
-For responses (GET, POST, PUT):
-- Decoding (Unmarshalling): Use XML format.
-For responses (DELETE):
-- Handle response codes as response body lacks anything useful.
-Headers
-- Sets accept headers based on weighting. XML out weighs JSON to ensure XML is returned
-- Sets content header as application/xml with edge case exceptions based on need.
-
-JamfPro API:
+Graph API & Graph Beta API:
 
 For requests (GET, POST, PUT, DELETE):
 - Encoding (Marshalling): Use JSON format.
@@ -30,10 +18,11 @@ For responses (GET, POST, PUT):
 For responses (DELETE):
 - Handle response codes as response body lacks anything useful.
 Headers
-- Sets accept headers based on weighting. Jamf Pro API doesn't support XML, so MIME type is skipped and returns JSON
+- Sets accept headers based on weighting.Graph API doesn't support XML, so MIME type is skipped and returns JSON
 - Set content header as application/json with edge case exceptions based on need.
+
 */
-package jamfpro
+package graph
 
 import (
 	"bytes"
@@ -50,12 +39,9 @@ import (
 	_ "embed"
 )
 
-// Endpoint constants represent the URL suffixes used for Jamf API token interactions.
+// Endpoint constants represent the URL suffixes used for Graph API token interactions.
 const (
-	DefaultBaseDomain       = ".jamfcloud.com"                // DefaultBaseDomain: represents the base domain for the jamf instance.
-	OAuthTokenEndpoint      = "/api/oauth/token"              // OAuthTokenEndpoint: The endpoint to obtain an OAuth token.
-	BearerTokenEndpoint     = "/api/v1/auth/token"            // BearerTokenEndpoint: The endpoint to obtain a bearer token.
-	TokenRefreshEndpoint    = "/api/v1/auth/keep-alive"       // TokenRefreshEndpoint: The endpoint to refresh an existing token.
+	DefaultBaseDomain       = "graph.microsoft.com"           // DefaultBaseDomain: represents the base domain for graph.
 	TokenInvalidateEndpoint = "/api/v1/auth/invalidate-token" // TokenInvalidateEndpoint: The endpoint to invalidate an active token.
 )
 
@@ -69,8 +55,8 @@ var configMap ConfigMap
 
 // Embedded Resources
 //
-//go:embed jamfpro_api_exceptions_configuration.json
-var jamfpro_api_exceptions_configuration []byte
+//go:embed graph_api_exceptions_configuration.json
+var graph_api_exceptions_configuration []byte
 
 // Package-level Functions
 
@@ -85,12 +71,12 @@ func init() {
 	}
 }
 
-// loadDefaultConfig reads and unmarshals the jamfpro_api_exceptions_configuration JSON data from an embedded file
+// loadDefaultConfig reads and unmarshals the graph_api_exceptions_configuration JSON data from an embedded file
 // into the configMap variable, which holds the exceptions configuration for endpoint-specific headers.
 // Returns an error if the unmarshalling process fails.
 func loadDefaultConfig() error {
 	// Unmarshal the embedded default configuration into the global configMap.
-	return json.Unmarshal(jamfpro_api_exceptions_configuration, &configMap)
+	return json.Unmarshal(graph_api_exceptions_configuration, &configMap)
 }
 
 // LoadUserConfig allows users to apply their own configuration by providing a JSON file.
@@ -120,34 +106,18 @@ type EndpointConfig struct {
 // It holds a Logger instance to facilitate logging across various API handling methods.
 // This handler is responsible for encoding and decoding request and response data,
 // determining content types, and other API interactions as defined by the APIHandler interface.
-type UnifiedJamfAPIHandler struct {
-	logger Logger // logger is used to output logs for the API handling processes.
+type UnifiedGraphAPIHandler struct {
+	logger                       Logger // logger is used to output logs for the API handling processes.
+	endpointAcceptedFormatsCache map[string][]string
 }
 
 // Functions
 
-// GetBaseDomain returns the appropriate base domain for URL construction.
-// It uses OverrideBaseDomain if set, otherwise falls back to DefaultBaseDomain.
-func (c *Client) GetBaseDomain() string {
-	if c.OverrideBaseDomain != "" {
-		return c.OverrideBaseDomain
-	}
-	return DefaultBaseDomain
-}
-
-// ConstructAPIResourceEndpoint returns the full URL for a Jamf API resource endpoint path.
-func (c *Client) ConstructAPIResourceEndpoint(endpointPath string) string {
-	baseDomain := c.GetBaseDomain()
-	url := fmt.Sprintf("https://%s%s%s", c.InstanceName, baseDomain, endpointPath)
-	c.logger.Info("Request will be made to API   URL:", "URL", url)
-	return url
-}
-
-// ConstructAPIAuthEndpoint returns the full URL for a Jamf API auth endpoint path.
-func (c *Client) ConstructAPIAuthEndpoint(endpointPath string) string {
-	baseDomain := c.GetBaseDomain()
-	url := fmt.Sprintf("https://%s%s%s", c.InstanceName, baseDomain, endpointPath)
-	c.logger.Info("Request will be made to API authentication URL:", "URL", url)
+// ConstructMSGraphAPIEndpoint constructs the full URL for an MS Graph API endpoint.
+// The function takes version (e.g., "/v1.0" or "/beta") and the specific API path.
+func (c *Client) ConstructMSGraphAPIEndpoint(endpointPath string) string {
+	url := fmt.Sprintf("https://%s%s", DefaultBaseDomain, endpointPath)
+	c.logger.Info("Request will be made to MS Graph API URL:", "URL", url)
 	return url
 }
 
@@ -160,11 +130,12 @@ type APIHandler interface {
 	GetContentTypeHeader(method string) string
 	GetAcceptHeader() string
 	SetLogger(logger Logger)
+	FetchSupportedRequestFormats(endpoint string) ([]string, error)
 }
 
 // GetAPIHandler initializes and returns an APIHandler with a configured logger.
 func GetAPIHandler(config Config) APIHandler {
-	handler := &UnifiedJamfAPIHandler{}
+	handler := &UnifiedGraphAPIHandler{}
 	logger := NewDefaultLogger()
 	logger.SetLevel(config.LogLevel) // Use the LogLevel from the config
 	handler.SetLogger(logger)
@@ -174,19 +145,19 @@ func GetAPIHandler(config Config) APIHandler {
 // SetLogger assigns a Logger instance to the UnifiedAPIHandler.
 // This allows for logging throughout the handler's operations,
 // enabling consistent logging that follows the configuration of the provided Logger.
-func (u *UnifiedJamfAPIHandler) SetLogger(logger Logger) {
+func (u *UnifiedGraphAPIHandler) SetLogger(logger Logger) {
 	u.logger = logger
 }
 
+/*
 // GetContentTypeHeader determines the appropriate Content-Type header for a given API endpoint.
 // It attempts to find a content type that matches the endpoint prefix in the global configMap.
 // If a match is found and the content type is defined (not nil), it returns the specified content type.
 // If the content type is nil or no match is found in configMap, it falls back to default behaviors:
-// - For url endpoints starting with "/JSSResource", it defaults to "application/xml" for the Classic API.
-// - For url endpoints starting with "/api", it defaults to "application/json" for the JamfPro API.
+// - For all url endpoints it defaults to "application/json" for the graph beta and V1.0 API's.
 // If the endpoint does not match any of the predefined patterns, "application/json" is used as a fallback.
 // This method logs the decision process at various stages for debugging purposes.
-func (u *UnifiedJamfAPIHandler) GetContentTypeHeader(endpoint string) string {
+func (u *UnifiedGraphAPIHandler) GetContentTypeHeader(endpoint string) string {
 	// Dynamic lookup from configuration should be the first priority
 	for key, config := range configMap {
 		if strings.HasPrefix(endpoint, key) {
@@ -200,22 +171,136 @@ func (u *UnifiedJamfAPIHandler) GetContentTypeHeader(endpoint string) string {
 		}
 	}
 
-	// If no specific configuration is found, then check for standard URL patterns.
-	if strings.Contains(endpoint, "/JSSResource") {
-		u.logger.Debug("Content-Type for endpoint defaulting to XML for Classic API", "endpoint", endpoint)
-		return "application/xml" // Classic API uses XML
-	} else if strings.Contains(endpoint, "/api") {
-		u.logger.Debug("Content-Type for endpoint defaulting to JSON for JamfPro API", "endpoint", endpoint)
-		return "application/json" // JamfPro API uses JSON
+	// Fallback to JSON if no other match is found.
+	u.logger.Debug("Content-Type for endpoint not found in configMap, using default JSON for Graph API for endpoint", endpoint)
+	return "application/json"
+}
+*/
+
+// GetContentTypeHeader determines the appropriate Content-Type header for a given API endpoint.
+// It checks a cache of previously fetched accepted formats for the endpoint. If the cache does not
+// have the information, it makes an OPTIONS request to fetch and cache these formats. The function
+// then selects the most appropriate Content-Type based on the accepted formats, defaulting to
+// "application/json" if no specific format is found or in case of an error.
+//
+// Parameters:
+// - endpoint: The API endpoint for which to determine the Content-Type.
+//
+// Returns:
+// - The chosen Content-Type for the request, as a string.
+func (u *UnifiedGraphAPIHandler) GetContentTypeHeader(endpoint string) string {
+	// Initialize the cache if it's not already initialized
+	if u.endpointAcceptedFormatsCache == nil {
+		u.endpointAcceptedFormatsCache = make(map[string][]string)
 	}
 
-	// Fallback to JSON if no other match is found.
-	u.logger.Debug("Content-Type for endpoint not found in configMap or standard patterns, using default JSON", "endpoint", endpoint)
-	return "application/json"
+	// Check the cache first
+	if formats, found := u.endpointAcceptedFormatsCache[endpoint]; found {
+		u.logger.Debug("Using cached accepted formats", "endpoint", endpoint, "formats", formats)
+		for _, format := range formats {
+			if format == "application/json" {
+				return "application/json"
+			}
+			if format == "application/xml" {
+				return "application/xml"
+			}
+			if format == "text/html" {
+				return "text/html"
+			}
+			if format == "text/csv" {
+				return "text/csv"
+			}
+			if format == "application/x-www-form-urlencoded" {
+				return "application/x-www-form-urlencoded"
+			}
+			if format == "text/plain" {
+				return "text/plain"
+			}
+			// Additional format conditions can be added here
+		}
+	} else {
+		// Fetch the supported formats as they are not in cache
+		formats, err := u.FetchSupportedRequestFormats(endpoint)
+		if err != nil {
+			u.logger.Warn("Failed to fetch supported request formats from api query, defaulting to 'application/json'", "error", err)
+			return "application/json" // Fallback to default
+		}
+
+		// Cache the fetched formats
+		u.endpointAcceptedFormatsCache[endpoint] = formats
+		u.logger.Debug("Fetched and cached accepted formats", "endpoint", endpoint, "formats", formats)
+
+		for _, format := range formats {
+			if format == "application/json" {
+				return "application/json"
+			}
+			if format == "application/xml" {
+				return "application/xml"
+			}
+			if format == "text/html" {
+				return "text/html"
+			}
+			if format == "text/csv" {
+				return "text/csv"
+			}
+			if format == "application/x-www-form-urlencoded" {
+				return "application/x-www-form-urlencoded"
+			}
+			if format == "text/plain" {
+				return "text/plain"
+			}
+		}
+	}
+
+	return "application/json" // Default to JSON if no suitable format is found
+}
+
+// FetchSupportedRequestFormats sends an OPTIONS request to the specified API endpoint
+// and parses the response to extract the MIME types that the endpoint can accept for requests.
+// This function is useful for dynamically determining the supported formats (like JSON, XML, etc.)
+// for an endpoint, which can then be used to set the appropriate 'Content-Type' header in subsequent requests.
+//
+// Parameters:
+// - endpoint: A string representing the API endpoint for which to fetch the supported request formats.
+//
+// Returns:
+//   - A slice of strings, where each string is a MIME type that the endpoint can accept.
+//     Example: []string{"application/json", "application/xml"}
+//   - An error if the request could not be sent, the response could not be processed, or if the endpoint
+//     does not specify accepted formats in its response headers.
+//
+// Note:
+//   - The function makes an HTTP OPTIONS request to the given endpoint and reads the 'Accept' header in the response.
+//   - If the 'Accept' header is not present or the OPTIONS method is not supported by the endpoint, the function
+//     returns an error.
+//   - It is the responsibility of the caller to handle any errors and to decide on the default action
+//     if no formats are returned or in case of an error.
+func (u *UnifiedGraphAPIHandler) FetchSupportedRequestFormats(endpoint string) ([]string, error) {
+	url := fmt.Sprintf("https://%s%s", DefaultBaseDomain, endpoint)
+	req, err := http.NewRequest(http.MethodOptions, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add necessary headers, authentication etc.
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Parse the Accept header
+	acceptHeader := resp.Header.Get("Accept")
+	if acceptHeader == "" {
+		return nil, fmt.Errorf("no Accept header present in api response")
+	}
+
+	formats := strings.Split(acceptHeader, ",")
+	return formats, nil
 }
 
 // MarshalRequest encodes the request body according to the endpoint for the API.
-func (u *UnifiedJamfAPIHandler) MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error) {
+func (u *UnifiedGraphAPIHandler) MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error) {
 	var (
 		data []byte
 		err  error
@@ -256,13 +341,22 @@ func (u *UnifiedJamfAPIHandler) MarshalRequest(body interface{}, method string, 
 }
 
 // UnmarshalResponse decodes the response body from XML or JSON format depending on the Content-Type header.
-func (u *UnifiedJamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{}) error {
+func (u *UnifiedGraphAPIHandler) UnmarshalResponse(resp *http.Response, out interface{}) error {
 	// Handle DELETE method
 	if resp.Request.Method == "DELETE" {
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return nil
 		} else {
 			return fmt.Errorf("DELETE request failed with status code: %d", resp.StatusCode)
+		}
+	}
+
+	// Handle PATCH method
+	if resp.Request.Method == "PATCH" {
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return nil
+		} else {
+			return fmt.Errorf("PATCH request failed with status code: %d", resp.StatusCode)
 		}
 	}
 
@@ -290,7 +384,7 @@ func (u *UnifiedJamfAPIHandler) UnmarshalResponse(resp *http.Response, out inter
 
 	// If content type is HTML, extract the error message
 	if strings.Contains(contentType, "text/html") {
-		errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
+		errMsg := extractErrorMessageFromHTML(string(bodyBytes))
 		u.logger.Warn("Received HTML content", "error_message", errMsg, "status_code", resp.StatusCode)
 		return &APIError{
 			StatusCode: resp.StatusCode,
@@ -302,19 +396,24 @@ func (u *UnifiedJamfAPIHandler) UnmarshalResponse(resp *http.Response, out inter
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Parse the error details from the response body for JSON content type
 		if strings.Contains(contentType, "application/json") {
-			description, err := ParseJSONErrorResponse(bodyBytes)
-			if err != nil {
-				u.logger.Error("Failed to parse JSON error response", "error", err)
+			var structuredErr StructuredError
+			if jsonErr := json.Unmarshal(bodyBytes, &structuredErr); jsonErr == nil {
+				detailedMessage := fmt.Sprintf("%s: %s", structuredErr.Error.Code, structuredErr.Error.Message)
+				u.logger.Error("Received API error response", "status_code", resp.StatusCode, "error", detailedMessage)
+				return &APIError{
+					StatusCode: resp.StatusCode,
+					Message:    detailedMessage,
+				}
+			} else {
+				u.logger.Error("Failed to parse JSON error response", "error", jsonErr)
 				return fmt.Errorf("received non-success status code: %d and failed to parse error response", resp.StatusCode)
 			}
-			return fmt.Errorf("received non-success status code: %d, error: %s", resp.StatusCode, description)
 		}
 
 		// If the response is not JSON or another error occurs, return a generic error message
 		u.logger.Error("Received non-success status code", "status_code", resp.StatusCode)
 		return fmt.Errorf("received non-success status code: %d", resp.StatusCode)
 	}
-
 	// Determine whether the content type is JSON or XML and unmarshal accordingly
 	switch {
 	case strings.Contains(contentType, "application/json"):
@@ -330,7 +429,7 @@ func (u *UnifiedJamfAPIHandler) UnmarshalResponse(resp *http.Response, out inter
 	if err != nil {
 		// If unmarshalling fails, check if the content might be HTML
 		if strings.Contains(string(bodyBytes), "<html>") {
-			errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
+			errMsg := extractErrorMessageFromHTML(string(bodyBytes))
 			u.logger.Warn("Received HTML content instead of expected format", "error_message", errMsg, "status_code", resp.StatusCode)
 			return fmt.Errorf(errMsg)
 		}
@@ -350,7 +449,7 @@ func (u *UnifiedJamfAPIHandler) UnmarshalResponse(resp *http.Response, out inter
 // the server is informed of the client's versatile content handling capabilities while
 // indicating a preference for XML. The specified MIME types cover common content formats like
 // images, JSON, XML, HTML, plain text, and certificates, with a fallback option for all other types.
-func (u *UnifiedJamfAPIHandler) GetAcceptHeader() string {
+func (u *UnifiedGraphAPIHandler) GetAcceptHeader() string {
 	weightedAcceptHeader := "application/x-x509-ca-cert;q=0.95," +
 		"application/pkix-cert;q=0.94," +
 		"application/pem-certificate-chain;q=0.93," +
@@ -369,7 +468,7 @@ func (u *UnifiedJamfAPIHandler) GetAcceptHeader() string {
 }
 
 // MarshalMultipartFormData takes a map with form fields and file paths and returns the encoded body and content type.
-func (u *UnifiedJamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) {
+func (u *UnifiedGraphAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -407,7 +506,7 @@ func (u *UnifiedJamfAPIHandler) MarshalMultipartRequest(fields map[string]string
 }
 
 // handleBinaryData checks if the response should be treated as binary data and assigns to out if so.
-func (u *UnifiedJamfAPIHandler) handleBinaryData(contentType, contentDisposition string, bodyBytes []byte, out interface{}) error {
+func (u *UnifiedGraphAPIHandler) handleBinaryData(contentType, contentDisposition string, bodyBytes []byte, out interface{}) error {
 	if strings.Contains(contentType, "application/octet-stream") || strings.HasPrefix(contentDisposition, "attachment") {
 		if outPointer, ok := out.(*[]byte); ok {
 			*outPointer = bodyBytes

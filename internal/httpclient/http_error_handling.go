@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"go.uber.org/zap"
 )
 
 // APIError represents a structured API error response.
@@ -31,7 +32,12 @@ func (c *Client) HandleAPIError(resp *http.Response) error {
 	var structuredErr StructuredError
 	err := json.NewDecoder(resp.Body).Decode(&structuredErr)
 	if err == nil && structuredErr.Error.Message != "" {
-		c.logger.Warn("API returned structured error", "status", resp.Status, "error_code", structuredErr.Error.Code, "error_message", structuredErr.Error.Message)
+		// Using structured logging to log the structured error details
+		c.logger.Warn("API returned structured error",
+			zap.String("status", resp.Status),
+			zap.String("error_code", structuredErr.Error.Code),
+			zap.String("error_message", structuredErr.Error.Message),
+		)
 		return &APIError{
 			StatusCode: resp.StatusCode,
 			Message:    structuredErr.Error.Message,
@@ -42,9 +48,17 @@ func (c *Client) HandleAPIError(resp *http.Response) error {
 	err = json.NewDecoder(resp.Body).Decode(&errMsg)
 	if err != nil || errMsg == "" {
 		errMsg = fmt.Sprintf("Unexpected error with status code: %d", resp.StatusCode)
-		c.logger.Warn("Failed to decode API error message, using default error message", "status", resp.Status)
+		// Logging with structured fields
+		c.logger.Warn("Failed to decode API error message, using default error message",
+			zap.String("status", resp.Status),
+			zap.String("error_message", errMsg),
+		)
 	} else {
-		c.logger.Warn("API returned non-structured error", "status", resp.Status, "error_message", errMsg)
+		// Logging non-structured error as a warning with structured fields
+		c.logger.Warn("API returned non-structured error",
+			zap.String("status", resp.Status),
+			zap.String("error_message", errMsg),
+		)
 	}
 
 	return &APIError{
