@@ -1,4 +1,4 @@
-package httpclient
+package logger
 
 import (
 	"go.uber.org/zap"

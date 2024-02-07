@@ -67,17 +67,16 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	ctx = context.WithValue(ctx, requestIDKey{}, requestID)
 
 	// Determine which set of encoding and content-type request rules to use
-	//handler := GetAPIHandler(endpoint, c.config.LogLevel)
-	handler := GetAPIHandler(c.config)
+	apiHandler := c.APIHandler
 
 	// Marshal Request with correct encoding
-	requestData, err := handler.MarshalRequest(body, method, endpoint)
+	requestData, err := apiHandler.MarshalRequest(body, method, endpoint, c.logger)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := c.ConstructAPIResourceEndpoint(endpoint)
+	url := apiHandler.ConstructAPIResourceEndpoint(endpoint)
 
 	// Initialize total request counter
 	c.PerfMetrics.lock.Lock()
@@ -91,9 +90,9 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	}
 
 	// Define header content type based on url and http method
-	contentType := handler.GetContentTypeHeader(endpoint)
+	contentType := apiHandler.GetContentTypeHeader(endpoint, c.logger)
 	// Define Request Headers dynamically based on handler logic
-	acceptHeader := handler.GetAcceptHeader()
+	acceptHeader := apiHandler.GetAcceptHeader(c.logger)
 
 	// Set Headers
 	req.Header.Add("Authorization", "Bearer "+c.Token)
@@ -151,7 +150,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 			}
 
 			// Handle (unmarshal) response with API Handler
-			if err := handler.UnmarshalResponse(resp, out); err != nil {
+			if err := apiHandler.UnmarshalResponse(resp, out, c.logger); err != nil {
 				switch e := err.(type) {
 				case *APIError: // Assuming APIError is a type that includes StatusCode and Message
 					// Log the API error with structured logging
@@ -258,7 +257,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 		CheckDeprecationHeader(resp, c.logger)
 
 		// Handle (unmarshal) response with API Handler
-		if err := handler.UnmarshalResponse(resp, out); err != nil {
+		if err := apiHandler.UnmarshalResponse(resp, out, c.logger); err != nil {
 			switch e := err.(type) {
 			case *APIError: // Assuming APIError is a type that includes StatusCode and Message
 				// Log the API error with structured logging
@@ -338,17 +337,16 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Determine which set of encoding and content-type request rules to use
-	//handler := GetAPIHandler(endpoint, c.config.LogLevel)
-	handler := GetAPIHandler(c.config)
+	apiHandler := c.APIHandler
 
 	// Marshal the multipart form data
-	requestData, contentType, err := handler.MarshalMultipartRequest(fields, files)
+	requestData, contentType, err := apiHandler.MarshalMultipartRequest(fields, files, c.logger)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := c.ConstructAPIResourceEndpoint(endpoint)
+	url := apiHandler.ConstructAPIResourceEndpoint(endpoint)
 
 	// Create the request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
@@ -392,7 +390,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Unmarshal the response
-	if err := handler.UnmarshalResponse(resp, out); err != nil {
+	if err := apiHandler.UnmarshalResponse(resp, out, c.logger); err != nil {
 		c.logger.Error("Failed to unmarshal HTTP response",
 			"method", method,
 			"endpoint", endpoint,

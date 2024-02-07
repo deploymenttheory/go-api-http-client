@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 	"go.uber.org/zap"
 )
 
@@ -23,11 +24,10 @@ type Config struct {
 	Auth         AuthConfig // User can either supply these values manually or pass from LoadAuthConfig/Env vars
 	APIType      string     `json:"apiType"`
 	// Optional
-	LogLevel                  LogLevel // Field for defining tiered logging level.
-	MaxRetryAttempts          int      // Config item defines the max number of retry request attempts for retryable HTTP methods.
+	LogLevel                  logger.LogLevel // Field for defining tiered logging level.
+	MaxRetryAttempts          int             // Config item defines the max number of retry request attempts for retryable HTTP methods.
 	EnableDynamicRateLimiting bool
-	Logger                    Logger // Field for the packages initailzed logger
-	MaxConcurrentRequests     int    // Field for defining the maximum number of concurrent requests allowed in the semaphore
+	MaxConcurrentRequests     int // Field for defining the maximum number of concurrent requests allowed in the semaphore
 	TokenRefreshBufferPeriod  time.Duration
 	TotalRetryDuration        time.Duration
 	CustomTimeout             time.Duration
@@ -67,7 +67,7 @@ type Client struct {
 	httpClient                 *http.Client
 	tokenLock                  sync.Mutex
 	config                     Config
-	logger                     Logger
+	logger                     logger.Logger
 	ConcurrencyMgr             *ConcurrencyManager
 	PerfMetrics                PerformanceMetrics
 }
@@ -75,7 +75,7 @@ type Client struct {
 // BuildClient creates a new HTTP client with the provided configuration.
 func BuildClient(config Config) (*Client, error) {
 	// Use the Logger interface type for the logger variable
-	var logger Logger
+	var logger logger.Logger
 	if config.Logger == nil {
 		logger = NewDefaultLogger()
 	} else {

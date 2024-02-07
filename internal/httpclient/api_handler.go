@@ -13,12 +13,12 @@ import (
 type APIHandler interface {
 	GetBaseDomain() string
 	ConstructAPIResourceEndpoint(endpointPath string) string
-	ConstructAPIAuthEndpoint(endpointPath string) string
-	MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error)
-	MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) // New method for multipart
-	UnmarshalResponse(resp *http.Response, out interface{}) error
-	GetContentTypeHeader(method string) string
-	GetAcceptHeader() string
+	ConstructAPIAuthEndpoint(endpointPath string, logger Logger) string
+	MarshalRequest(body interface{}, method string, endpoint string, logger Logger) ([]byte, error)
+	MarshalMultipartRequest(fields map[string]string, files map[string]string, logger Logger) ([]byte, string, error)
+	UnmarshalResponse(resp *http.Response, out interface{}, logger Logger) error
+	GetContentTypeHeader(method string, logger Logger) string
+	GetAcceptHeader(logger Logger) string
 }
 
 // LoadAPIHandler returns an APIHandler based on the provided API type.
