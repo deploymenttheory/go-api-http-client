@@ -25,6 +25,7 @@ type Logger interface {
 	Error(msg string, keysAndValues ...interface{})
 	Panic(msg string, keysAndValues ...interface{})
 	Fatal(msg string, keysAndValues ...interface{})
+	GetLogLevel() LogLevel
 }
 
 // defaultLogger is an implementation of the Logger interface using Uber's zap logging library.
@@ -107,4 +108,9 @@ func (d *defaultLogger) Fatal(msg string, keysAndValues ...interface{}) {
 	if d.logLevel >= LogLevelFatal {
 		d.logger.Fatal(msg, toZapFields(keysAndValues...)...)
 	}
+}
+
+// GetLevel returns the current logging level
+func (d *defaultLogger) GetLogLevel() LogLevel {
+	return d.logLevel
 }
