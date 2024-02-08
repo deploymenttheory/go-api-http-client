@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 	"go.uber.org/zap"
 )
 
@@ -25,36 +26,35 @@ func (c *Client) SetBearerTokenAuthCredentials(credentials BearerTokenAuthCreden
 	c.BearerTokenAuthCredentials = credentials
 }
 
-/*
 // ObtainToken fetches and sets an authentication token using the stored basic authentication credentials.
-func (c *Client) ObtainToken() error {
+func (c *Client) ObtainToken(log logger.Logger) error {
 	authenticationEndpoint := c.ConstructAPIAuthEndpoint(BearerTokenEndpoint)
 
-	c.logger.Debug("Attempting to obtain token for user", "Username", c.BearerTokenAuthCredentials.Username)
+	log.Debug("Attempting to obtain token for user", zap.String("Username", c.BearerTokenAuthCredentials.Username))
 
 	req, err := http.NewRequest("POST", authenticationEndpoint, nil)
 	if err != nil {
-		c.logger.Error("Failed to create new request for token", "Error", err)
+		log.Error("Failed to create new request for token", zap.Error(err))
 		return err
 	}
 	req.SetBasicAuth(c.BearerTokenAuthCredentials.Username, c.BearerTokenAuthCredentials.Password)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.logger.Error("Failed to make request for token", "Error", err)
+		log.Error("Failed to make request for token", zap.Error(err))
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		c.logger.Warn("Received non-OK response while obtaining token", "StatusCode", resp.StatusCode)
+		log.Warn("Received non-OK response while obtaining token", zap.Int("StatusCode", resp.StatusCode))
 		return c.HandleAPIError(resp)
 	}
 
 	tokenResp := &TokenResponse{}
 	err = json.NewDecoder(resp.Body).Decode(tokenResp)
 	if err != nil {
-		c.logger.Error("Failed to decode token response", "Error", err)
+		log.Error("Failed to decode token response", zap.Error(err))
 		return err
 	}
 
@@ -62,48 +62,7 @@ func (c *Client) ObtainToken() error {
 	c.Expiry = tokenResp.Expires
 	tokenDuration := time.Until(c.Expiry)
 
-	c.logger.Info("Token obtained successfully", "Expiry", c.Expiry, "Duration", tokenDuration)
-
-	return nil
-}*/
-
-// ObtainToken fetches and sets an authentication token using the stored basic authentication credentials.
-func (c *Client) ObtainToken() error {
-	authenticationEndpoint := c.ConstructAPIAuthEndpoint(BearerTokenEndpoint)
-
-	c.logger.Debug("Attempting to obtain token for user", zap.String("Username", c.BearerTokenAuthCredentials.Username))
-
-	req, err := http.NewRequest("POST", authenticationEndpoint, nil)
-	if err != nil {
-		c.logger.Error("Failed to create new request for token", zap.Error(err))
-		return err
-	}
-	req.SetBasicAuth(c.BearerTokenAuthCredentials.Username, c.BearerTokenAuthCredentials.Password)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		c.logger.Error("Failed to make request for token", zap.Error(err))
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		c.logger.Warn("Received non-OK response while obtaining token", zap.Int("StatusCode", resp.StatusCode))
-		return c.HandleAPIError(resp)
-	}
-
-	tokenResp := &TokenResponse{}
-	err = json.NewDecoder(resp.Body).Decode(tokenResp)
-	if err != nil {
-		c.logger.Error("Failed to decode token response", zap.Error(err))
-		return err
-	}
-
-	c.Token = tokenResp.Token
-	c.Expiry = tokenResp.Expires
-	tokenDuration := time.Until(c.Expiry)
-
-	c.logger.Info("Token obtained successfully", zap.Time("Expiry", c.Expiry), zap.Duration("Duration", tokenDuration))
+	log.Info("Token obtained successfully", zap.Time("Expiry", c.Expiry), zap.Duration("Duration", tokenDuration))
 
 	return nil
 }
@@ -118,33 +77,33 @@ func (c *Client) RefreshToken() error {
 
 	req, err := http.NewRequest("POST", tokenRefreshEndpoint, nil)
 	if err != nil {
-		c.logger.Error("Failed to create new request for token refresh", "error", err)
+		log.Error("Failed to create new request for token refresh", "error", err)
 		return err
 	}
 	req.Header.Add("Authorization", "Bearer "+c.Token)
 
-	c.logger.Debug("Attempting to refresh token", "URL", tokenRefreshEndpoint)
+	log.Debug("Attempting to refresh token", "URL", tokenRefreshEndpoint)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.logger.Error("Failed to make request for token refresh", "error", err)
+		log.Error("Failed to make request for token refresh", "error", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		c.logger.Warn("Token refresh response status is not OK", "StatusCode", resp.StatusCode)
+		log.Warn("Token refresh response status is not OK", "StatusCode", resp.StatusCode)
 		return c.HandleAPIError(resp)
 	}
 
 	tokenResp := &TokenResponse{}
 	err = json.NewDecoder(resp.Body).Decode(tokenResp)
 	if err != nil {
-		c.logger.Error("Failed to decode token response", "error", err)
+		log.Error("Failed to decode token response", "error", err)
 		return err
 	}
 
-	c.logger.Info("Token refreshed successfully", "Expiry", tokenResp.Expires)
+	log.Info("Token refreshed successfully", "Expiry", tokenResp.Expires)
 
 	c.Token = tokenResp.Token
 	c.Expiry = tokenResp.Expires
@@ -152,7 +111,7 @@ func (c *Client) RefreshToken() error {
 }
 */
 // RefreshToken refreshes the current authentication token.
-func (c *Client) RefreshToken() error {
+func (c *Client) RefreshToken(log logger.Logger) error {
 	c.tokenLock.Lock()
 	defer c.tokenLock.Unlock()
 
@@ -160,35 +119,35 @@ func (c *Client) RefreshToken() error {
 
 	req, err := http.NewRequest("POST", tokenRefreshEndpoint, nil)
 	if err != nil {
-		c.logger.Error("Failed to create new request for token refresh", zap.Error(err))
+		log.Error("Failed to create new request for token refresh", zap.Error(err))
 		return err
 	}
 	req.Header.Add("Authorization", "Bearer "+c.Token)
 
-	c.logger.Debug("Attempting to refresh token", zap.String("URL", tokenRefreshEndpoint))
+	log.Debug("Attempting to refresh token", zap.String("URL", tokenRefreshEndpoint))
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.logger.Error("Failed to make request for token refresh", zap.Error(err))
+		log.Error("Failed to make request for token refresh", zap.Error(err))
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		c.logger.Warn("Token refresh response status is not OK", zap.Int("StatusCode", resp.StatusCode))
+		log.Warn("Token refresh response status is not OK", zap.Int("StatusCode", resp.StatusCode))
 		return c.HandleAPIError(resp)
 	}
 
 	tokenResp := &TokenResponse{}
 	err = json.NewDecoder(resp.Body).Decode(tokenResp)
 	if err != nil {
-		c.logger.Error("Failed to decode token response", zap.Error(err))
+		log.Error("Failed to decode token response", zap.Error(err))
 		return err
 	}
 
 	c.Token = tokenResp.Token
 	c.Expiry = tokenResp.Expires
-	c.logger.Info("Token refreshed successfully", zap.Time("Expiry", tokenResp.Expires))
+	log.Info("Token refreshed successfully", zap.Time("Expiry", tokenResp.Expires))
 
 	return nil
 }
