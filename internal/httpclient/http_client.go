@@ -8,7 +8,6 @@ like the baseURL, authentication details, and an embedded standard HTTP client. 
 package httpclient
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -67,75 +66,73 @@ type Client struct {
 	httpClient                 *http.Client
 	tokenLock                  sync.Mutex
 	config                     Config
-	logger                     logger.Logger
+	Logger                     logger.Logger
 	ConcurrencyMgr             *ConcurrencyManager
 	PerfMetrics                PerformanceMetrics
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
 func BuildClient(config Config) (*Client, error) {
-	// Use the Logger interface type for the logger variable
-	var logger logger.Logger
-	if config.Logger == nil {
-		logger = NewDefaultLogger()
-	} else {
-		logger = config.Logger
-	}
+	// Initialize the logger using the NewDefaultLogger function from the logger package.
+	log := logger.NewDefaultLogger()
 
-	// Set the logger's level based on the provided configuration if present
-	logger.SetLevel(config.LogLevel)
+	// Set the logger's level based on the provided configuration.
+	log.SetLevel(config.LogLevel)
 
-	// Validate LogLevel
-	if config.LogLevel < LogLevelNone || config.LogLevel > LogLevelDebug {
-		return nil, fmt.Errorf("invalid LogLevel setting: %d", config.LogLevel)
+	if config.LogLevel < logger.LogLevelDebug || config.LogLevel > logger.LogLevelFatal {
+		return nil, log.Error("Invalid LogLevel setting", zap.Int("Provided LogLevel", int(config.LogLevel)))
 	}
 
 	// Use the APIType from the config to determine which API handler to load
-	apiHandler, err := LoadAPIHandler(config, config.APIType)
+	apiHandler, err := LoadAPIHandler(config.APIType, log)
 	if err != nil {
-		logger.Error("Failed to load API handler", zap.String("APIType", config.APIType), zap.Error(err))
-		return nil, err // Return the original error without wrapping it in fmt.Errorf
+		return nil, log.Error("Failed to load API handler", zap.String("APIType", config.APIType), zap.Error(err))
 	}
 
-	logger.Info("Initializing new HTTP client", zap.String("InstanceName", config.InstanceName), zap.String("APIType", config.APIType), zap.Int("LogLevel", int(config.LogLevel)))
+	log.Info("Initializing new HTTP client",
+		zap.String("InstanceName", config.InstanceName), // Using zap.String for structured logging
+		zap.String("APIType", config.APIType),           // Using zap.String for structured logging
+		zap.Int("LogLevel", int(config.LogLevel)),       // Using zap.Int to log LogLevel as an integer
+	)
+
 	// Validate and set default values for the configuration
 	if config.InstanceName == "" {
-		return nil, fmt.Errorf("instanceName cannot be empty")
+		return nil, log.Error("InstanceName cannot be empty")
 	}
 
 	if config.MaxRetryAttempts < 0 {
 		config.MaxRetryAttempts = DefaultMaxRetryAttempts
-		logger.Info("MaxRetryAttempts was negative, set to default value", zap.Int("MaxRetryAttempts", DefaultMaxRetryAttempts))
+		log.Info("MaxRetryAttempts was negative, set to default value", zap.Int("MaxRetryAttempts", DefaultMaxRetryAttempts))
 	}
 
 	if config.MaxConcurrentRequests <= 0 {
 		config.MaxConcurrentRequests = DefaultMaxConcurrentRequests
-		logger.Info("MaxConcurrentRequests was negative or zero, set to default value", zap.Int("MaxConcurrentRequests", DefaultMaxConcurrentRequests))
+		log.Info("MaxConcurrentRequests was negative or zero, set to default value", zap.Int("MaxConcurrentRequests", DefaultMaxConcurrentRequests))
 	}
 
 	if config.TokenRefreshBufferPeriod < 0 {
 		config.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
-		logger.Info("TokenRefreshBufferPeriod was negative, set to default value", zap.Duration("TokenRefreshBufferPeriod", DefaultTokenBufferPeriod))
+		log.Info("TokenRefreshBufferPeriod was negative, set to default value", zap.Duration("TokenRefreshBufferPeriod", DefaultTokenBufferPeriod))
 	}
 
 	if config.TotalRetryDuration <= 0 {
 		config.TotalRetryDuration = DefaultTotalRetryDuration
-		logger.Info("TotalRetryDuration was negative or zero, set to default value", zap.Duration("TotalRetryDuration", DefaultTotalRetryDuration))
+		log.Info("TotalRetryDuration was negative or zero, set to default value", zap.Duration("TotalRetryDuration", DefaultTotalRetryDuration))
 	}
 
 	if config.TokenRefreshBufferPeriod == 0 {
 		config.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
-		logger.Info("TokenRefreshBufferPeriod not set, set to default value", zap.Duration("TokenRefreshBufferPeriod", DefaultTokenBufferPeriod))
+		log.Info("TokenRefreshBufferPeriod not set, set to default value", zap.Duration("TokenRefreshBufferPeriod", DefaultTokenBufferPeriod))
 	}
 
 	if config.TotalRetryDuration == 0 {
 		config.TotalRetryDuration = DefaultTotalRetryDuration
-		logger.Info("TotalRetryDuration not set, set to default value", zap.Duration("TotalRetryDuration", DefaultTotalRetryDuration))
+		log.Info("TotalRetryDuration not set, set to default value", zap.Duration("TotalRetryDuration", DefaultTotalRetryDuration))
 	}
 
 	if config.CustomTimeout == 0 {
 		config.CustomTimeout = DefaultTimeout
-		logger.Info("CustomTimeout not set, set to default value", zap.Duration("CustomTimeout", DefaultTimeout))
+		log.Info("CustomTimeout not set, set to default value", zap.Duration("CustomTimeout", DefaultTimeout))
 	}
 
 	// Determine the authentication method
@@ -145,7 +142,7 @@ func BuildClient(config Config) (*Client, error) {
 	} else if config.Auth.ClientID != "" && config.Auth.ClientSecret != "" {
 		AuthMethod = "oauth"
 	} else {
-		return nil, fmt.Errorf("invalid AuthConfig")
+		return nil, log.Error("Invalid AuthConfig", zap.String("Username", config.Auth.Username), zap.String("ClientID", config.Auth.ClientID))
 	}
 
 	client := &Client{
@@ -154,21 +151,20 @@ func BuildClient(config Config) (*Client, error) {
 		AuthMethod:     AuthMethod,
 		httpClient:     &http.Client{Timeout: config.CustomTimeout},
 		config:         config,
-		logger:         logger,
-		ConcurrencyMgr: NewConcurrencyManager(config.MaxConcurrentRequests, logger, true),
+		Logger:         log,
+		ConcurrencyMgr: NewConcurrencyManager(config.MaxConcurrentRequests, log, true),
 		PerfMetrics:    PerformanceMetrics{},
 	}
 
-	// Get auth token
+	// Authenticate and check token validity.
 	_, err = client.ValidAuthTokenCheck()
 	if err != nil {
-		logger.Error("Failed to validate or obtain auth token", zap.Error(err))
-		return nil, fmt.Errorf("failed to validate auth: %w", err)
+		return nil, log.Error("Failed to validate or obtain auth token", zap.Error(err))
 	}
 
 	go client.StartMetricEvaluation()
 
-	logger.Info("New client initialized", zap.String("InstanceName", client.InstanceName), zap.String("AuthMethod", AuthMethod), zap.Int("MaxRetryAttempts", config.MaxRetryAttempts), zap.Int("MaxConcurrentRequests", config.MaxConcurrentRequests), zap.Bool("EnableDynamicRateLimiting", config.EnableDynamicRateLimiting))
+	log.Info("New client initialized", zap.String("InstanceName", client.InstanceName), zap.String("AuthMethod", AuthMethod), zap.Int("MaxRetryAttempts", config.MaxRetryAttempts), zap.Int("MaxConcurrentRequests", config.MaxConcurrentRequests), zap.Bool("EnableDynamicRateLimiting", config.EnableDynamicRateLimiting))
 
 	return client, nil
 
