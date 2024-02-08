@@ -285,29 +285,33 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 	}
 
 	// Check for non-success status codes before attempting to unmarshal
-if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-	// Parse the error details from the response body for JSON content type
-	if strings.Contains(contentType, "application/json") {
+	// Check for non-success status codes before attempting to unmarshal
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// Parse the error details from the response body for JSON content type
+		if strings.Contains(contentType, "application/json") {
 			description, err := ParseJSONErrorResponse(bodyBytes)
 			if err != nil {
-					// Log the error using the structured logger and return the error
-					return nil, c.Logger.Error("Failed to parse JSON error response",
-							zap.Error(err),
-							zap.Int("status_code", resp.StatusCode),
-					)
+				// Log the error using the structured logger and return the error
+				log.Error("Failed to parse JSON error response",
+					zap.Error(err),
+					zap.Int("status_code", resp.StatusCode),
+				)
+				return err
 			}
 			// Log the error with description using the structured logger and return the error
-			return nil, c.Logger.Error("Received non-success status code with JSON response",
-					zap.Int("status_code", resp.StatusCode),
-					zap.String("error_description", description),
+			log.Error("Received non-success status code with JSON response",
+				zap.Int("status_code", resp.StatusCode),
+				zap.String("error_description", description),
 			)
-	}
+			return fmt.Errorf("received non-success status code with JSON response: %s", description)
+		}
 
-	// If the response is not JSON or another error occurs, log a generic error message and return an error
-	return nil, c.Logger.Error("Received non-success status code without JSON response",
+		// If the response is not JSON or another error occurs, log a generic error message and return an error
+		log.Error("Received non-success status code without JSON response",
 			zap.Int("status_code", resp.StatusCode),
-	)
-}
+		)
+		return fmt.Errorf("received non-success status code without JSON response: %d", resp.StatusCode)
+	}
 
 	// Determine whether the content type is JSON or XML and unmarshal accordingly
 	switch {
@@ -321,23 +325,20 @@ if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 	}
 
 	// Handle any errors that occurred during unmarshaling
-if err != nil {
-	// If unmarshalling fails, check if the content might be HTML
-	if strings.Contains(string(bodyBytes), "<html>") {
+	if err != nil {
+		// If unmarshalling fails, check if the content might be HTML
+		if strings.Contains(string(bodyBytes), "<html>") {
 			errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
-			
+
 			// Log the warning and return an error using the structured logger
-			return nil, log.Warn("Received HTML content instead of expected format",
-					zap.String("error_message", errMsg),
-					zap.Int("status_code", resp.StatusCode),
+			log.Warn("Received HTML content instead of expected format",
+				zap.String("error_message", errMsg),
+				zap.Int("status_code", resp.StatusCode),
 			)
+			return fmt.Errorf("received HTML content instead of expected format: %s", errMsg)
+		}
 	}
-
-		// Log the error using the structured logger and return the error
-    return nil, log.Error("Failed to unmarshal response",
-        zap.Error(err),
-    )
-
+	return err
 }
 
 // GetAcceptHeader constructs and returns a weighted Accept header string for HTTP requests.
@@ -347,7 +348,7 @@ if err != nil {
 // the server is informed of the client's versatile content handling capabilities while
 // indicating a preference for XML. The specified MIME types cover common content formats like
 // images, JSON, XML, HTML, plain text, and certificates, with a fallback option for all other types.
-func (u *JamfAPIHandler) GetAcceptHeader() string {
+func (u *JamfAPIHandler) GetAcceptHeader() string { // Add closing parenthesis after the function signature
 	weightedAcceptHeader := "application/x-x509-ca-cert;q=0.95," +
 		"application/pkix-cert;q=0.94," +
 		"application/pem-certificate-chain;q=0.93," +
@@ -362,6 +363,7 @@ func (u *JamfAPIHandler) GetAcceptHeader() string {
 		"text/html;q=0.5," +
 		"text/plain;q=0.4," +
 		"*/*;q=0.05" // Fallback for any other types
+
 	return weightedAcceptHeader
 }
 

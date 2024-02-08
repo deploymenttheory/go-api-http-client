@@ -19,7 +19,7 @@ type APIHandler interface {
 	MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error)
 	UnmarshalResponse(resp *http.Response, out interface{}, log logger.Logger) error
 	GetContentTypeHeader(method string, log logger.Logger) string
-	GetAcceptHeader() string
+	//GetAcceptHeader() string
 	GetDefaultBaseDomain() string
 	GetOAuthTokenEndpoint() string
 	GetBearerTokenEndpoint() string
