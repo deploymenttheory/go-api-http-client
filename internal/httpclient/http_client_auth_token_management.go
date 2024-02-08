@@ -21,12 +21,12 @@ func (c *Client) ValidAuthTokenCheck(log logger.Logger) (bool, error) {
 	if c.Token == "" {
 		c.Logger.Debug("No token found, attempting to obtain a new one")
 		if c.AuthMethod == "bearer" {
-			err := c.ObtainToken()
+			err := c.ObtainToken(log)
 			if err != nil {
 				return false, c.Logger.Error("Failed to obtain bearer token", zap.Error(err))
 			}
 		} else if c.AuthMethod == "oauth" {
-			if err := c.ObtainOAuthToken(c.config.Auth); err != nil {
+			if err := c.ObtainOAuthToken(c.config.Auth, log); err != nil {
 				return false, c.Logger.Error("Failed to obtain OAuth token", zap.Error(err))
 			}
 		} else {
@@ -37,9 +37,9 @@ func (c *Client) ValidAuthTokenCheck(log logger.Logger) (bool, error) {
 	if time.Until(c.Expiry) < c.config.TokenRefreshBufferPeriod {
 		var err error
 		if c.BearerTokenAuthCredentials.Username != "" && c.BearerTokenAuthCredentials.Password != "" {
-			err = c.RefreshToken()
+			err = c.RefreshToken(log)
 		} else if c.OAuthCredentials.ClientID != "" && c.OAuthCredentials.ClientSecret != "" {
-			err = c.ObtainOAuthToken(c.config.Auth)
+			err = c.ObtainOAuthToken(c.config.Auth, log)
 		} else {
 			return false, c.Logger.Error("Unknown auth method", zap.String("authMethod", c.AuthMethod))
 		}

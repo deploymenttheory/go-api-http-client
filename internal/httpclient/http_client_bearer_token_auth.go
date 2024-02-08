@@ -28,7 +28,7 @@ func (c *Client) SetBearerTokenAuthCredentials(credentials BearerTokenAuthCreden
 
 // ObtainToken fetches and sets an authentication token using the stored basic authentication credentials.
 func (c *Client) ObtainToken(log logger.Logger) error {
-	authenticationEndpoint := c.ConstructAPIAuthEndpoint(BearerTokenEndpoint)
+	authenticationEndpoint := APIHandler.ConstructAPIAuthEndpoint(BearerTokenEndpoint)
 
 	log.Debug("Attempting to obtain token for user", zap.String("Username", c.BearerTokenAuthCredentials.Username))
 
