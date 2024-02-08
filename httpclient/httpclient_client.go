@@ -19,9 +19,8 @@ import (
 // Config holds configuration options for the HTTP Client.
 type Config struct {
 	// Required
-	InstanceName string
-	Auth         AuthConfig        // User can either supply these values manually or pass from LoadAuthConfig/Env vars
-	APIType      EnvironmentConfig // User can either supply these values manually or pass from LoadAuthConfig/Env vars
+	Auth        AuthConfig        // User can either supply these values manually or pass from LoadAuthConfig/Env vars
+	Environment EnvironmentConfig // User can either supply these values manually or pass from LoadAuthConfig/Env vars
 	// Optional
 	LogLevel                  logger.LogLevel // Field for defining tiered logging level.
 	MaxRetryAttempts          int             // Config item defines the max number of retry request attempts for retryable HTTP methods.
@@ -89,19 +88,19 @@ func BuildClient(config Config) (*Client, error) {
 	}
 
 	// Use the APIType from the config to determine which API handler to load
-	apiHandler, err := LoadAPIHandler(config.APIType.APIType, log)
+	apiHandler, err := LoadAPIHandler(config.Environment.APIType, log)
 	if err != nil {
-		return nil, log.Error("Failed to load API handler", zap.String("APIType", config.APIType.APIType), zap.Error(err))
+		return nil, log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
 	}
 
 	log.Info("Initializing new HTTP client",
-		zap.String("InstanceName", config.InstanceName), // Using zap.String for structured logging
-		zap.String("APIType", config.APIType.APIType),   // Using zap.String for structured logging
-		zap.Int("LogLevel", int(config.LogLevel)),       // Using zap.Int to log LogLevel as an integer
+		zap.String("InstanceName", config.Environment.APIType), // Using zap.String for structured logging
+		zap.String("APIType", config.Environment.APIType),      // Using zap.String for structured logging
+		zap.Int("LogLevel", int(config.LogLevel)),              // Using zap.Int to log LogLevel as an integer
 	)
 
 	// Validate and set default values for the configuration
-	if config.InstanceName == "" {
+	if config.Environment.APIType == "" {
 		return nil, log.Error("InstanceName cannot be empty")
 	}
 
@@ -151,7 +150,7 @@ func BuildClient(config Config) (*Client, error) {
 	}
 
 	client := &Client{
-		InstanceName:   config.InstanceName,
+		InstanceName:   config.Environment.APIType,
 		APIHandler:     apiHandler,
 		AuthMethod:     AuthMethod,
 		httpClient:     &http.Client{Timeout: config.CustomTimeout},
