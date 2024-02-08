@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/deploymenttheory/go-api-http-client/internal/errors"
+	"github.com/deploymenttheory/go-api-http-client/internal/logger"
+	"go.uber.org/zap"
 )
 
 // DoRequest constructs and executes a standard HTTP request with support for retry logic.
@@ -40,9 +44,9 @@ import (
 // Note:
 // The function assumes that retryable HTTP methods have been properly defined in the retryableHTTPMethods map.
 // It is the caller's responsibility to close the response body when the request is successful to avoid resource leaks.
-func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
+func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
 	// Auth Token validation check
-	valid, err := c.ValidAuthTokenCheck()
+	valid, err := c.ValidAuthTokenCheck(log)
 	if err != nil || !valid {
 		return nil, fmt.Errorf("validity of the authentication token failed with error: %w", err)
 	}
@@ -67,17 +71,16 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	ctx = context.WithValue(ctx, requestIDKey{}, requestID)
 
 	// Determine which set of encoding and content-type request rules to use
-	//handler := GetAPIHandler(endpoint, c.config.LogLevel)
-	handler := GetAPIHandler(c.config)
+	apiHandler := c.APIHandler
 
 	// Marshal Request with correct encoding
-	requestData, err := handler.MarshalRequest(body, method, endpoint)
+	requestData, err := apiHandler.MarshalRequest(body, method, endpoint, log)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := c.ConstructAPIResourceEndpoint(endpoint)
+	url := apiHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
 	// Initialize total request counter
 	c.PerfMetrics.lock.Lock()
@@ -91,9 +94,9 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	}
 
 	// Define header content type based on url and http method
-	contentType := handler.GetContentTypeHeader(endpoint)
+	contentType := apiHandler.GetContentTypeHeader(endpoint, log)
 	// Define Request Headers dynamically based on handler logic
-	acceptHeader := handler.GetAcceptHeader()
+	acceptHeader := apiHandler.GetAcceptHeader()
 
 	// Set Headers
 	req.Header.Add("Authorization", "Bearer "+c.Token)
@@ -102,7 +105,8 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	req.Header.Set("User-Agent", GetUserAgentHeader())
 
 	// Debug: Print request headers if in debug mode
-	c.logger.Debug("HTTP Request Headers:", req.Header)
+	headersStr := HeadersToString(req.Header)
+	log.Debug("HTTP Multipart Request Headers:", zap.String("headers", headersStr))
 
 	// Define if request is retryable
 	retryableHTTPMethods := map[string]bool{
@@ -129,13 +133,17 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 			// Start response time measurement
 			responseTimeStart := time.Now()
 
-			// Execute Request with context
+			// Execute the request
 			resp, err := c.httpClient.Do(req)
 			if err != nil {
-				c.logger.Error("Failed to send request", "method", method, "endpoint", endpoint, "error", err)
+				log.Error("Failed to send retryable request",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Int("status_code", resp.StatusCode),
+					zap.String("status_text", http.StatusText(resp.StatusCode)),
+				)
 				return nil, err
 			}
-
 			// After each request, compute and update response time
 			responseDuration := time.Since(responseTimeStart)
 			c.PerfMetrics.lock.Lock()
@@ -144,49 +152,93 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 
 			// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 			if i == 0 {
-				CheckDeprecationHeader(resp, c.logger)
+				CheckDeprecationHeader(resp, log)
 			}
 
-			// Handle (unmarshall) response with API Handler
-			if err := handler.UnmarshalResponse(resp, out); err != nil {
-				switch e := err.(type) {
-				case *APIError:
-					c.logger.Error("Received an API error", "status_code", e.StatusCode, "message", e.Message)
-					return resp, e
-				default:
-					// Existing error handling logic
-					c.logger.Error("Failed to unmarshal HTTP response", "method", method, "endpoint", endpoint, "error", err)
+			// Handle (unmarshal) response with API Handler
+			if err := apiHandler.UnmarshalResponse(resp, out, log); err != nil {
+				// Use type assertion to check if the error is of type *errors.APIError
+				if apiErr, ok := err.(*errors.APIError); ok {
+					// Log the API error with structured logging for specific APIError handling
+					log.Error("Received an API error",
+						zap.String("method", method),
+						zap.String("endpoint", endpoint),
+						zap.Int("status_code", apiErr.StatusCode),
+						zap.String("message", apiErr.Message),
+					)
+					return resp, apiErr // Return the typed error for further handling if needed
+				} else {
+					// Log other errors with structured logging for general error handling
+					log.Error("Failed to unmarshal HTTP response",
+						zap.String("method", method),
+						zap.String("endpoint", endpoint),
+						zap.Error(err), // Use zap.Error to log the error object
+					)
 					return resp, err
 				}
 			}
 
+			// Successful response
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				c.logger.Info("HTTP request succeeded", "method", method, "endpoint", endpoint, "status_code", resp.StatusCode)
+				log.Info("HTTP request succeeded",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Int("status_code", resp.StatusCode),
+				)
 				return resp, nil
-			} else if resp.StatusCode == http.StatusNotFound {
-				c.logger.Warn("Resource not found", "method", method, "endpoint", endpoint)
-				return resp, fmt.Errorf("resource not found: %s", endpoint)
+			} else if
+			// Resource not found
+			resp.StatusCode == http.StatusNotFound {
+				log.Warn("Resource not found",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Int("status_code", resp.StatusCode),
+				)
+				// Use a centralized method for handling not found error
+				return resp, err
 			}
 
 			// Retry Logic
-			if IsNonRetryableError(resp) {
-				c.logger.Warn("Encountered a non-retryable error", "status", resp.StatusCode, "description", TranslateStatusCode(resp.StatusCode))
-				return resp, c.HandleAPIError(resp)
-			} else if IsRateLimitError(resp) {
-				waitDuration := parseRateLimitHeaders(resp) // Checks for the Retry-After, X-RateLimit-Remaining and X-RateLimit-Reset headers
-				c.logger.Warn("Encountered a rate limit error. Retrying after wait duration.", "wait_duration", waitDuration)
+			// Non-retryable error
+			if errors.IsNonRetryableError(resp) {
+				log.Warn("Encountered a non-retryable error",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Int("status_code", resp.StatusCode),
+					zap.String("description", errors.TranslateStatusCode(resp.StatusCode)),
+				)
+				return resp, errors.HandleAPIError(resp, log) // Assume this method logs the error internally
+			} else if errors.IsRateLimitError(resp) {
+				waitDuration := parseRateLimitHeaders(resp) // Parses headers to determine wait duration
+				log.Warn("Encountered a rate limit error. Retrying after wait duration.",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Int("status_code", resp.StatusCode),
+					zap.Duration("wait_duration", waitDuration),
+				)
 				time.Sleep(waitDuration)
 				i++
 				continue // This will restart the loop, effectively "retrying" the request
-			} else if IsTransientError(resp) {
-				waitDuration := calculateBackoff(i) //uses exponential backoff (with jitter)
-				c.logger.Warn("Encountered a transient error. Retrying after backoff.", "wait_duration", waitDuration)
+			} else if errors.IsTransientError(resp) {
+				waitDuration := calculateBackoff(i) // Calculates backoff duration
+				log.Warn("Encountered a transient error. Retrying after backoff.",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Int("status_code", resp.StatusCode),
+					zap.Duration("wait_duration", waitDuration),
+					zap.Int("attempt", i),
+				)
 				time.Sleep(waitDuration)
 				i++
 				continue // This will restart the loop, effectively "retrying" the request
 			} else {
-				c.logger.Error("Received unexpected error status from HTTP request", "method", method, "endpoint", endpoint, "status_code", resp.StatusCode, "description", TranslateStatusCode(resp.StatusCode))
-				return resp, c.HandleAPIError(resp)
+				log.Error("Received unexpected error status from HTTP request",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Int("status_code", resp.StatusCode),
+					zap.String("description", errors.TranslateStatusCode(resp.StatusCode)),
+				)
+				return resp, errors.HandleAPIError(resp, log)
 			}
 		}
 	} else {
@@ -194,10 +246,15 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 		responseTimeStart := time.Now()
 		// For non-retryable HTTP Methods (POST - Create)
 		req = req.WithContext(ctx)
+		// Execute the request
 		resp, err := c.httpClient.Do(req)
-
 		if err != nil {
-			c.logger.Error("Failed to send request", "method", method, "endpoint", endpoint, "error", err)
+			log.Error("Failed to send request",
+				zap.String("method", method),
+				zap.String("endpoint", endpoint),
+				zap.Int("status_code", resp.StatusCode),
+				zap.String("status_text", http.StatusText(resp.StatusCode)),
+			)
 			return nil, err
 		}
 
@@ -207,27 +264,49 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 		c.PerfMetrics.TotalResponseTime += responseDuration
 		c.PerfMetrics.lock.Unlock()
 
-		CheckDeprecationHeader(resp, c.logger)
+		CheckDeprecationHeader(resp, log)
 
-		// Unmarshal the response with the determined API Handler
-		if err := handler.UnmarshalResponse(resp, out); err != nil {
-			switch e := err.(type) {
-			case *APIError:
-				c.logger.Error("Received an API error", "status_code", e.StatusCode, "message", e.Message)
-				return resp, e
-			default:
-				// Existing error handling logic
-				c.logger.Error("Failed to unmarshal HTTP response", "method", method, "endpoint", endpoint, "error", err)
-				return resp, err
+		// Handle (unmarshal) response with API Handler
+		if err := apiHandler.UnmarshalResponse(resp, out, log); err != nil {
+			// Use type assertion to check if the error is of type *errors.APIError
+			if apiErr, ok := err.(*errors.APIError); ok {
+				// Log the API error with structured logging for specific APIError handling
+				log.Error("Received an API error",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Int("status_code", apiErr.StatusCode),
+					zap.String("message", apiErr.Message),
+				)
+				return resp, apiErr // Return the typed error for further handling if needed
+			} else {
+				// Log other errors with structured logging for general error handling
+				log.Error("Failed to unmarshal HTTP response",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Error(err), // Use zap.Error to log the error object
+				)
+				return resp, err // Return the original error
 			}
 		}
 
 		// Check if the response status code is within the success range
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			// Success, no need for logging
 			return resp, nil
 		} else {
-			statusDescription := TranslateStatusCode(resp.StatusCode)
-			c.logger.Error("Received non-success status code from HTTP request", "method", method, "endpoint", endpoint, "status_code", resp.StatusCode, "description", statusDescription)
+			// Translate the status code to a human-readable description
+			statusDescription := errors.TranslateStatusCode(resp.StatusCode)
+			if apiErr, ok := err.(*errors.APIError); ok {
+				// Log the API error with structured logging for specific APIError handling
+				log.Error("Received an API error",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Int("status_code", apiErr.StatusCode),
+					zap.String("message", apiErr.Message),
+				)
+			}
+
+			// Return an error with the status code and its description
 			return resp, fmt.Errorf("Error status code: %d - %s", resp.StatusCode, statusDescription)
 		}
 	}
@@ -261,25 +340,24 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 //
 // Note:
 // The caller should handle closing the response body when successful.
-func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]string, files map[string]string, out interface{}) (*http.Response, error) {
+func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]string, files map[string]string, out interface{}, log logger.Logger) (*http.Response, error) {
 	// Auth Token validation check
-	valid, err := c.ValidAuthTokenCheck()
+	valid, err := c.ValidAuthTokenCheck(log)
 	if err != nil || !valid {
 		return nil, fmt.Errorf("validity of the authentication token failed with error: %w", err)
 	}
 
 	// Determine which set of encoding and content-type request rules to use
-	//handler := GetAPIHandler(endpoint, c.config.LogLevel)
-	handler := GetAPIHandler(c.config)
+	apiHandler := c.APIHandler
 
 	// Marshal the multipart form data
-	requestData, contentType, err := handler.MarshalMultipartRequest(fields, files)
+	requestData, contentType, err := apiHandler.MarshalMultipartRequest(fields, files, log)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := c.ConstructAPIResourceEndpoint(endpoint)
+	url := apiHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
 	// Create the request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
@@ -293,25 +371,45 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	req.Header.Set("User-Agent", GetUserAgentHeader())
 
 	// Debug: Print request headers if in debug mode
-
-	c.logger.Debug("HTTP Multipart Request Headers:", req.Header)
+	headersStr := HeadersToString(req.Header)
+	log.Debug("HTTP Multipart Request Headers:", zap.String("headers", headersStr))
 
 	// Execute the request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.logger.Error("Failed to send multipart request", "method", method, "endpoint", endpoint, "error", err)
+		log.Error("Failed to send multipart request",
+			zap.String("method", method),
+			zap.String("endpoint", endpoint),
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("status_text", http.StatusText(resp.StatusCode)),
+		)
 		return nil, err
 	}
 
 	// Check for successful status code
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		c.logger.Error("Received non-success status code from multipart request", "status_code", resp.StatusCode)
-		return resp, fmt.Errorf("received non-success status code: %d", resp.StatusCode)
+		// Use HandleAPIError to process the error response and log it accordingly
+		apiErr := errors.HandleAPIError(resp, log)
+
+		// Log additional context about the request that led to the error
+		log.Error("Received non-success status code from multipart request",
+			zap.String("method", method),
+			zap.String("endpoint", endpoint),
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("status_text", http.StatusText(resp.StatusCode)),
+		)
+
+		// Return the original HTTP response and the API error
+		return resp, apiErr
 	}
 
 	// Unmarshal the response
-	if err := handler.UnmarshalResponse(resp, out); err != nil {
-		c.logger.Error("Failed to unmarshal HTTP response", "method", method, "endpoint", endpoint, "error", err)
+	if err := apiHandler.UnmarshalResponse(resp, out, log); err != nil {
+		log.Error("Failed to unmarshal HTTP response",
+			zap.String("method", method),
+			zap.String("endpoint", endpoint),
+			zap.String("error", err.Error()),
+		)
 		return resp, err
 	}
 

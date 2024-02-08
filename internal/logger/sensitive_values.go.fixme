@@ -1,0 +1,59 @@
+package logger
+
+import (
+	"os"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+// RedactSensitiveHeadersEncoder wraps a base encoder and redacts specified headers.
+type RedactSensitiveHeadersEncoder struct {
+	zapcore.Encoder
+}
+
+// RedactHeaders specifies the headers to be redacted.
+var RedactHeaders = map[string]struct{}{
+	"Authorization": {},
+	// Specify other headers to redact as needed.
+}
+
+// EncodeEntry redacts sensitive headers from log entries. This method implements the zapcore.Encoder interface.
+func (e *RedactSensitiveHeadersEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.Field) (*zapcore.Buffer, error) {
+	for i, field := range fields {
+		if field.Key == "headers" {
+			if headers, ok := field.Interface.(map[string][]string); ok {
+				redactedHeaders := make(map[string][]string, len(headers))
+				for k, v := range headers {
+					if _, found := RedactHeaders[k]; found {
+						redactedHeaders[k] = []string{"[REDACTED]"}
+					} else {
+						redactedHeaders[k] = v
+					}
+				}
+				fields[i] = zap.Any(field.Key, redactedHeaders)
+			}
+		}
+	}
+	// Delegate the encoding to the base encoder
+	return e.Encoder.EncodeEntry(entry, fields)
+}
+
+// NewRedactSensitiveHeadersEncoder creates a new RedactSensitiveHeadersEncoder wrapping a base encoder.
+func NewRedactSensitiveHeadersEncoder(encoder zapcore.Encoder) *RedactSensitiveHeadersEncoder {
+	return &RedactSensitiveHeadersEncoder{Encoder: encoder}
+}
+
+// NewLoggerWithSensitiveHeadersRedaction creates a new zap.Logger that redacts sensitive headers.
+func NewLoggerWithSensitiveHeadersRedaction() *zap.Logger {
+	config := zap.NewProductionEncoderConfig()
+	config.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	baseEncoder := zapcore.NewJSONEncoder(config)
+	sensitiveEncoder := NewRedactSensitiveHeadersEncoder(baseEncoder)
+
+	core := zapcore.NewCore(sensitiveEncoder, zapcore.AddSync(os.Stdout), zap.DebugLevel)
+	logger := zap.New(core)
+
+	return logger
+}

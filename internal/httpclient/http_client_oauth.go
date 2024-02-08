@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 	"go.uber.org/zap"
 )
 
@@ -41,32 +42,35 @@ func (c *Client) SetOAuthCredentials(credentials OAuthCredentials) {
 
 // ObtainOAuthToken fetches an OAuth access token using the provided OAuthCredentials (Client ID and Client Secret).
 // It updates the client's Token and Expiry fields with the obtained values.
-func (c *Client) ObtainOAuthToken(credentials AuthConfig) error {
-	authenticationEndpoint := c.ConstructAPIAuthEndpoint(OAuthTokenEndpoint)
+func (c *Client) ObtainOAuthToken(credentials AuthConfig, log logger.Logger) error {
+
+	oauthTokenEndpoint := c.APIHandler.GetOAuthTokenEndpoint()
+	authenticationEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(oauthTokenEndpoint, c.Logger)
+
 	data := url.Values{}
 	data.Set("client_id", credentials.ClientID)
 	data.Set("client_secret", credentials.ClientSecret)
 	data.Set("grant_type", "client_credentials")
 
-	c.logger.Debug("Attempting to obtain OAuth token", zap.String("ClientID", credentials.ClientID))
+	log.Debug("Attempting to obtain OAuth token", zap.String("ClientID", credentials.ClientID))
 
 	req, err := http.NewRequest("POST", authenticationEndpoint, strings.NewReader(data.Encode()))
 	if err != nil {
-		c.logger.Error("Failed to create request for OAuth token", zap.Error(err))
+		log.Error("Failed to create request for OAuth token", zap.Error(err))
 		return err
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.logger.Error("Failed to execute request for OAuth token", zap.Error(err))
+		log.Error("Failed to execute request for OAuth token", zap.Error(err))
 		return err
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.logger.Error("Failed to read response body", zap.Error(err))
+		log.Error("Failed to read response body", zap.Error(err))
 		return err
 	}
 
@@ -76,23 +80,23 @@ func (c *Client) ObtainOAuthToken(credentials AuthConfig) error {
 	oauthResp := &OAuthResponse{}
 	err = json.Unmarshal(bodyBytes, oauthResp)
 	if err != nil {
-		c.logger.Error("Failed to decode OAuth response", zap.Error(err))
+		log.Error("Failed to decode OAuth response", zap.Error(err))
 		return err
 	}
 
 	if oauthResp.Error != "" {
-		c.logger.Error("Error obtaining OAuth token", zap.String("Error", oauthResp.Error))
+		log.Error("Error obtaining OAuth token", zap.String("Error", oauthResp.Error))
 		return fmt.Errorf("error obtaining OAuth token: %s", oauthResp.Error)
 	}
 
 	if oauthResp.AccessToken == "" {
-		c.logger.Error("Empty access token received")
+		log.Error("Empty access token received")
 		return fmt.Errorf("empty access token received")
 	}
 
 	expiresIn := time.Duration(oauthResp.ExpiresIn) * time.Second
 	expirationTime := time.Now().Add(expiresIn)
-	c.logger.Info("OAuth token obtained successfully", zap.String("AccessToken", oauthResp.AccessToken), zap.Duration("ExpiresIn", expiresIn), zap.Time("ExpirationTime", expirationTime))
+	log.Info("OAuth token obtained successfully", zap.String("AccessToken", oauthResp.AccessToken), zap.Duration("ExpiresIn", expiresIn), zap.Time("ExpirationTime", expirationTime))
 
 	c.Token = oauthResp.AccessToken
 	c.Expiry = expirationTime
@@ -100,34 +104,38 @@ func (c *Client) ObtainOAuthToken(credentials AuthConfig) error {
 	return nil
 }
 
+/*
 // InvalidateOAuthToken invalidates the current OAuth access token.
 // After invalidation, the token cannot be used for further API requests.
-func (c *Client) InvalidateOAuthToken() error {
-	invalidateTokenEndpoint := c.ConstructAPIAuthEndpoint(TokenInvalidateEndpoint)
+func (c *Client) InvalidateOAuthToken(log logger.Logger) error {
 
-	c.logger.Debug("Attempting to invalidate OAuth token", zap.String("Endpoint", invalidateTokenEndpoint))
+	tokenInvalidateEndpoint := c.APIHandler.GetTokenInvalidateEndpoint()
+	invalidateTokenEndpoint := APIHandler.ConstructAPIAuthEndpoint(tokenInvalidateEndpoint, log)
+
+	log.Debug("Attempting to invalidate OAuth token", zap.String("Endpoint", invalidateTokenEndpoint))
 
 	req, err := http.NewRequest("POST", invalidateTokenEndpoint, nil)
 	if err != nil {
-		c.logger.Error("Failed to create new request for token invalidation", zap.Error(err))
+		log.Error("Failed to create new request for token invalidation", zap.Error(err))
 		return err
 	}
 	req.Header.Add("Authorization", "Bearer "+c.Token)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.logger.Error("Failed to make request for token invalidation", zap.Error(err))
+		log.Error("Failed to make request for token invalidation", zap.Error(err))
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
 		errMsg := fmt.Errorf("failed to invalidate token, status code: %d", resp.StatusCode)
-		c.logger.Error("Failed to invalidate OAuth token", zap.Int("StatusCode", resp.StatusCode), zap.Error(errMsg))
+		log.Error("Failed to invalidate OAuth token", zap.Int("StatusCode", resp.StatusCode), zap.Error(errMsg))
 		return errMsg
 	}
 
-	c.logger.Info("OAuth token invalidated successfully", zap.String("Endpoint", invalidateTokenEndpoint))
+	log.Info("OAuth token invalidated successfully", zap.String("Endpoint", invalidateTokenEndpoint))
 
 	return nil
 }
+*/

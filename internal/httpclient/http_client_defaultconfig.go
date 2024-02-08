@@ -2,10 +2,12 @@ package httpclient
 
 import (
 	"time"
+
+	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 )
 
 const (
-	DefaultLogLevel                  = LogLevelInfo
+	DefaultLogLevel                  = logger.LogLevelInfo
 	DefaultMaxRetryAttempts          = 3
 	DefaultEnableDynamicRateLimiting = true
 	DefaultMaxConcurrentRequests     = 5

@@ -2,47 +2,51 @@
 package httpclient
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/deploymenttheory/go-api-http-client/internal/apihandlers/jamfpro"
+	"github.com/deploymenttheory/go-api-http-client/internal/logger"
+	"go.uber.org/zap"
 )
 
-// APIHandler is an interface for encoding, decoding, and determining content types for different API implementations.
+// APIHandler is an interface for encoding, decoding, and implenting contexual api functions for different API implementations.
 // It encapsulates behavior for encoding and decoding requests and responses.
 type APIHandler interface {
 	GetBaseDomain() string
-	ConstructAPIResourceEndpoint(endpointPath string) string
-	ConstructAPIAuthEndpoint(endpointPath string) string
-	MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error)
-	MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error) // New method for multipart
-	UnmarshalResponse(resp *http.Response, out interface{}) error
-	GetContentTypeHeader(method string) string
+	ConstructAPIResourceEndpoint(endpointPath string, log logger.Logger) string
+	ConstructAPIAuthEndpoint(endpointPath string, log logger.Logger) string
+	MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error)
+	MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error)
+	UnmarshalResponse(resp *http.Response, out interface{}, log logger.Logger) error
+	GetContentTypeHeader(method string, log logger.Logger) string
 	GetAcceptHeader() string
+	GetDefaultBaseDomain() string
+	GetOAuthTokenEndpoint() string
+	GetBearerTokenEndpoint() string
+	GetTokenRefreshEndpoint() string
+	GetTokenInvalidateEndpoint() string
 }
 
 // LoadAPIHandler returns an APIHandler based on the provided API type.
 // 'apiType' parameter could be "jamf" or "graph" to specify which API handler to load.
-func LoadAPIHandler(config Config, apiType string) (APIHandler, error) {
+func LoadAPIHandler(apiType string, log logger.Logger) (APIHandler, error) {
 	var apiHandler APIHandler
 	switch apiType {
 	case "jamfpro":
-		// Assuming GetAPIHandler returns a JamfAPIHandler
 		apiHandler = &jamfpro.JamfAPIHandler{
 			// Initialize with necessary parameters
 		}
-	/*case "graph":
-	// Assuming GetAPIHandler returns a GraphAPIHandler
-	apiHandler = &graph.GraphAPIHandler{
-		// Initialize with necessary parameters
-	}*/
-	default:
-		return nil, fmt.Errorf("unsupported API type: %s", apiType)
-	}
+		log.Info("API handler loaded successfully", zap.String("APIType", apiType))
 
-	// Set the logger level for the handler if needed
-	logger := NewDefaultLogger() // Or use config.Logger if it's not nil
-	logger.SetLevel(config.LogLevel)
+	/*case "graph":
+	apiHandler = &graph.GraphAPIHandler{
+					// Initialize with necessary parameters
+	}
+	log.Info("API handler loaded successfully", zap.String("APIType", apiType))
+	*/
+	default:
+		return nil, log.Error("Unsupported API type", zap.String("APIType", apiType))
+	}
 
 	return apiHandler, nil
 }
