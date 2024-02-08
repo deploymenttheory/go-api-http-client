@@ -338,7 +338,6 @@ if err != nil {
         zap.Error(err),
     )
 
-	return nil
 }
 
 // GetAcceptHeader constructs and returns a weighted Accept header string for HTTP requests.
