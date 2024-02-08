@@ -21,11 +21,13 @@ func (c *Client) ValidAuthTokenCheck(log logger.Logger) (bool, error) {
 	if c.Token == "" {
 		c.Logger.Debug("No token found, attempting to obtain a new one")
 		if c.AuthMethod == "bearer" {
+			c.Logger.Info("Credential Match", zap.String("AuthMethod", c.AuthMethod))
 			err := c.ObtainToken(log)
 			if err != nil {
 				return false, c.Logger.Error("Failed to obtain bearer token", zap.Error(err))
 			}
 		} else if c.AuthMethod == "oauth" {
+			c.Logger.Info("Credential Match", zap.String("AuthMethod", c.AuthMethod))
 			if err := c.ObtainOAuthToken(c.config.Auth, log); err != nil {
 				return false, c.Logger.Error("Failed to obtain OAuth token", zap.Error(err))
 			}
