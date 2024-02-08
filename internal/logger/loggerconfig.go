@@ -4,6 +4,8 @@ package logger
 // Ref: https://betterstack.com/community/guides/logging/go/zap/#logging-errors-with-zap
 
 import (
+	"os"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -12,6 +14,7 @@ import (
 // It uses JSON formatting for log messages and sets the initial log level to Info. If the logger cannot
 // be initialized, the function panics to indicate a critical setup failure.
 func BuildLogger(logLevel LogLevel) Logger {
+
 	// Set up custom encoder configuration
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.TimeKey = "timestamp"
@@ -32,21 +35,22 @@ func BuildLogger(logLevel LogLevel) Logger {
 		OutputPaths: []string{
 			"stdout", // Log info and above to standard output
 		},
-		ErrorOutputPaths: []string{
+		ErrorOutputPaths: []string{ // is similar to OutputPaths but is used for Zap's internal errors only, not those generated or logged by your application (such as the error from mismatched loosely-typed key/value pairs).
 			"stderr", // Log internal Zap errors to standard error
 		},
-		InitialFields: map[string]interface{}{
-			"application": "your-application-name", // Customize this field to suit your needs
+		InitialFields: map[string]interface{}{ // specifies global contextual fields that should be included in every log entry produced by each logger created from the Config object
+			"pid":         os.Getpid(),
+			"application": "your-application-name",
 		},
 	}
 
 	// Build the logger from the configuration
 	logger := zap.Must(config.Build())
 
-	// Wrap the Zap logger in your defaultLogger struct, which implements your Logger interface
+	// Wrap the Zap logger in your defaultLogger struct, which implements the Logger interface
 	return &defaultLogger{
 		logger:   logger,
-		logLevel: LogLevelInfo, // Assuming LogLevelInfo maps to zap.InfoLevel
+		logLevel: logLevel,
 	}
 }
 
