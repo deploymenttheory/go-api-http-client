@@ -2,9 +2,9 @@
 package httpclient
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 	"go.uber.org/zap"
 )
 
@@ -14,72 +14,23 @@ type TokenResponse struct {
 	Expires time.Time `json:"expires"`
 }
 
-/*
 // ValidAuthTokenCheck checks if the current token is valid and not close to expiry.
 // If the token is invalid, it tries to refresh it.
 // It returns a boolean indicating the validity of the token and an error if there's a failure.
-func (c *Client) ValidAuthTokenCheck() (bool, error) {
-
+func (c *Client) ValidAuthTokenCheck(log logger.Logger) (bool, error) {
 	if c.Token == "" {
+		c.Logger.Debug("No token found, attempting to obtain a new one")
 		if c.AuthMethod == "bearer" {
 			err := c.ObtainToken()
 			if err != nil {
-				return false, fmt.Errorf("failed to obtain bearer token: %w", err)
+				return false, c.Logger.Error("Failed to obtain bearer token", zap.Error(err))
 			}
 		} else if c.AuthMethod == "oauth" {
-			err := c.ObtainOAuthToken(c.config.Auth)
-			if err != nil {
-				return false, fmt.Errorf("failed to obtain OAuth token: %w", err)
+			if err := c.ObtainOAuthToken(c.config.Auth); err != nil {
+				return false, c.Logger.Error("Failed to obtain OAuth token", zap.Error(err))
 			}
 		} else {
-			return false, fmt.Errorf("no valid credentials provided. Unable to obtain a token")
-		}
-	}
-
-	// If token exists and is close to expiry or already expired
-	if time.Until(c.Expiry) < c.config.TokenRefreshBufferPeriod {
-		var err error
-		if c.BearerTokenAuthCredentials.Username != "" && c.BearerTokenAuthCredentials.Password != "" {
-			err = c.RefreshToken()
-		} else if c.OAuthCredentials.ClientID != "" && c.OAuthCredentials.ClientSecret != "" {
-			err = c.ObtainOAuthToken(c.config.Auth)
-		} else {
-			return false, fmt.Errorf("unknown auth method: %s", c.AuthMethod)
-		}
-
-		if err != nil {
-			return false, fmt.Errorf("failed to refresh token: %w", err)
-		}
-	}
-
-	if time.Until(c.Expiry) < c.config.TokenRefreshBufferPeriod {
-		return false, fmt.Errorf("token lifetime setting less than buffer. Buffer setting: %v, Time (seconds) until Exp: %v", c.config.TokenRefreshBufferPeriod, time.Until(c.Expiry))
-	}
-	return true, nil
-}
-*/
-
-// ValidAuthTokenCheck checks if the current token is valid and not close to expiry.
-// If the token is invalid, it tries to refresh it.
-// It returns a boolean indicating the validity of the token and an error if there's a failure.
-func (c *Client) ValidAuthTokenCheck() (bool, error) {
-	if c.Token == "" {
-		if c.AuthMethod == "bearer" {
-			err := c.ObtainToken()
-			if err != nil {
-				c.logger.Error("Failed to obtain bearer token", zap.Error(err))
-				return false, fmt.Errorf("failed to obtain bearer token: %w", err)
-			}
-		} else if c.AuthMethod == "oauth" {
-			err := c.ObtainOAuthToken(c.config.Auth)
-			if err != nil {
-				c.logger.Error("Failed to obtain OAuth token", zap.Error(err))
-				return false, fmt.Errorf("failed to obtain OAuth token: %w", err)
-			}
-		} else {
-			err := fmt.Errorf("no valid credentials provided. Unable to obtain a token")
-			c.logger.Error("No valid credentials provided", zap.Error(err))
-			return false, err
+			return false, c.Logger.Error("No valid credentials provided. Unable to obtain a token", zap.String("authMethod", c.AuthMethod))
 		}
 	}
 
@@ -90,21 +41,20 @@ func (c *Client) ValidAuthTokenCheck() (bool, error) {
 		} else if c.OAuthCredentials.ClientID != "" && c.OAuthCredentials.ClientSecret != "" {
 			err = c.ObtainOAuthToken(c.config.Auth)
 		} else {
-			err = fmt.Errorf("unknown auth method: %s", c.AuthMethod)
-			c.logger.Error("Unknown auth method", zap.String("auth_method", c.AuthMethod), zap.Error(err))
-			return false, err
+			return false, c.Logger.Error("Unknown auth method", zap.String("authMethod", c.AuthMethod))
 		}
 
 		if err != nil {
-			c.logger.Error("Failed to refresh token", zap.Error(err))
-			return false, fmt.Errorf("failed to refresh token: %w", err)
+			return false, c.Logger.Error("Failed to refresh token", zap.Error(err))
 		}
 	}
 
 	if time.Until(c.Expiry) < c.config.TokenRefreshBufferPeriod {
-		err := fmt.Errorf("token lifetime setting less than buffer. Buffer setting: %v, Time (seconds) until Exp: %v", c.config.TokenRefreshBufferPeriod, time.Until(c.Expiry))
-		c.logger.Error("Token lifetime less than buffer", zap.Duration("buffer_period", c.config.TokenRefreshBufferPeriod), zap.Duration("time_until_expiry", time.Until(c.Expiry)), zap.Error(err))
-		return false, err
+		return false, c.Logger.Error(
+			"Token lifetime setting less than buffer",
+			zap.Duration("buffer_period", c.config.TokenRefreshBufferPeriod),
+			zap.Duration("time_until_expiry", time.Until(c.Expiry)),
+		)
 	}
 
 	return true, nil

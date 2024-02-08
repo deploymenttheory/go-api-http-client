@@ -49,7 +49,6 @@ import (
 
 	_ "embed"
 
-	"github.com/deploymenttheory/go-api-http-client/internal/httpclient"
 	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 	"go.uber.org/zap"
 )
@@ -258,7 +257,7 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 	if strings.Contains(contentType, "text/html") {
 		errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
 		log.Warn("Received HTML content", zap.String("error_message", errMsg), zap.Int("status_code", resp.StatusCode))
-		return &httpclient.APIError{
+		return &APIError{
 			StatusCode: resp.StatusCode,
 			Message:    errMsg,
 		}

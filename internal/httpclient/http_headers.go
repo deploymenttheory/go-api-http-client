@@ -2,10 +2,12 @@ package httpclient
 
 import (
 	"net/http"
+
+	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 )
 
 // LogHTTPHeaders logs the HTTP headers of an HTTP request or response, with an option to hide sensitive information like the token in secure mode.
-func LogHTTPHeaders(logger Logger, headers http.Header, secureMode bool) {
+func LogHTTPHeaders(log logger.Logger, headers http.Header, secureMode bool) {
 	var keysAndValues []interface{}
 	if secureMode {
 		for key, values := range headers {
@@ -23,6 +25,6 @@ func LogHTTPHeaders(logger Logger, headers http.Header, secureMode bool) {
 
 	// Log the headers using the logger from the httpclient package
 	if len(keysAndValues) > 0 {
-		logger.Debug("HTTP Headers", keysAndValues...)
+		log.Debug("HTTP Headers", keysAndValues...)
 	}
 }

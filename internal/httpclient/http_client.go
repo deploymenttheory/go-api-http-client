@@ -157,7 +157,7 @@ func BuildClient(config Config) (*Client, error) {
 	}
 
 	// Authenticate and check token validity.
-	_, err = client.ValidAuthTokenCheck()
+	_, err = client.ValidAuthTokenCheck(client.Logger)
 	if err != nil {
 		return nil, log.Error("Failed to validate or obtain auth token", zap.Error(err))
 	}

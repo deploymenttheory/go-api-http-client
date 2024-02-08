@@ -1,6 +1,6 @@
 // http_error_handling.go
 // This package provides utility functions and structures for handling and categorizing HTTP error responses.
-package httpclient
+package errors
 
 import (
 	"encoding/json"
@@ -25,7 +25,7 @@ type StructuredError struct {
 }
 
 // HandleAPIError handles error responses from the API, converting them into a structured error if possible.
-func (c *Client) HandleAPIError(resp *http.Response) error {
+func HandleAPIError(logger Logger, resp *http.Response) error {
 	var structuredErr StructuredError
 	err := json.NewDecoder(resp.Body).Decode(&structuredErr)
 	if err == nil && structuredErr.Error.Message != "" {

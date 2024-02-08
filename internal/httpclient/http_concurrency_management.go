@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -23,7 +24,7 @@ const (
 // ConcurrencyManager controls the number of concurrent HTTP requests.
 type ConcurrencyManager struct {
 	sem                      chan struct{}
-	logger                   Logger
+	logger                   logger.Logger
 	debugMode                bool
 	AcquisitionTimes         []time.Duration
 	lock                     sync.Mutex
@@ -37,10 +38,7 @@ type requestIDKey struct{}
 // NewConcurrencyManager initializes a new ConcurrencyManager with the given concurrency limit, logger, and debug mode.
 // The ConcurrencyManager ensures no more than a certain number of concurrent requests are made.
 // It uses a semaphore to control concurrency.
-func NewConcurrencyManager(limit int, logger Logger, debugMode bool) *ConcurrencyManager {
-	if logger == nil {
-		logger = &defaultLogger{} // Assuming this is the default logger implementation
-	}
+func NewConcurrencyManager(limit int, logger logger.Logger, debugMode bool) *ConcurrencyManager {
 	return &ConcurrencyManager{
 		sem:              make(chan struct{}, limit),
 		logger:           logger,
@@ -209,7 +207,7 @@ func (c *Client) AdjustConcurrencyBasedOnMetrics() {
 	if newLimit != currentLimit {
 		c.ConcurrencyMgr.AdjustConcurrencyLimit(newLimit)
 
-		c.logger.Debug("Adjusted concurrency",
+		c.Logger.Debug("Adjusted concurrency",
 			zap.Int("OldLimit", currentLimit),
 			zap.Int("NewLimit", newLimit),
 			zap.String("Reason", "Based on average acquisition time"),
