@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/internal/errors"
 	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 	"go.uber.org/zap"
 )
@@ -28,7 +29,9 @@ func (c *Client) SetBearerTokenAuthCredentials(credentials BearerTokenAuthCreden
 
 // ObtainToken fetches and sets an authentication token using the stored basic authentication credentials.
 func (c *Client) ObtainToken(log logger.Logger) error {
-	authenticationEndpoint := APIHandler.ConstructAPIAuthEndpoint(BearerTokenEndpoint)
+
+	bearerTokenEndpoint := c.APIHandler.GetBearerTokenEndpoint()
+	authenticationEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(bearerTokenEndpoint, c.Logger)
 
 	log.Debug("Attempting to obtain token for user", zap.String("Username", c.BearerTokenAuthCredentials.Username))
 
@@ -48,7 +51,7 @@ func (c *Client) ObtainToken(log logger.Logger) error {
 
 	if resp.StatusCode != http.StatusOK {
 		log.Warn("Received non-OK response while obtaining token", zap.Int("StatusCode", resp.StatusCode))
-		return c.HandleAPIError(resp)
+		return errors.HandleAPIError(resp, log)
 	}
 
 	tokenResp := &TokenResponse{}
@@ -115,7 +118,9 @@ func (c *Client) RefreshToken(log logger.Logger) error {
 	c.tokenLock.Lock()
 	defer c.tokenLock.Unlock()
 
-	tokenRefreshEndpoint := c.ConstructAPIAuthEndpoint(TokenRefreshEndpoint)
+	apiTokenRefreshEndpoint := c.APIHandler.GetTokenRefreshEndpoint()
+
+	tokenRefreshEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(apiTokenRefreshEndpoint, c.Logger)
 
 	req, err := http.NewRequest("POST", tokenRefreshEndpoint, nil)
 	if err != nil {
@@ -135,7 +140,7 @@ func (c *Client) RefreshToken(log logger.Logger) error {
 
 	if resp.StatusCode != http.StatusOK {
 		log.Warn("Token refresh response status is not OK", zap.Int("StatusCode", resp.StatusCode))
-		return c.HandleAPIError(resp)
+		return errors.HandleAPIError(resp)
 	}
 
 	tokenResp := &TokenResponse{}

@@ -118,6 +118,26 @@ type Logger interface {
 
 // Functions
 
+func (j *JamfAPIHandler) GetDefaultBaseDomain() string {
+	return DefaultBaseDomain
+}
+
+func (j *JamfAPIHandler) GetOAuthTokenEndpoint() string {
+	return OAuthTokenEndpoint
+}
+
+func (j *JamfAPIHandler) GetBearerTokenEndpoint() string {
+	return BearerTokenEndpoint
+}
+
+func (j *JamfAPIHandler) GetTokenRefreshEndpoint() string {
+	return TokenRefreshEndpoint
+}
+
+func (j *JamfAPIHandler) GetTokenInvalidateEndpoint() string {
+	return TokenInvalidateEndpoint
+}
+
 // GetBaseDomain returns the appropriate base domain for URL construction.
 // It uses OverrideBaseDomain if set, otherwise falls back to DefaultBaseDomain.
 func (j *JamfAPIHandler) GetBaseDomain() string {

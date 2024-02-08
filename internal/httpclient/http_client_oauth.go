@@ -43,7 +43,10 @@ func (c *Client) SetOAuthCredentials(credentials OAuthCredentials) {
 // ObtainOAuthToken fetches an OAuth access token using the provided OAuthCredentials (Client ID and Client Secret).
 // It updates the client's Token and Expiry fields with the obtained values.
 func (c *Client) ObtainOAuthToken(credentials AuthConfig, log logger.Logger) error {
-	authenticationEndpoint := c.ConstructAPIAuthEndpoint(OAuthTokenEndpoint)
+
+	oauthTokenEndpoint := c.APIHandler.GetOAuthTokenEndpoint()
+	authenticationEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(oauthTokenEndpoint, c.Logger)
+
 	data := url.Values{}
 	data.Set("client_id", credentials.ClientID)
 	data.Set("client_secret", credentials.ClientSecret)
@@ -101,10 +104,13 @@ func (c *Client) ObtainOAuthToken(credentials AuthConfig, log logger.Logger) err
 	return nil
 }
 
+/*
 // InvalidateOAuthToken invalidates the current OAuth access token.
 // After invalidation, the token cannot be used for further API requests.
 func (c *Client) InvalidateOAuthToken(log logger.Logger) error {
-	invalidateTokenEndpoint := c.ConstructAPIAuthEndpoint(TokenInvalidateEndpoint)
+
+	tokenInvalidateEndpoint := c.APIHandler.GetTokenInvalidateEndpoint()
+	invalidateTokenEndpoint := APIHandler.ConstructAPIAuthEndpoint(tokenInvalidateEndpoint, log)
 
 	log.Debug("Attempting to invalidate OAuth token", zap.String("Endpoint", invalidateTokenEndpoint))
 
@@ -132,3 +138,4 @@ func (c *Client) InvalidateOAuthToken(log logger.Logger) error {
 
 	return nil
 }
+*/

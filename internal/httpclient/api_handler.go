@@ -20,6 +20,11 @@ type APIHandler interface {
 	UnmarshalResponse(resp *http.Response, out interface{}, log logger.Logger) error
 	GetContentTypeHeader(method string, log logger.Logger) string
 	GetAcceptHeader() string
+	GetDefaultBaseDomain() string
+	GetOAuthTokenEndpoint() string
+	GetBearerTokenEndpoint() string
+	GetTokenRefreshEndpoint() string
+	GetTokenInvalidateEndpoint() string
 }
 
 // LoadAPIHandler returns an APIHandler based on the provided API type.
