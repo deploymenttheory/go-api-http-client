@@ -29,8 +29,8 @@ func BuildLogger(logLevel LogLevel) Logger {
 		Level:             zap.NewAtomicLevelAt(zapLogLevel), // Default log level is Info
 		Development:       false,                             // Set to true if the logger is used in a development environment
 		Encoding:          "json",                            // Use JSON format for structured logging
-		DisableCaller:     false,
-		DisableStacktrace: false,
+		DisableCaller:     true,
+		DisableStacktrace: true,
 		Sampling:          nil,
 		EncoderConfig:     encoderCfg,
 		OutputPaths: []string{
