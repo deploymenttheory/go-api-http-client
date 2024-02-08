@@ -140,7 +140,7 @@ func (c *Client) RefreshToken(log logger.Logger) error {
 
 	if resp.StatusCode != http.StatusOK {
 		log.Warn("Token refresh response status is not OK", zap.Int("StatusCode", resp.StatusCode))
-		return errors.HandleAPIError(resp)
+		return errors.HandleAPIError(resp, log)
 	}
 
 	tokenResp := &TokenResponse{}

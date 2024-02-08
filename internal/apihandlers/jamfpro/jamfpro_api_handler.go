@@ -49,6 +49,7 @@ import (
 
 	_ "embed"
 
+	"github.com/deploymenttheory/go-api-http-client/internal/errors"
 	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 	"go.uber.org/zap"
 )
@@ -277,28 +278,36 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 	if strings.Contains(contentType, "text/html") {
 		errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
 		log.Warn("Received HTML content", zap.String("error_message", errMsg), zap.Int("status_code", resp.StatusCode))
-		return &APIError{
+		return &errors.APIError{
 			StatusCode: resp.StatusCode,
 			Message:    errMsg,
 		}
 	}
 
 	// Check for non-success status codes before attempting to unmarshal
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Parse the error details from the response body for JSON content type
-		if strings.Contains(contentType, "application/json") {
+if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	// Parse the error details from the response body for JSON content type
+	if strings.Contains(contentType, "application/json") {
 			description, err := ParseJSONErrorResponse(bodyBytes)
 			if err != nil {
-				log.Error("Failed to parse JSON error response", "error", err)
-				return fmt.Errorf("received non-success status code: %d and failed to parse error response", resp.StatusCode)
+					// Log the error using the structured logger and return the error
+					return nil, c.Logger.Error("Failed to parse JSON error response",
+							zap.Error(err),
+							zap.Int("status_code", resp.StatusCode),
+					)
 			}
-			return fmt.Errorf("received non-success status code: %d, error: %s", resp.StatusCode, description)
-		}
-
-		// If the response is not JSON or another error occurs, return a generic error message
-		log.Error("Received non-success status code", "status_code", resp.StatusCode)
-		return fmt.Errorf("received non-success status code: %d", resp.StatusCode)
+			// Log the error with description using the structured logger and return the error
+			return nil, c.Logger.Error("Received non-success status code with JSON response",
+					zap.Int("status_code", resp.StatusCode),
+					zap.String("error_description", description),
+			)
 	}
+
+	// If the response is not JSON or another error occurs, log a generic error message and return an error
+	return nil, c.Logger.Error("Received non-success status code without JSON response",
+			zap.Int("status_code", resp.StatusCode),
+	)
+}
 
 	// Determine whether the content type is JSON or XML and unmarshal accordingly
 	switch {
@@ -312,18 +321,22 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 	}
 
 	// Handle any errors that occurred during unmarshaling
-	if err != nil {
-		// If unmarshalling fails, check if the content might be HTML
-		if strings.Contains(string(bodyBytes), "<html>") {
+if err != nil {
+	// If unmarshalling fails, check if the content might be HTML
+	if strings.Contains(string(bodyBytes), "<html>") {
 			errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
-			log.Warn("Received HTML content instead of expected format", "error_message", errMsg, "status_code", resp.StatusCode)
-			return fmt.Errorf(errMsg)
-		}
-
-		// Log the error and return it
-		log.Error("Failed to unmarshal response", "error", err)
-		return fmt.Errorf("failed to unmarshal response: %v", err)
+			
+			// Log the warning and return an error using the structured logger
+			return nil, log.Warn("Received HTML content instead of expected format",
+					zap.String("error_message", errMsg),
+					zap.Int("status_code", resp.StatusCode),
+			)
 	}
+
+		// Log the error using the structured logger and return the error
+    return nil, log.Error("Failed to unmarshal response",
+        zap.Error(err),
+    )
 
 	return nil
 }
