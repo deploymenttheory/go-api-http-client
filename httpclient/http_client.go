@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/internal/logger"
+	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
