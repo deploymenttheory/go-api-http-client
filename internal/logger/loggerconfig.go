@@ -6,6 +6,7 @@ package logger
 import (
 	"os"
 
+	"github.com/deploymenttheory/go-api-http-client/internal/version"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -40,7 +41,7 @@ func BuildLogger(logLevel LogLevel) Logger {
 		},
 		InitialFields: map[string]interface{}{ // specifies global contextual fields that should be included in every log entry produced by each logger created from the Config object
 			"pid":         os.Getpid(),
-			"application": "your-application-name",
+			"application": version.GetAppName(),
 		},
 	}
 
