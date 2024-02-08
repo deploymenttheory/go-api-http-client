@@ -73,8 +73,8 @@ type Client struct {
 
 // BuildClient creates a new HTTP client with the provided configuration.
 func BuildClient(config Config) (*Client, error) {
-	// Initialize the logger using the NewDefaultLogger function from the logger package.
-	log := logger.NewDefaultLogger()
+	// Initialize the zap logger.
+	log := logger.BuildLogger(config.LogLevel)
 
 	// Set the logger's level based on the provided configuration.
 	log.SetLevel(config.LogLevel)

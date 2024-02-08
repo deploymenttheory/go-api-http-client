@@ -15,20 +15,19 @@ type LogLevel int
 
 const (
 	// LogLevelDebug is for messages that are useful during software debugging.
-	LogLevelDebug LogLevel = iota - 1 // Adjusted value to -1 to follow Zap's convention for DEBUG.
+	LogLevelDebug LogLevel = -1 // Zap's DEBUG level
 	// LogLevelInfo is for informational messages, indicating normal operation.
-	LogLevelInfo
+	LogLevelInfo LogLevel = 0 // Zap's INFO level
 	// LogLevelWarn is for messages that highlight potential issues in the system.
-	LogLevelWarn
+	LogLevelWarn LogLevel = 1 // Zap's WARN level
 	// LogLevelError is for messages that highlight errors in the application's execution.
-	LogLevelError
-	// LogLevelDPanic is for severe error conditions that are actionable in development. It panics in development and logs as an error in production.
-	LogLevelDPanic
+	LogLevelError LogLevel = 2 // Zap's ERROR level
+	// LogLevelDPanic is for severe error conditions that are actionable in development.
+	LogLevelDPanic LogLevel = 3 // Zap's DPANIC level
 	// LogLevelPanic is for severe error conditions that should cause the program to panic.
-	LogLevelPanic
+	LogLevelPanic LogLevel = 4 // Zap's PANIC level
 	// LogLevelFatal is for errors that require immediate program termination.
-	LogLevelFatal
-	// LogLevelNone is used to disable logging.
+	LogLevelFatal LogLevel = 5 // Zap's FATAL level
 	LogLevelNone
 )
 
@@ -51,41 +50,6 @@ type Logger interface {
 type defaultLogger struct {
 	logger   *zap.Logger // logger holds the reference to the zap.Logger instance.
 	logLevel LogLevel    // logLevel determines the current logging level (e.g., DEBUG, INFO, WARN).
-}
-
-// NewDefaultLogger creates and returns a new logger instance with a default production configuration.
-// It uses JSON formatting for log messages and sets the initial log level to Info. If the logger cannot
-// be initialized, the function panics to indicate a critical setup failure.
-func NewDefaultLogger() Logger {
-	// Set up custom encoder configuration
-	encoderCfg := zap.NewProductionEncoderConfig()
-	encoderCfg.TimeKey = "timestamp"
-	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder // Use ISO8601 format for timestamps
-
-	// Define the logger configuration
-	config := zap.Config{
-		Level:            zap.NewAtomicLevelAt(zap.InfoLevel), // Default log level is Info
-		Development:      false,                               // Set to true if the logger is used in a development environment
-		Encoding:         "json",                              // Use JSON format for structured logging
-		EncoderConfig:    encoderCfg,
-		OutputPaths:      []string{"stdout"}, // Log to standard output
-		ErrorOutputPaths: []string{"stderr"}, // Log internal Zap errors to standard error
-		InitialFields: map[string]interface{}{
-			"application": "your-application-name", // Customize this field to suit your needs
-		},
-	}
-
-	// Build the logger from the configuration
-	logger, err := config.Build()
-	if err != nil {
-		panic(err) // Panic if there is an error initializing the logger
-	}
-
-	// Wrap the Zap logger in your defaultLogger struct, which implements your Logger interface
-	return &defaultLogger{
-		logger:   logger,
-		logLevel: LogLevelInfo, // Assuming LogLevelInfo maps to zap.InfoLevel
-	}
 }
 
 // SetLevel updates the logging level of the logger. It controls the verbosity of the logs,
