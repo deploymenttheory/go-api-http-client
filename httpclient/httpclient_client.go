@@ -20,8 +20,8 @@ import (
 type Config struct {
 	// Required
 	InstanceName string
-	Auth         AuthConfig // User can either supply these values manually or pass from LoadAuthConfig/Env vars
-	APIType      string     `json:"apiType"`
+	Auth         AuthConfig        // User can either supply these values manually or pass from LoadAuthConfig/Env vars
+	APIType      EnvironmentConfig // User can either supply these values manually or pass from LoadAuthConfig/Env vars
 	// Optional
 	LogLevel                  logger.LogLevel // Field for defining tiered logging level.
 	MaxRetryAttempts          int             // Config item defines the max number of retry request attempts for retryable HTTP methods.
@@ -43,14 +43,19 @@ type PerformanceMetrics struct {
 	lock                 sync.Mutex
 }
 
-// ClientAuthConfig represents the structure to read authentication details from a JSON configuration file.
-type AuthConfig struct {
+// EnvironmentConfig represents the structure to read authentication details from a JSON configuration file.
+type EnvironmentConfig struct {
 	InstanceName       string `json:"instanceName,omitempty"`
 	OverrideBaseDomain string `json:"overrideBaseDomain,omitempty"`
-	Username           string `json:"username,omitempty"`
-	Password           string `json:"password,omitempty"`
-	ClientID           string `json:"clientID,omitempty"`
-	ClientSecret       string `json:"clientSecret,omitempty"`
+	APIType            string `json:"apiType,omitempty"`
+}
+
+// AuthConfig represents the structure to read authentication details from a JSON configuration file.
+type AuthConfig struct {
+	Username     string `json:"username,omitempty"`
+	Password     string `json:"password,omitempty"`
+	ClientID     string `json:"clientID,omitempty"`
+	ClientSecret string `json:"clientSecret,omitempty"`
 }
 
 // Client represents an HTTP client to interact with a specific API.
@@ -84,14 +89,14 @@ func BuildClient(config Config) (*Client, error) {
 	}
 
 	// Use the APIType from the config to determine which API handler to load
-	apiHandler, err := LoadAPIHandler(config.APIType, log)
+	apiHandler, err := LoadAPIHandler(config.APIType.APIType, log)
 	if err != nil {
-		return nil, log.Error("Failed to load API handler", zap.String("APIType", config.APIType), zap.Error(err))
+		return nil, log.Error("Failed to load API handler", zap.String("APIType", config.APIType.APIType), zap.Error(err))
 	}
 
 	log.Info("Initializing new HTTP client",
 		zap.String("InstanceName", config.InstanceName), // Using zap.String for structured logging
-		zap.String("APIType", config.APIType),           // Using zap.String for structured logging
+		zap.String("APIType", config.APIType.APIType),   // Using zap.String for structured logging
 		zap.Int("LogLevel", int(config.LogLevel)),       // Using zap.Int to log LogLevel as an integer
 	)
 
