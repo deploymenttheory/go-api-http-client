@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/internal/logger"
 	"go.uber.org/zap"
 )
 
@@ -26,12 +27,11 @@ func EnsureHTTPScheme(url string) string {
 }
 
 // CheckDeprecationHeader checks the response headers for the Deprecation header and logs a warning if present.
-func CheckDeprecationHeader(resp *http.Response, logger Logger) {
+func CheckDeprecationHeader(resp *http.Response, log logger.Logger) {
 	deprecationHeader := resp.Header.Get("Deprecation")
 	if deprecationHeader != "" {
-		// logger is an instance of defaultLogger that wraps a *zap.Logger
-		zapLogger := logger.(*defaultLogger).logger // Type assertion to access the underlying *zap.Logger
-		zapLogger.Warn("API endpoint is deprecated",
+
+		log.Warn("API endpoint is deprecated",
 			zap.String("Date", deprecationHeader),
 			zap.String("Endpoint", resp.Request.URL.String()),
 		)
