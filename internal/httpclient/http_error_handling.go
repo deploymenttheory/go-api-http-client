@@ -30,7 +30,7 @@ func (c *Client) HandleAPIError(resp *http.Response) error {
 	err := json.NewDecoder(resp.Body).Decode(&structuredErr)
 	if err == nil && structuredErr.Error.Message != "" {
 		// Using structured logging to log the structured error details
-		c.logger.Warn("API returned structured error",
+		c.Logger.Warn("API returned structured error",
 			zap.String("status", resp.Status),
 			zap.String("error_code", structuredErr.Error.Code),
 			zap.String("error_message", structuredErr.Error.Message),
@@ -46,13 +46,13 @@ func (c *Client) HandleAPIError(resp *http.Response) error {
 	if err != nil || errMsg == "" {
 		errMsg = fmt.Sprintf("Unexpected error with status code: %d", resp.StatusCode)
 		// Logging with structured fields
-		c.logger.Warn("Failed to decode API error message, using default error message",
+		c.Logger.Warn("Failed to decode API error message, using default error message",
 			zap.String("status", resp.Status),
 			zap.String("error_message", errMsg),
 		)
 	} else {
 		// Logging non-structured error as a warning with structured fields
-		c.logger.Warn("API returned non-structured error",
+		c.Logger.Warn("API returned non-structured error",
 			zap.String("status", resp.Status),
 			zap.String("error_message", errMsg),
 		)
