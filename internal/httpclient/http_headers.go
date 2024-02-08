@@ -1,30 +1,21 @@
 package httpclient
 
 import (
+	"fmt"
 	"net/http"
-
-	"github.com/deploymenttheory/go-api-http-client/internal/logger"
+	"strings"
 )
 
-// LogHTTPHeaders logs the HTTP headers of an HTTP request or response, with an option to hide sensitive information like the token in secure mode.
-func LogHTTPHeaders(log logger.Logger, headers http.Header, secureMode bool) {
-	var keysAndValues []interface{}
-	if secureMode {
-		for key, values := range headers {
-			if key != "Authorization" { // Exclude the token header
-				// Assuming each header has a single value for simplicity
-				keysAndValues = append(keysAndValues, key, values[0])
-			}
-		}
-	} else {
-		for key, values := range headers {
-			// Assuming each header has a single value for simplicity
-			keysAndValues = append(keysAndValues, key, values[0])
-		}
+// HeadersToString converts an http.Header map to a single string representation.
+func HeadersToString(headers http.Header) string {
+	var headerStrings []string
+
+	// Iterate over the map and append each key-value pair to the slice
+	for name, values := range headers {
+		// Combine each header's key with its values, which are joined by a comma
+		headerStrings = append(headerStrings, fmt.Sprintf("%s: %s", name, strings.Join(values, ", ")))
 	}
 
-	// Log the headers using the logger from the httpclient package
-	if len(keysAndValues) > 0 {
-		log.Debug("HTTP Headers", keysAndValues...)
-	}
+	// Join all header strings into a single string
+	return strings.Join(headerStrings, "; ")
 }
