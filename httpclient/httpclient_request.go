@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/internal/errors"
-	"github.com/deploymenttheory/go-api-http-client/internal/logger"
+	"github.com/deploymenttheory/go-api-http-client/errors"
+	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
@@ -96,7 +96,20 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	// Define header content type based on url and http method
 	contentType := apiHandler.GetContentTypeHeader(endpoint, log)
 	// Define Request Headers dynamically based on handler logic
-	acceptHeader := apiHandler.GetAcceptHeader()
+	acceptHeader := "application/x-x509-ca-cert;q=0.95," +
+		"application/pkix-cert;q=0.94," +
+		"application/pem-certificate-chain;q=0.93," +
+		"application/octet-stream;q=0.8," + // For general binary files
+		"image/png;q=0.75," +
+		"image/jpeg;q=0.74," +
+		"image/*;q=0.7," +
+		"application/xml;q=0.65," +
+		"text/xml;q=0.64," +
+		"text/xml;charset=UTF-8;q=0.63," +
+		"application/json;q=0.5," +
+		"text/html;q=0.5," +
+		"text/plain;q=0.4," +
+		"*/*;q=0.05"
 
 	// Set Headers
 	req.Header.Add("Authorization", "Bearer "+c.Token)

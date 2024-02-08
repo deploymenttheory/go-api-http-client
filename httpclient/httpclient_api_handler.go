@@ -4,8 +4,8 @@ package httpclient
 import (
 	"net/http"
 
-	"github.com/deploymenttheory/go-api-http-client/internal/apihandlers/jamfpro"
-	"github.com/deploymenttheory/go-api-http-client/internal/logger"
+	"github.com/deploymenttheory/go-api-http-client/apihandlers/jamfpro"
+	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +19,7 @@ type APIHandler interface {
 	MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error)
 	UnmarshalResponse(resp *http.Response, out interface{}, log logger.Logger) error
 	GetContentTypeHeader(method string, log logger.Logger) string
-	GetAcceptHeader() string
+	//GetAcceptHeader() string
 	GetDefaultBaseDomain() string
 	GetOAuthTokenEndpoint() string
 	GetBearerTokenEndpoint() string

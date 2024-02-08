@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/internal/errors"
-	"github.com/deploymenttheory/go-api-http-client/internal/logger"
+	"github.com/deploymenttheory/go-api-http-client/errors"
+	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 

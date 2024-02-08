@@ -3,7 +3,7 @@ package httpclient
 import (
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/internal/logger"
+	"github.com/deploymenttheory/go-api-http-client/logger"
 )
 
 const (

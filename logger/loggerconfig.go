@@ -6,7 +6,7 @@ package logger
 import (
 	"os"
 
-	"github.com/deploymenttheory/go-api-http-client/internal/version"
+	"github.com/deploymenttheory/go-api-http-client/version"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

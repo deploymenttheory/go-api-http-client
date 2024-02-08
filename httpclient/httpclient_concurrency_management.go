@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/internal/logger"
+	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
