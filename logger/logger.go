@@ -31,25 +31,26 @@ const (
 	LogLevelNone
 )
 
-// String returns the string representation of the LogLevel.
-func (l LogLevel) String() string {
-	switch l {
-	case LogLevelDebug:
-		return "LogLevelDebug"
-	case LogLevelInfo:
-		return "LogLevelInfo"
-	case LogLevelWarn:
-		return "LogLevelWarn"
-	case LogLevelError:
-		return "LogLevelError"
-	case LogLevelDPanic:
-		return "LogLevelDPanic"
-	case LogLevelPanic:
-		return "LogLevelPanic"
-	case LogLevelFatal:
-		return "LogLevelFatal"
+// ParseLogLevelFromString takes a string representation of the log level and returns the corresponding LogLevel.
+// Used to convert a string log level from a configuration file to a strongly-typed LogLevel.
+func ParseLogLevelFromString(levelStr string) LogLevel {
+	switch levelStr {
+	case "LogLevelDebug":
+		return LogLevelDebug
+	case "LogLevelInfo":
+		return LogLevelInfo
+	case "LogLevelWarn":
+		return LogLevelWarn
+	case "LogLevelError":
+		return LogLevelError
+	case "LogLevelDPanic":
+		return LogLevelDPanic
+	case "LogLevelPanic":
+		return LogLevelPanic
+	case "LogLevelFatal":
+		return LogLevelFatal
 	default:
-		return "Unknown"
+		return LogLevelNone
 	}
 }
 

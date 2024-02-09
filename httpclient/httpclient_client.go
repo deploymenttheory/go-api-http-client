@@ -58,11 +58,11 @@ type AuthConfig struct {
 
 // ClientOptions holds optional configuration options for the HTTP Client.
 type ClientOptions struct {
-	LogLevel                  logger.LogLevel // Field for defining tiered logging level.
-	HideSensitiveData         bool            // Field for defining whether sensitive fields should be hidden in logs.
-	MaxRetryAttempts          int             // Config item defines the max number of retry request attempts for retryable HTTP methods.
-	EnableDynamicRateLimiting bool            // Field for defining whether dynamic rate limiting should be enabled.
-	MaxConcurrentRequests     int             // Field for defining the maximum number of concurrent requests allowed in the semaphore
+	LogLevel                  string // Field for defining tiered logging level.
+	HideSensitiveData         bool   // Field for defining whether sensitive fields should be hidden in logs.
+	MaxRetryAttempts          int    // Config item defines the max number of retry request attempts for retryable HTTP methods.
+	EnableDynamicRateLimiting bool   // Field for defining whether dynamic rate limiting should be enabled.
+	MaxConcurrentRequests     int    // Field for defining the maximum number of concurrent requests allowed in the semaphore
 	TokenRefreshBufferPeriod  time.Duration
 	TotalRetryDuration        time.Duration
 	CustomTimeout             time.Duration
@@ -81,15 +81,14 @@ type PerformanceMetrics struct {
 
 // BuildClient creates a new HTTP client with the provided configuration.
 func BuildClient(config ClientConfig) (*Client, error) {
-	// Initialize the zap logger.
-	log := logger.BuildLogger(config.ClientOptions.LogLevel)
+	// Parse the log level string to logger.LogLevel
+	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.LogLevel)
 
-	// Set the logger's level based on the provided configuration.
-	log.SetLevel(config.ClientOptions.LogLevel)
+	// Initialize the logger with the parsed log level
+	log := logger.BuildLogger(parsedLogLevel)
 
-	if config.ClientOptions.LogLevel < logger.LogLevelDebug || config.ClientOptions.LogLevel > logger.LogLevelFatal {
-		return nil, log.Error("Invalid LogLevel setting", zap.Int("Provided LogLevel", int(config.ClientOptions.LogLevel)))
-	}
+	// Set the logger's level (optional if BuildLogger already sets the level based on the input)
+	log.SetLevel(parsedLogLevel)
 
 	// Use the APIType from the config to determine which API handler to load
 	apiHandler, err := LoadAPIHandler(config.Environment.APIType, log)
@@ -165,7 +164,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.String("Instance Name", client.InstanceName),
 		zap.String("Override Base Domain", config.Environment.OverrideBaseDomain),
 		zap.String("Authentication Method", authMethod),
-		zap.String("Logging Level", config.ClientOptions.LogLevel.String()),
+		zap.String("Logging Level", config.ClientOptions.LogLevel),
 		zap.Bool("Hide Sensitive Data In Logs", config.ClientOptions.HideSensitiveData),
 		zap.Int("Max Retry Attempts", config.ClientOptions.MaxRetryAttempts),
 		zap.Int("Max Concurrent Requests", config.ClientOptions.MaxConcurrentRequests),
