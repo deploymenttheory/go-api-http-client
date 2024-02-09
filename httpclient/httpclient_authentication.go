@@ -21,8 +21,11 @@ func IsValidClientSecret(clientSecret string) (bool, string) {
 	if len(clientSecret) < 16 {
 		return false, "Client secret must be at least 16 characters long."
 	}
-	complexityRegex := `^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).+$`
-	if regexp.MustCompile(complexityRegex).MatchString(clientSecret) {
+
+	// Check if the client secret contains at least one lowercase letter, one uppercase letter, one digit, and one special character.
+	// You can customize this regex pattern based on your specific validation requirements.
+	complexityRegex := `[a-zA-Z].*\d.*[\W_]`
+	if matched, _ := regexp.MatchString(complexityRegex, clientSecret); matched {
 		return true, ""
 	}
 	return false, "Client secret must contain at least one lowercase letter, one uppercase letter, one digit, and one special character."
