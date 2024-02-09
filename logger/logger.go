@@ -31,6 +31,28 @@ const (
 	LogLevelNone
 )
 
+// String returns the string representation of the LogLevel.
+func (l LogLevel) String() string {
+	switch l {
+	case LogLevelDebug:
+		return "LogLevelDebug"
+	case LogLevelInfo:
+		return "LogLevelInfo"
+	case LogLevelWarn:
+		return "LogLevelWarn"
+	case LogLevelError:
+		return "LogLevelError"
+	case LogLevelDPanic:
+		return "LogLevelDPanic"
+	case LogLevelPanic:
+		return "LogLevelPanic"
+	case LogLevelFatal:
+		return "LogLevelFatal"
+	default:
+		return "Unknown"
+	}
+}
+
 // Logger interface with structured logging capabilities at various levels.
 type Logger interface {
 	SetLevel(level LogLevel)

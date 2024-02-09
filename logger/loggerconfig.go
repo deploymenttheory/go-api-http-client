@@ -4,9 +4,6 @@ package logger
 // Ref: https://betterstack.com/community/guides/logging/go/zap/#logging-errors-with-zap
 
 import (
-	"os"
-
-	"github.com/deploymenttheory/go-api-http-client/version"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -40,8 +37,8 @@ func BuildLogger(logLevel LogLevel) Logger {
 			"stderr", // Log internal Zap errors to standard error
 		},
 		InitialFields: map[string]interface{}{ // specifies global contextual fields that should be included in every log entry produced by each logger created from the Config object
-			"pid":         os.Getpid(),
-			"application": version.GetAppName(),
+			//"pid":         os.Getpid(),
+			//"application": version.GetAppName(),
 		},
 	}
 

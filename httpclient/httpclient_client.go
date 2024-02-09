@@ -93,11 +93,7 @@ func BuildClient(config Config) (*Client, error) {
 		return nil, log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
 	}
 
-	log.Info("Initializing new HTTP client",
-		zap.String("InstanceName", config.Environment.APIType), // Using zap.String for structured logging
-		zap.String("APIType", config.Environment.APIType),      // Using zap.String for structured logging
-		zap.Int("LogLevel", int(config.LogLevel)),              // Using zap.Int to log LogLevel as an integer
-	)
+	log.Info("Initializing new HTTP client with the provided configuration")
 
 	// Validate and set default values for the configuration
 	if config.Environment.APIType == "" {
@@ -139,20 +135,18 @@ func BuildClient(config Config) (*Client, error) {
 		log.Info("CustomTimeout not set, set to default value", zap.Duration("CustomTimeout", DefaultTimeout))
 	}
 
-	// Determine the authentication method
-	AuthMethod := "unknown"
-	if config.Auth.Username != "" && config.Auth.Password != "" {
-		AuthMethod = "bearer"
-	} else if config.Auth.ClientID != "" && config.Auth.ClientSecret != "" {
-		AuthMethod = "oauth"
-	} else {
-		return nil, log.Error("Invalid AuthConfig", zap.String("Username", config.Auth.Username), zap.String("ClientID", config.Auth.ClientID))
+	// Determine the authentication method using the helper function
+	authMethod, err := DetermineAuthMethod(config.Auth)
+	if err != nil {
+		log.Error("Failed to determine authentication method", zap.Error(err))
+		return nil, err
 	}
 
+	// Create a new HTTP client with the provided configuration.
 	client := &Client{
 		InstanceName:   config.Environment.APIType,
 		APIHandler:     apiHandler,
-		AuthMethod:     AuthMethod,
+		AuthMethod:     authMethod,
 		httpClient:     &http.Client{Timeout: config.CustomTimeout},
 		config:         config,
 		Logger:         log,
@@ -160,15 +154,20 @@ func BuildClient(config Config) (*Client, error) {
 		PerfMetrics:    PerformanceMetrics{},
 	}
 
-	// Authenticate and check token validity.
-	_, err = client.ValidAuthTokenCheck(client.Logger)
-	if err != nil {
-		return nil, log.Error("Failed to validate or obtain auth token", zap.Error(err))
-	}
-
-	go client.StartMetricEvaluation()
-
-	log.Info("New client initialized", zap.String("InstanceName", client.InstanceName), zap.String("AuthMethod", AuthMethod), zap.Int("MaxRetryAttempts", config.MaxRetryAttempts), zap.Int("MaxConcurrentRequests", config.MaxConcurrentRequests), zap.Bool("EnableDynamicRateLimiting", config.EnableDynamicRateLimiting))
+	// Log the client's configuration.
+	log.Info("New API client initialized",
+		zap.String("API Service", config.Environment.APIType),
+		zap.String("Instance Name", client.InstanceName),
+		zap.String("OverrideBaseDomain", config.Environment.OverrideBaseDomain),
+		zap.String("AuthMethod", authMethod),
+		zap.Int("MaxRetryAttempts", config.MaxRetryAttempts),
+		zap.Int("MaxConcurrentRequests", config.MaxConcurrentRequests),
+		zap.Bool("EnableDynamicRateLimiting", config.EnableDynamicRateLimiting),
+		zap.Duration("TokenRefreshBufferPeriod", config.TokenRefreshBufferPeriod),
+		zap.Duration("TotalRetryDuration", config.TotalRetryDuration),
+		zap.Duration("CustomTimeout", config.CustomTimeout),
+		zap.String("LogLevel", config.LogLevel.String()),
+	)
 
 	return client, nil
 
