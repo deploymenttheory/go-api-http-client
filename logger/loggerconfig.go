@@ -48,9 +48,13 @@ func BuildLogger(logLevel LogLevel) Logger {
 	// Build the logger from the configuration
 	logger := zap.Must(config.Build())
 
+	// Wrap the original core with the custom core
+	wrappedCore := &customCore{logger.Core()}
+	wrappedLogger := zap.New(wrappedCore)
+
 	// Wrap the Zap logger in your defaultLogger struct, which implements the Logger interface
 	return &defaultLogger{
-		logger:   logger,
+		logger:   wrappedLogger,
 		logLevel: logLevel,
 	}
 }
