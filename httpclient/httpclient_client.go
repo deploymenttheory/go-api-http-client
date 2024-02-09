@@ -59,9 +59,10 @@ type AuthConfig struct {
 // ClientOptions holds optional configuration options for the HTTP Client.
 type ClientOptions struct {
 	LogLevel                  logger.LogLevel // Field for defining tiered logging level.
+	HideSensitiveData         bool            // Field for defining whether sensitive fields should be hidden in logs.
 	MaxRetryAttempts          int             // Config item defines the max number of retry request attempts for retryable HTTP methods.
-	EnableDynamicRateLimiting bool
-	MaxConcurrentRequests     int // Field for defining the maximum number of concurrent requests allowed in the semaphore
+	EnableDynamicRateLimiting bool            // Field for defining whether dynamic rate limiting should be enabled.
+	MaxConcurrentRequests     int             // Field for defining the maximum number of concurrent requests allowed in the semaphore
 	TokenRefreshBufferPeriod  time.Duration
 	TotalRetryDuration        time.Duration
 	CustomTimeout             time.Duration
@@ -160,17 +161,18 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Log the client's configuration.
 	log.Info("New API client initialized",
-		zap.String("API Service", config.Environment.APIType),
+		zap.String("API Type", config.Environment.APIType),
 		zap.String("Instance Name", client.InstanceName),
-		zap.String("OverrideBaseDomain", config.Environment.OverrideBaseDomain),
-		zap.String("AuthMethod", authMethod),
-		zap.Int("MaxRetryAttempts", config.ClientOptions.MaxRetryAttempts),
-		zap.Int("MaxConcurrentRequests", config.ClientOptions.MaxConcurrentRequests),
-		zap.Bool("EnableDynamicRateLimiting", config.ClientOptions.EnableDynamicRateLimiting),
-		zap.Duration("TokenRefreshBufferPeriod", config.ClientOptions.TokenRefreshBufferPeriod),
-		zap.Duration("TotalRetryDuration", config.ClientOptions.TotalRetryDuration),
-		zap.Duration("CustomTimeout", config.ClientOptions.CustomTimeout),
-		zap.String("LogLevel", config.ClientOptions.LogLevel.String()),
+		zap.String("Override Base Domain", config.Environment.OverrideBaseDomain),
+		zap.String("Authentication Method", authMethod),
+		zap.String("Logging Level", config.ClientOptions.LogLevel.String()),
+		zap.Bool("Hide Sensitive Data In Logs", config.ClientOptions.HideSensitiveData),
+		zap.Int("Max Retry Attempts", config.ClientOptions.MaxRetryAttempts),
+		zap.Int("Max Concurrent Requests", config.ClientOptions.MaxConcurrentRequests),
+		zap.Bool("Enable Dynamic Rate Limiting", config.ClientOptions.EnableDynamicRateLimiting),
+		zap.Duration("Token Refresh Buffer Period", config.ClientOptions.TokenRefreshBufferPeriod),
+		zap.Duration("Total Retry Duration", config.ClientOptions.TotalRetryDuration),
+		zap.Duration("Custom Timeout", config.ClientOptions.CustomTimeout),
 	)
 
 	return client, nil
