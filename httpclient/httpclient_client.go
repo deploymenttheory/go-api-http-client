@@ -160,15 +160,19 @@ func BuildClient(config Config) (*Client, error) {
 		PerfMetrics:    PerformanceMetrics{},
 	}
 
-	// Authenticate and check token validity.
-	_, err = client.ValidAuthTokenCheck(client.Logger)
-	if err != nil {
-		return nil, log.Error("Failed to validate or obtain auth token", zap.Error(err))
-	}
-
-	go client.StartMetricEvaluation()
-
-	log.Info("New client initialized", zap.String("InstanceName", client.InstanceName), zap.String("AuthMethod", AuthMethod), zap.Int("MaxRetryAttempts", config.MaxRetryAttempts), zap.Int("MaxConcurrentRequests", config.MaxConcurrentRequests), zap.Bool("EnableDynamicRateLimiting", config.EnableDynamicRateLimiting))
+	log.Info("New API client initialized",
+		zap.String("API Service", config.Environment.APIType),
+		zap.String("Instance Name", client.InstanceName),
+		zap.String("OverrideBaseDomain", config.Environment.OverrideBaseDomain),
+		zap.String("AuthMethod", AuthMethod),
+		zap.Int("MaxRetryAttempts", config.MaxRetryAttempts),
+		zap.Int("MaxConcurrentRequests", config.MaxConcurrentRequests),
+		zap.Bool("EnableDynamicRateLimiting", config.EnableDynamicRateLimiting),
+		zap.Duration("TokenRefreshBufferPeriod", config.TokenRefreshBufferPeriod),
+		zap.Duration("TotalRetryDuration", config.TotalRetryDuration),
+		zap.Duration("CustomTimeout", config.CustomTimeout),
+		zap.String("LogLevel", config.LogLevel.String()), // Assuming LogLevel has a String() method for representation
+	)
 
 	return client, nil
 
