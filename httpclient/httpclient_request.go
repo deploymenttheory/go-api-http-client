@@ -112,14 +112,19 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 		"*/*;q=0.05"
 
 	// Set Headers
-	req.Header.Add("Authorization", "Bearer "+c.Token)
+	req.Header.Add("Authorization", c.Token)
 	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("Accept", acceptHeader)
 	req.Header.Set("User-Agent", GetUserAgentHeader())
 
-	// Debug: Print request headers if in debug mode
-	headersStr := HeadersToString(req.Header)
-	log.Debug("HTTP Multipart Request Headers:", zap.String("headers", headersStr))
+	// Debug: Print request headers
+	redactedAuthorization := RedactSensitiveData(c, "Authorization", req.Header.Get("Authorization"))
+	c.Logger.Debug("HTTP Request Headers",
+		zap.String("Authorization", redactedAuthorization),
+		zap.String("Content-Type", req.Header.Get("Content-Type")),
+		zap.String("Accept", req.Header.Get("Accept")),
+		zap.String("User-Agent", req.Header.Get("User-Agent")),
+	)
 
 	// Define if request is retryable
 	retryableHTTPMethods := map[string]bool{
@@ -383,9 +388,14 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("User-Agent", GetUserAgentHeader())
 
-	// Debug: Print request headers if in debug mode
-	headersStr := HeadersToString(req.Header)
-	log.Debug("HTTP Multipart Request Headers:", zap.String("headers", headersStr))
+	// Debug: Print request headers
+	redactedAuthorization := RedactSensitiveData(c, "Authorization", req.Header.Get("Authorization"))
+	c.Logger.Debug("HTTP Request Headers",
+		zap.String("Authorization", redactedAuthorization),
+		zap.String("Content-Type", req.Header.Get("Content-Type")),
+		zap.String("Accept", req.Header.Get("Accept")),
+		zap.String("User-Agent", req.Header.Get("User-Agent")),
+	)
 
 	// Execute the request
 	resp, err := c.httpClient.Do(req)
