@@ -144,7 +144,7 @@ func BuildClient(config Config) (*Client, error) {
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
-		InstanceName:   config.Environment.APIType,
+		InstanceName:   config.Environment.InstanceName,
 		APIHandler:     apiHandler,
 		AuthMethod:     authMethod,
 		httpClient:     &http.Client{Timeout: config.CustomTimeout},

@@ -320,7 +320,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 			}
 
 			// Return an error with the status code and its description
-			return resp, fmt.Errorf("Error status code: %d - %s", resp.StatusCode, statusDescription)
+			return resp, fmt.Errorf("error status code: %d - %s", resp.StatusCode, statusDescription)
 		}
 	}
 	// TODO refactor to remove repition.
