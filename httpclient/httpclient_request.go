@@ -112,7 +112,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 		"*/*;q=0.05"
 
 	// Set Headers
-	req.Header.Add("Authorization", c.Token)
+	req.Header.Add("Authorization", "Bearer "+c.Token)
 	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("Accept", acceptHeader)
 	req.Header.Set("User-Agent", GetUserAgentHeader())
