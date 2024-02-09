@@ -93,11 +93,7 @@ func BuildClient(config Config) (*Client, error) {
 		return nil, log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
 	}
 
-	log.Info("Initializing new HTTP client",
-		zap.String("InstanceName", config.Environment.APIType), // Using zap.String for structured logging
-		zap.String("APIType", config.Environment.APIType),      // Using zap.String for structured logging
-		zap.Int("LogLevel", int(config.LogLevel)),              // Using zap.Int to log LogLevel as an integer
-	)
+	log.Info("Initializing new HTTP client with the provided configuration")
 
 	// Validate and set default values for the configuration
 	if config.Environment.APIType == "" {
@@ -149,6 +145,7 @@ func BuildClient(config Config) (*Client, error) {
 		return nil, log.Error("Invalid AuthConfig", zap.String("Username", config.Auth.Username), zap.String("ClientID", config.Auth.ClientID))
 	}
 
+	// Create a new HTTP client with the provided configuration.
 	client := &Client{
 		InstanceName:   config.Environment.APIType,
 		APIHandler:     apiHandler,
@@ -160,6 +157,7 @@ func BuildClient(config Config) (*Client, error) {
 		PerfMetrics:    PerformanceMetrics{},
 	}
 
+	// Log the client's configuration.
 	log.Info("New API client initialized",
 		zap.String("API Service", config.Environment.APIType),
 		zap.String("Instance Name", client.InstanceName),
