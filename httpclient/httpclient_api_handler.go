@@ -12,9 +12,8 @@ import (
 // APIHandler is an interface for encoding, decoding, and implenting contexual api functions for different API implementations.
 // It encapsulates behavior for encoding and decoding requests and responses.
 type APIHandler interface {
-	GetBaseDomain() string
-	ConstructAPIResourceEndpoint(endpointPath string, log logger.Logger) string
-	ConstructAPIAuthEndpoint(endpointPath string, log logger.Logger) string
+	ConstructAPIResourceEndpoint(instanceName string, endpointPath string, log logger.Logger) string
+	ConstructAPIAuthEndpoint(instanceName string, endpointPath string, log logger.Logger) string
 	MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error)
 	MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error)
 	UnmarshalResponse(resp *http.Response, out interface{}, log logger.Logger) error
@@ -25,6 +24,9 @@ type APIHandler interface {
 	GetBearerTokenEndpoint() string
 	GetTokenRefreshEndpoint() string
 	GetTokenInvalidateEndpoint() string
+	GetAPIBearerTokenAuthenticationSupportStatus() bool
+	GetAPIOAuthAuthenticationSupportStatus() bool
+	GetAPIOAuthWithCertAuthenticationSupportStatus() bool
 }
 
 // LoadAPIHandler returns an APIHandler based on the provided API type.

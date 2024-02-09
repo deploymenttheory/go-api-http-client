@@ -44,8 +44,11 @@ func (c *Client) SetOAuthCredentials(credentials OAuthCredentials) {
 // It updates the client's Token and Expiry fields with the obtained values.
 func (c *Client) ObtainOAuthToken(credentials AuthConfig, log logger.Logger) error {
 
+	// Use the APIHandler's method to get the OAuth token endpoint
 	oauthTokenEndpoint := c.APIHandler.GetOAuthTokenEndpoint()
-	authenticationEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(oauthTokenEndpoint, c.Logger)
+
+	// Construct the full authentication endpoint URL
+	authenticationEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(c.InstanceName, oauthTokenEndpoint, c.Logger)
 
 	data := url.Values{}
 	data.Set("client_id", credentials.ClientID)
