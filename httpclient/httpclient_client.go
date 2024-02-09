@@ -135,14 +135,14 @@ func BuildClient(config Config) (*Client, error) {
 		log.Info("CustomTimeout not set, set to default value", zap.Duration("CustomTimeout", DefaultTimeout))
 	}
 
-	// Determine the authentication method
+	// Determine the authentication method, preferring OAuth over bearer token if both are provided
 	AuthMethod := "unknown"
-	if config.Auth.Username != "" && config.Auth.Password != "" {
-		AuthMethod = "bearer"
-	} else if config.Auth.ClientID != "" && config.Auth.ClientSecret != "" {
+	if config.Auth.ClientID != "" && config.Auth.ClientSecret != "" {
 		AuthMethod = "oauth"
+	} else if config.Auth.Username != "" && config.Auth.Password != "" {
+		AuthMethod = "bearer"
 	} else {
-		return nil, log.Error("Invalid AuthConfig", zap.String("Username", config.Auth.Username), zap.String("ClientID", config.Auth.ClientID))
+		return nil, log.Error("No valid credentials provided. Unable to determine authentication method.")
 	}
 
 	// Create a new HTTP client with the provided configuration.
