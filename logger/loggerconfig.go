@@ -4,14 +4,21 @@ package logger
 // Ref: https://betterstack.com/community/guides/logging/go/zap/#logging-errors-with-zap
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+)
+
+const (
+	LogOutputJSON          = "json"
+	LogOutputHumanReadable = "human-readable"
 )
 
 // BuildLogger creates and returns a new zap logger instance.
 // It configures the logger with JSON formatting and a custom encoder to ensure the 'pid', 'application', and 'timestamp' fields
 // appear at the end of each log message. The function panics if the logger cannot be initialized.
-func BuildLogger(logLevel LogLevel) Logger {
+func BuildLogger(logLevel LogLevel, logOutputFormat string) Logger {
 
 	// Set up custom encoder configuration
 	encoderCfg := zap.NewProductionEncoderConfig()
@@ -20,6 +27,11 @@ func BuildLogger(logLevel LogLevel) Logger {
 
 	// Convert the custom LogLevel to zap's logging level
 	zapLogLevel := convertToZapLevel(logLevel)
+
+	// Select the appropriate encoder based on the logOutputFormat
+	if logOutputFormat == LogOutputHumanReadable {
+		encoderCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder // For human-readable output, use colored level encoder
+	}
 
 	// Define the logger configuration
 	config := zap.Config{
@@ -41,9 +53,20 @@ func BuildLogger(logLevel LogLevel) Logger {
 			//"application": version.GetAppName(),
 		},
 	}
+	/*
+		// Build the logger from the configuration
+		logger := zap.Must(config.Build())
+	*/
+	// Override Encoding for human-readable format
+	if logOutputFormat == LogOutputHumanReadable {
+		config.Encoding = "console"
+	}
 
 	// Build the logger from the configuration
-	logger := zap.Must(config.Build())
+	logger, err := config.Build()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to build logger: %v", err))
+	}
 
 	// Wrap the original core with the custom core
 	wrappedCore := &customCore{logger.Core()}
