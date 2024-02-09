@@ -30,8 +30,11 @@ func (c *Client) SetBearerTokenAuthCredentials(credentials BearerTokenAuthCreden
 // ObtainToken fetches and sets an authentication token using the stored basic authentication credentials.
 func (c *Client) ObtainToken(log logger.Logger) error {
 
+	// Use the APIHandler's method to get the bearer token endpoint
 	bearerTokenEndpoint := c.APIHandler.GetBearerTokenEndpoint()
-	authenticationEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(bearerTokenEndpoint, c.Logger)
+
+	// Construct the full authentication endpoint URL
+	authenticationEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(c.InstanceName, bearerTokenEndpoint, c.Logger)
 
 	log.Debug("Attempting to obtain token for user", zap.String("Username", c.BearerTokenAuthCredentials.Username))
 
@@ -70,49 +73,6 @@ func (c *Client) ObtainToken(log logger.Logger) error {
 	return nil
 }
 
-/*
-// RefreshToken refreshes the current authentication token.
-func (c *Client) RefreshToken() error {
-	c.tokenLock.Lock()
-	defer c.tokenLock.Unlock()
-
-	tokenRefreshEndpoint := c.ConstructAPIAuthEndpoint(TokenRefreshEndpoint)
-
-	req, err := http.NewRequest("POST", tokenRefreshEndpoint, nil)
-	if err != nil {
-		log.Error("Failed to create new request for token refresh", "error", err)
-		return err
-	}
-	req.Header.Add("Authorization", "Bearer "+c.Token)
-
-	log.Debug("Attempting to refresh token", "URL", tokenRefreshEndpoint)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		log.Error("Failed to make request for token refresh", "error", err)
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Warn("Token refresh response status is not OK", "StatusCode", resp.StatusCode)
-		return c.HandleAPIError(resp)
-	}
-
-	tokenResp := &TokenResponse{}
-	err = json.NewDecoder(resp.Body).Decode(tokenResp)
-	if err != nil {
-		log.Error("Failed to decode token response", "error", err)
-		return err
-	}
-
-	log.Info("Token refreshed successfully", "Expiry", tokenResp.Expires)
-
-	c.Token = tokenResp.Token
-	c.Expiry = tokenResp.Expires
-	return nil
-}
-*/
 // RefreshToken refreshes the current authentication token.
 func (c *Client) RefreshToken(log logger.Logger) error {
 	c.tokenLock.Lock()
@@ -120,7 +80,8 @@ func (c *Client) RefreshToken(log logger.Logger) error {
 
 	apiTokenRefreshEndpoint := c.APIHandler.GetTokenRefreshEndpoint()
 
-	tokenRefreshEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(apiTokenRefreshEndpoint, c.Logger)
+	// Construct the full authentication endpoint URL
+	tokenRefreshEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(c.InstanceName, apiTokenRefreshEndpoint, c.Logger)
 
 	req, err := http.NewRequest("POST", tokenRefreshEndpoint, nil)
 	if err != nil {

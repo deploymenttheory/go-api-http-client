@@ -54,15 +54,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Endpoint constants represent the URL suffixes used for Jamf API token interactions.
-const (
-	DefaultBaseDomain       = ".jamfcloud.com"                // DefaultBaseDomain: represents the base domain for the jamf instance.
-	OAuthTokenEndpoint      = "/api/oauth/token"              // OAuthTokenEndpoint: The endpoint to obtain an OAuth token.
-	BearerTokenEndpoint     = "/api/v1/auth/token"            // BearerTokenEndpoint: The endpoint to obtain a bearer token.
-	TokenRefreshEndpoint    = "/api/v1/auth/keep-alive"       // TokenRefreshEndpoint: The endpoint to refresh an existing token.
-	TokenInvalidateEndpoint = "/api/v1/auth/invalidate-token" // TokenInvalidateEndpoint: The endpoint to invalidate an active token.
-)
-
 // ConfigMap is a map that associates endpoint URL patterns with their corresponding configurations.
 // The map's keys are strings that identify the endpoint, and the values are EndpointConfig structs
 // that hold the configuration for that endpoint.
@@ -119,29 +110,49 @@ type Logger interface {
 
 // Functions
 
+// GetDefaultBaseDomain returns the default base domain used for constructing API URLs.
 func (j *JamfAPIHandler) GetDefaultBaseDomain() string {
 	return DefaultBaseDomain
 }
 
+// GetOAuthTokenEndpoint returns the endpoint for obtaining an OAuth token. Used for constructing API URLs.
 func (j *JamfAPIHandler) GetOAuthTokenEndpoint() string {
 	return OAuthTokenEndpoint
 }
 
+// GetBearerTokenEndpoint returns the endpoint for obtaining a bearer token. Used for constructing API URLs.
 func (j *JamfAPIHandler) GetBearerTokenEndpoint() string {
 	return BearerTokenEndpoint
 }
 
+// GetTokenRefreshEndpoint returns the endpoint for refreshing an existing token. Used for constructing API URLs.
 func (j *JamfAPIHandler) GetTokenRefreshEndpoint() string {
 	return TokenRefreshEndpoint
 }
 
+// GetTokenInvalidateEndpoint returns the endpoint for invalidating an active token. Used for constructing API URLs.
 func (j *JamfAPIHandler) GetTokenInvalidateEndpoint() string {
 	return TokenInvalidateEndpoint
 }
 
-// GetBaseDomain returns the appropriate base domain for URL construction.
-// It uses OverrideBaseDomain if set, otherwise falls back to DefaultBaseDomain.
-func (j *JamfAPIHandler) GetBaseDomain() string {
+// GetAPIBearerTokenAuthenticationSupportStatus returns a boolean indicating if bearer token authentication is supported in the api handler.
+func (j *JamfAPIHandler) GetAPIBearerTokenAuthenticationSupportStatus() bool {
+	return BearerTokenAuthenticationSupport
+}
+
+// GetAPIOAuthAuthenticationSupportStatus returns a boolean indicating if OAuth authentication is supported in the api handler.
+func (j *JamfAPIHandler) GetAPIOAuthAuthenticationSupportStatus() bool {
+	return OAuthAuthenticationSupport
+}
+
+// GetAPIOAuthWithCertAuthenticationSupportStatus returns a boolean indicating if OAuth with client certificate authentication is supported in the api handler.
+func (j *JamfAPIHandler) GetAPIOAuthWithCertAuthenticationSupportStatus() bool {
+	return OAuthWithCertAuthenticationSupport
+}
+
+// SetBaseDomain returns the appropriate base domain for URL construction.
+// It uses j.OverrideBaseDomain if set, otherwise falls back to DefaultBaseDomain.
+func (j *JamfAPIHandler) SetBaseDomain() string {
 	if j.OverrideBaseDomain != "" {
 		return j.OverrideBaseDomain
 	}
@@ -149,18 +160,18 @@ func (j *JamfAPIHandler) GetBaseDomain() string {
 }
 
 // ConstructAPIResourceEndpoint constructs the full URL for a Jamf API resource endpoint path and logs the URL.
-func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(endpointPath string, log logger.Logger) string {
-	baseDomain := j.GetBaseDomain()
-	url := fmt.Sprintf("https://%s%s%s", j.InstanceName, baseDomain, endpointPath)
-	log.Info("Constructed API resource endpoint URL", zap.String("URL", url))
+func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(instanceName string, endpointPath string, log logger.Logger) string {
+	urlBaseDomain := j.SetBaseDomain()
+	url := fmt.Sprintf("https://%s%s%s", instanceName, urlBaseDomain, endpointPath)
+	log.Info(fmt.Sprintf("Constructed %s API resource endpoint URL", APIName), zap.String("URL", url))
 	return url
 }
 
 // ConstructAPIAuthEndpoint constructs the full URL for a Jamf API auth endpoint path and logs the URL.
-func (j *JamfAPIHandler) ConstructAPIAuthEndpoint(endpointPath string, log logger.Logger) string {
-	baseDomain := j.GetBaseDomain()
-	url := fmt.Sprintf("https://%s%s%s", j.InstanceName, baseDomain, endpointPath)
-	log.Info("Constructed API authentication URL", zap.String("URL", url))
+func (j *JamfAPIHandler) ConstructAPIAuthEndpoint(instanceName string, endpointPath string, log logger.Logger) string {
+	urlBaseDomain := j.SetBaseDomain()
+	url := fmt.Sprintf("https://%s%s%s", instanceName, urlBaseDomain, endpointPath)
+	log.Info(fmt.Sprintf("Constructed %s API authentication URL", APIName), zap.String("URL", url))
 	return url
 }
 

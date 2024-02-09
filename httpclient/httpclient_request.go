@@ -80,7 +80,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := apiHandler.ConstructAPIResourceEndpoint(endpoint, log)
+	url := apiHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
 
 	// Initialize total request counter
 	c.PerfMetrics.lock.Lock()
@@ -370,7 +370,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := apiHandler.ConstructAPIResourceEndpoint(endpoint, log)
+	url := apiHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
 
 	// Create the request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
