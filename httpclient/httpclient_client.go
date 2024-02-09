@@ -171,7 +171,7 @@ func BuildClient(config Config) (*Client, error) {
 		zap.Duration("TokenRefreshBufferPeriod", config.TokenRefreshBufferPeriod),
 		zap.Duration("TotalRetryDuration", config.TotalRetryDuration),
 		zap.Duration("CustomTimeout", config.CustomTimeout),
-		zap.String("LogLevel", config.LogLevel.String()), // Assuming LogLevel has a String() method for representation
+		zap.String("LogLevel", config.LogLevel.String()),
 	)
 
 	return client, nil
