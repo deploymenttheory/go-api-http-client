@@ -166,6 +166,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.String("Override Base Domain", config.Environment.OverrideBaseDomain),
 		zap.String("Authentication Method", authMethod),
 		zap.String("Logging Level", config.ClientOptions.LogLevel),
+		zap.String("Log Output Format", config.ClientOptions.LogOutputFormat),
 		zap.Bool("Hide Sensitive Data In Logs", config.ClientOptions.HideSensitiveData),
 		zap.Int("Max Retry Attempts", config.ClientOptions.MaxRetryAttempts),
 		zap.Int("Max Concurrent Requests", config.ClientOptions.MaxConcurrentRequests),
