@@ -8,10 +8,9 @@ type customCore struct {
 	zapcore.Core
 }
 
-// With adds structured context to the Core.
+// With adds structured context to the Core. This method can be used to add additional context or to reorder fields as needed.
 func (c *customCore) With(fields []zapcore.Field) zapcore.Core {
-	// This method can be used to add additional context or to reorder fields as needed.
-	// For simplicity, we're just passing it through in this example.
+	// For simplicity, we're just passing it through in this example
 	return &customCore{c.Core.With(fields)}
 }
 
