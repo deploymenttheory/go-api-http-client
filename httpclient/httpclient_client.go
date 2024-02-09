@@ -135,21 +135,18 @@ func BuildClient(config Config) (*Client, error) {
 		log.Info("CustomTimeout not set, set to default value", zap.Duration("CustomTimeout", DefaultTimeout))
 	}
 
-	// Determine the authentication method, preferring OAuth over bearer token if both are provided
-	AuthMethod := "unknown"
-	if config.Auth.ClientID != "" && config.Auth.ClientSecret != "" {
-		AuthMethod = "oauth"
-	} else if config.Auth.Username != "" && config.Auth.Password != "" {
-		AuthMethod = "bearer"
-	} else {
-		return nil, log.Error("No valid credentials provided. Unable to determine authentication method.")
+	// Determine the authentication method using the helper function
+	authMethod, err := DetermineAuthMethod(config.Auth)
+	if err != nil {
+		log.Error("Failed to determine authentication method", zap.Error(err))
+		return nil, err
 	}
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
 		InstanceName:   config.Environment.APIType,
 		APIHandler:     apiHandler,
-		AuthMethod:     AuthMethod,
+		AuthMethod:     authMethod,
 		httpClient:     &http.Client{Timeout: config.CustomTimeout},
 		config:         config,
 		Logger:         log,
@@ -162,7 +159,7 @@ func BuildClient(config Config) (*Client, error) {
 		zap.String("API Service", config.Environment.APIType),
 		zap.String("Instance Name", client.InstanceName),
 		zap.String("OverrideBaseDomain", config.Environment.OverrideBaseDomain),
-		zap.String("AuthMethod", AuthMethod),
+		zap.String("AuthMethod", authMethod),
 		zap.Int("MaxRetryAttempts", config.MaxRetryAttempts),
 		zap.Int("MaxConcurrentRequests", config.MaxConcurrentRequests),
 		zap.Bool("EnableDynamicRateLimiting", config.EnableDynamicRateLimiting),
