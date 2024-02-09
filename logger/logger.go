@@ -73,7 +73,7 @@ func ToZapFields(keysAndValues ...interface{}) []zap.Field {
 // Debug logs a message at the Debug level. This level is typically used for detailed troubleshooting
 // information that is only relevant during active development or debugging.
 func (d *defaultLogger) Debug(msg string, fields ...zapcore.Field) {
-	if d.logLevel >= LogLevelDebug {
+	if d.logLevel <= LogLevelDebug {
 		d.logger.Debug(msg, fields...)
 	}
 }
@@ -81,7 +81,7 @@ func (d *defaultLogger) Debug(msg string, fields ...zapcore.Field) {
 // Info logs a message at the Info level. This level is used for informational messages that highlight
 // the normal operation of the application.
 func (d *defaultLogger) Info(msg string, fields ...zapcore.Field) {
-	if d.logLevel >= LogLevelInfo {
+	if d.logLevel <= LogLevelInfo {
 		d.logger.Info(msg, fields...)
 	}
 }
@@ -89,7 +89,7 @@ func (d *defaultLogger) Info(msg string, fields ...zapcore.Field) {
 // Warn logs a message at the Warn level. This level is used for potentially harmful situations or to
 // indicate that some issues may require attention.
 func (d *defaultLogger) Warn(msg string, fields ...zapcore.Field) {
-	if d.logLevel >= LogLevelWarn {
+	if d.logLevel <= LogLevelWarn {
 		d.logger.Warn(msg, fields...)
 	}
 }
@@ -98,14 +98,16 @@ func (d *defaultLogger) Warn(msg string, fields ...zapcore.Field) {
 // the application to continue running.
 // Error logs a message at the Error level and returns a formatted error.
 func (d *defaultLogger) Error(msg string, fields ...zapcore.Field) error {
-	d.logger.Error(msg, fields...)
+	if d.logLevel <= LogLevelError {
+		d.logger.Error(msg, fields...)
+	}
 	return fmt.Errorf(msg)
 }
 
 // Panic logs a message at the Panic level and then panics. This level is used to log severe error events
 // that will likely lead the application to abort.
 func (d *defaultLogger) Panic(msg string, fields ...zapcore.Field) {
-	if d.logLevel >= LogLevelPanic {
+	if d.logLevel <= LogLevelPanic {
 		d.logger.Panic(msg, fields...)
 	}
 }
@@ -113,7 +115,7 @@ func (d *defaultLogger) Panic(msg string, fields ...zapcore.Field) {
 // Fatal logs a message at the Fatal level and then calls os.Exit(1). This level is used to log severe
 // error events that will result in the termination of the application.
 func (d *defaultLogger) Fatal(msg string, fields ...zapcore.Field) {
-	if d.logLevel >= LogLevelFatal {
+	if d.logLevel <= LogLevelFatal {
 		d.logger.Fatal(msg, fields...)
 	}
 }
