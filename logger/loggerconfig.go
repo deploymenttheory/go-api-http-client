@@ -4,7 +4,7 @@ package logger
 // Ref: https://betterstack.com/community/guides/logging/go/zap/#logging-errors-with-zap
 
 import (
-	"fmt"
+	"os"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -18,7 +18,7 @@ const (
 // BuildLogger creates and returns a new zap logger instance.
 // It configures the logger with JSON formatting and a custom encoder to ensure the 'pid', 'application', and 'timestamp' fields
 // appear at the end of each log message. The function panics if the logger cannot be initialized.
-func BuildLogger(logLevel LogLevel, logOutputFormat string) Logger {
+func BuildJSONLogger(logLevel LogLevel, logOutputFormat string) Logger {
 
 	// Set up custom encoder configuration
 	encoderCfg := zap.NewProductionEncoderConfig()
@@ -27,11 +27,6 @@ func BuildLogger(logLevel LogLevel, logOutputFormat string) Logger {
 
 	// Convert the custom LogLevel to zap's logging level
 	zapLogLevel := convertToZapLevel(logLevel)
-
-	// Select the appropriate encoder based on the logOutputFormat
-	if logOutputFormat == LogOutputHumanReadable {
-		encoderCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder // For human-readable output, use colored level encoder
-	}
 
 	// Define the logger configuration
 	config := zap.Config{
@@ -53,20 +48,8 @@ func BuildLogger(logLevel LogLevel, logOutputFormat string) Logger {
 			//"application": version.GetAppName(),
 		},
 	}
-	/*
-		// Build the logger from the configuration
-		logger := zap.Must(config.Build())
-	*/
-	// Override Encoding for human-readable format
-	if logOutputFormat == LogOutputHumanReadable {
-		config.Encoding = "console"
-	}
-
 	// Build the logger from the configuration
-	logger, err := config.Build()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to build logger: %v", err))
-	}
+	logger := zap.Must(config.Build())
 
 	// Wrap the original core with the custom core
 	wrappedCore := &customCore{logger.Core()}
@@ -75,6 +58,34 @@ func BuildLogger(logLevel LogLevel, logOutputFormat string) Logger {
 	// Wrap the Zap logger in your defaultLogger struct, which implements the Logger interface
 	return &defaultLogger{
 		logger:   wrappedLogger,
+		logLevel: logLevel,
+	}
+}
+
+func NewHumanReadableLogger(logLevel LogLevel, logOutputFormat string) Logger {
+	encoderCfg := zap.NewProductionEncoderConfig()
+	encoderCfg.TimeKey = "timestamp"
+	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	var encoder zapcore.Encoder
+	if logOutputFormat == LogOutputHumanReadable {
+		// For human-readable format, use a console encoder with customized level encoder
+		encoderCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		encoder = zapcore.NewConsoleEncoder(encoderCfg)
+	} else {
+		// Default to JSON encoder for structured logging
+		encoder = zapcore.NewJSONEncoder(encoderCfg)
+	}
+
+	core := zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), convertToZapLevel(logLevel))
+
+	// Wrap the core with customCore to maintain field reordering logic
+	wrappedCore := &customCore{Core: core}
+
+	logger := zap.New(wrappedCore, zap.AddCaller())
+
+	return &defaultLogger{
+		logger:   logger,
 		logLevel: logLevel,
 	}
 }
