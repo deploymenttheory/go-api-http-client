@@ -16,12 +16,48 @@ import (
 	"go.uber.org/zap"
 )
 
+// Client represents an HTTP client to interact with a specific API.
+type Client struct {
+	APIHandler                 APIHandler                 // APIHandler interface used to define which API handler to use
+	InstanceName               string                     // Website Instance name without the root domain
+	AuthMethod                 string                     // Specifies the authentication method: "bearer" or "oauth"
+	Token                      string                     // Authentication Token
+	OverrideBaseDomain         string                     // Base domain override used when the default in the api handler isn't suitable
+	OAuthCredentials           OAuthCredentials           // ClientID / Client Secret
+	BearerTokenAuthCredentials BearerTokenAuthCredentials // Username and Password for Basic Authentication
+	Expiry                     time.Time                  // Expiry time set for the auth token
+	httpClient                 *http.Client
+	tokenLock                  sync.Mutex
+	clientConfig               ClientConfig
+	Logger                     logger.Logger
+	ConcurrencyMgr             *ConcurrencyManager
+	PerfMetrics                PerformanceMetrics
+}
+
 // Config holds configuration options for the HTTP Client.
-type Config struct {
-	// Required
-	Auth        AuthConfig        // User can either supply these values manually or pass from LoadAuthConfig/Env vars
-	Environment EnvironmentConfig // User can either supply these values manually or pass from LoadAuthConfig/Env vars
-	// Optional
+type ClientConfig struct {
+	Auth          AuthConfig        // User can either supply these values manually or pass from LoadAuthConfig/Env vars
+	Environment   EnvironmentConfig // User can either supply these values manually or pass from LoadAuthConfig/Env vars
+	ClientOptions ClientOptions     // Optional configuration options for the HTTP Client
+}
+
+// EnvironmentConfig represents the structure to read authentication details from a JSON configuration file.
+type EnvironmentConfig struct {
+	InstanceName       string `json:"InstanceName,omitempty"`
+	OverrideBaseDomain string `json:"OverrideBaseDomain,omitempty"`
+	APIType            string `json:"APIType,omitempty"`
+}
+
+// AuthConfig represents the structure to read authentication details from a JSON configuration file.
+type AuthConfig struct {
+	Username     string `json:"Username,omitempty"`
+	Password     string `json:"Password,omitempty"`
+	ClientID     string `json:"ClientID,omitempty"`
+	ClientSecret string `json:"ClientSecret,omitempty"`
+}
+
+// ClientOptions holds optional configuration options for the HTTP Client.
+type ClientOptions struct {
 	LogLevel                  logger.LogLevel // Field for defining tiered logging level.
 	MaxRetryAttempts          int             // Config item defines the max number of retry request attempts for retryable HTTP methods.
 	EnableDynamicRateLimiting bool
@@ -42,49 +78,16 @@ type PerformanceMetrics struct {
 	lock                 sync.Mutex
 }
 
-// EnvironmentConfig represents the structure to read authentication details from a JSON configuration file.
-type EnvironmentConfig struct {
-	InstanceName       string `json:"instanceName,omitempty"`
-	OverrideBaseDomain string `json:"overrideBaseDomain,omitempty"`
-	APIType            string `json:"apiType,omitempty"`
-}
-
-// AuthConfig represents the structure to read authentication details from a JSON configuration file.
-type AuthConfig struct {
-	Username     string `json:"username,omitempty"`
-	Password     string `json:"password,omitempty"`
-	ClientID     string `json:"clientID,omitempty"`
-	ClientSecret string `json:"clientSecret,omitempty"`
-}
-
-// Client represents an HTTP client to interact with a specific API.
-type Client struct {
-	APIHandler                 APIHandler                 // APIHandler interface used to define which API handler to use
-	InstanceName               string                     // Website Instance name without the root domain
-	AuthMethod                 string                     // Specifies the authentication method: "bearer" or "oauth"
-	Token                      string                     // Authentication Token
-	OverrideBaseDomain         string                     // Base domain override used when the default in the api handler isn't suitable
-	OAuthCredentials           OAuthCredentials           // ClientID / Client Secret
-	BearerTokenAuthCredentials BearerTokenAuthCredentials // Username and Password for Basic Authentication
-	Expiry                     time.Time                  // Expiry time set for the auth token
-	httpClient                 *http.Client
-	tokenLock                  sync.Mutex
-	config                     Config
-	Logger                     logger.Logger
-	ConcurrencyMgr             *ConcurrencyManager
-	PerfMetrics                PerformanceMetrics
-}
-
 // BuildClient creates a new HTTP client with the provided configuration.
-func BuildClient(config Config) (*Client, error) {
+func BuildClient(config ClientConfig) (*Client, error) {
 	// Initialize the zap logger.
-	log := logger.BuildLogger(config.LogLevel)
+	log := logger.BuildLogger(config.ClientOptions.LogLevel)
 
 	// Set the logger's level based on the provided configuration.
-	log.SetLevel(config.LogLevel)
+	log.SetLevel(config.ClientOptions.LogLevel)
 
-	if config.LogLevel < logger.LogLevelDebug || config.LogLevel > logger.LogLevelFatal {
-		return nil, log.Error("Invalid LogLevel setting", zap.Int("Provided LogLevel", int(config.LogLevel)))
+	if config.ClientOptions.LogLevel < logger.LogLevelDebug || config.ClientOptions.LogLevel > logger.LogLevelFatal {
+		return nil, log.Error("Invalid LogLevel setting", zap.Int("Provided LogLevel", int(config.ClientOptions.LogLevel)))
 	}
 
 	// Use the APIType from the config to determine which API handler to load
@@ -100,38 +103,38 @@ func BuildClient(config Config) (*Client, error) {
 		return nil, log.Error("InstanceName cannot be empty")
 	}
 
-	if config.MaxRetryAttempts < 0 {
-		config.MaxRetryAttempts = DefaultMaxRetryAttempts
+	if config.ClientOptions.MaxRetryAttempts < 0 {
+		config.ClientOptions.MaxRetryAttempts = DefaultMaxRetryAttempts
 		log.Info("MaxRetryAttempts was negative, set to default value", zap.Int("MaxRetryAttempts", DefaultMaxRetryAttempts))
 	}
 
-	if config.MaxConcurrentRequests <= 0 {
-		config.MaxConcurrentRequests = DefaultMaxConcurrentRequests
+	if config.ClientOptions.MaxConcurrentRequests <= 0 {
+		config.ClientOptions.MaxConcurrentRequests = DefaultMaxConcurrentRequests
 		log.Info("MaxConcurrentRequests was negative or zero, set to default value", zap.Int("MaxConcurrentRequests", DefaultMaxConcurrentRequests))
 	}
 
-	if config.TokenRefreshBufferPeriod < 0 {
-		config.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
+	if config.ClientOptions.TokenRefreshBufferPeriod < 0 {
+		config.ClientOptions.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
 		log.Info("TokenRefreshBufferPeriod was negative, set to default value", zap.Duration("TokenRefreshBufferPeriod", DefaultTokenBufferPeriod))
 	}
 
-	if config.TotalRetryDuration <= 0 {
-		config.TotalRetryDuration = DefaultTotalRetryDuration
+	if config.ClientOptions.TotalRetryDuration <= 0 {
+		config.ClientOptions.TotalRetryDuration = DefaultTotalRetryDuration
 		log.Info("TotalRetryDuration was negative or zero, set to default value", zap.Duration("TotalRetryDuration", DefaultTotalRetryDuration))
 	}
 
-	if config.TokenRefreshBufferPeriod == 0 {
-		config.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
+	if config.ClientOptions.TokenRefreshBufferPeriod == 0 {
+		config.ClientOptions.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
 		log.Info("TokenRefreshBufferPeriod not set, set to default value", zap.Duration("TokenRefreshBufferPeriod", DefaultTokenBufferPeriod))
 	}
 
-	if config.TotalRetryDuration == 0 {
-		config.TotalRetryDuration = DefaultTotalRetryDuration
+	if config.ClientOptions.TotalRetryDuration == 0 {
+		config.ClientOptions.TotalRetryDuration = DefaultTotalRetryDuration
 		log.Info("TotalRetryDuration not set, set to default value", zap.Duration("TotalRetryDuration", DefaultTotalRetryDuration))
 	}
 
-	if config.CustomTimeout == 0 {
-		config.CustomTimeout = DefaultTimeout
+	if config.ClientOptions.CustomTimeout == 0 {
+		config.ClientOptions.CustomTimeout = DefaultTimeout
 		log.Info("CustomTimeout not set, set to default value", zap.Duration("CustomTimeout", DefaultTimeout))
 	}
 
@@ -144,14 +147,15 @@ func BuildClient(config Config) (*Client, error) {
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
-		InstanceName:   config.Environment.APIType,
-		APIHandler:     apiHandler,
-		AuthMethod:     authMethod,
-		httpClient:     &http.Client{Timeout: config.CustomTimeout},
-		config:         config,
-		Logger:         log,
-		ConcurrencyMgr: NewConcurrencyManager(config.MaxConcurrentRequests, log, true),
-		PerfMetrics:    PerformanceMetrics{},
+		APIHandler:         apiHandler,
+		InstanceName:       config.Environment.InstanceName,
+		AuthMethod:         authMethod,
+		OverrideBaseDomain: config.Environment.OverrideBaseDomain,
+		httpClient:         &http.Client{Timeout: config.ClientOptions.CustomTimeout},
+		clientConfig:       config,
+		Logger:             log,
+		ConcurrencyMgr:     NewConcurrencyManager(config.ClientOptions.MaxConcurrentRequests, log, true),
+		PerfMetrics:        PerformanceMetrics{},
 	}
 
 	// Log the client's configuration.
@@ -160,13 +164,13 @@ func BuildClient(config Config) (*Client, error) {
 		zap.String("Instance Name", client.InstanceName),
 		zap.String("OverrideBaseDomain", config.Environment.OverrideBaseDomain),
 		zap.String("AuthMethod", authMethod),
-		zap.Int("MaxRetryAttempts", config.MaxRetryAttempts),
-		zap.Int("MaxConcurrentRequests", config.MaxConcurrentRequests),
-		zap.Bool("EnableDynamicRateLimiting", config.EnableDynamicRateLimiting),
-		zap.Duration("TokenRefreshBufferPeriod", config.TokenRefreshBufferPeriod),
-		zap.Duration("TotalRetryDuration", config.TotalRetryDuration),
-		zap.Duration("CustomTimeout", config.CustomTimeout),
-		zap.String("LogLevel", config.LogLevel.String()),
+		zap.Int("MaxRetryAttempts", config.ClientOptions.MaxRetryAttempts),
+		zap.Int("MaxConcurrentRequests", config.ClientOptions.MaxConcurrentRequests),
+		zap.Bool("EnableDynamicRateLimiting", config.ClientOptions.EnableDynamicRateLimiting),
+		zap.Duration("TokenRefreshBufferPeriod", config.ClientOptions.TokenRefreshBufferPeriod),
+		zap.Duration("TotalRetryDuration", config.ClientOptions.TotalRetryDuration),
+		zap.Duration("CustomTimeout", config.ClientOptions.CustomTimeout),
+		zap.String("LogLevel", config.ClientOptions.LogLevel.String()),
 	)
 
 	return client, nil

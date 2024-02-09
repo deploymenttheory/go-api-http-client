@@ -28,7 +28,7 @@ func (c *Client) ValidAuthTokenCheck(log logger.Logger) (bool, error) {
 			}
 		} else if c.AuthMethod == "oauth" {
 			c.Logger.Info("Credential Match", zap.String("AuthMethod", c.AuthMethod))
-			if err := c.ObtainOAuthToken(c.config.Auth, log); err != nil {
+			if err := c.ObtainOAuthToken(c.clientConfig.Auth, log); err != nil {
 				return false, c.Logger.Error("Failed to obtain OAuth token", zap.Error(err))
 			}
 		} else {
@@ -36,12 +36,12 @@ func (c *Client) ValidAuthTokenCheck(log logger.Logger) (bool, error) {
 		}
 	}
 
-	if time.Until(c.Expiry) < c.config.TokenRefreshBufferPeriod {
+	if time.Until(c.Expiry) < c.clientConfig.ClientOptions.TokenRefreshBufferPeriod {
 		var err error
 		if c.BearerTokenAuthCredentials.Username != "" && c.BearerTokenAuthCredentials.Password != "" {
 			err = c.RefreshToken(log)
 		} else if c.OAuthCredentials.ClientID != "" && c.OAuthCredentials.ClientSecret != "" {
-			err = c.ObtainOAuthToken(c.config.Auth, log)
+			err = c.ObtainOAuthToken(c.clientConfig.Auth, log)
 		} else {
 			return false, c.Logger.Error("Unknown auth method", zap.String("authMethod", c.AuthMethod))
 		}
@@ -51,10 +51,10 @@ func (c *Client) ValidAuthTokenCheck(log logger.Logger) (bool, error) {
 		}
 	}
 
-	if time.Until(c.Expiry) < c.config.TokenRefreshBufferPeriod {
+	if time.Until(c.Expiry) < c.clientConfig.ClientOptions.TokenRefreshBufferPeriod {
 		return false, c.Logger.Error(
 			"Token lifetime setting less than buffer",
-			zap.Duration("buffer_period", c.config.TokenRefreshBufferPeriod),
+			zap.Duration("buffer_period", c.clientConfig.ClientOptions.TokenRefreshBufferPeriod),
 			zap.Duration("time_until_expiry", time.Until(c.Expiry)),
 		)
 	}

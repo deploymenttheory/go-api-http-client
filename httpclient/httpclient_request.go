@@ -131,11 +131,11 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 
 	if retryableHTTPMethods[method] {
 		// Define a deadline for total retries based on http client TotalRetryDuration config
-		totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
+		totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.TotalRetryDuration)
 		i := 0
 		for {
 			// Check if we've reached the maximum number of retries or if our total retry time has exceeded
-			if i > c.config.MaxRetryAttempts || time.Now().After(totalRetryDeadline) {
+			if i > c.clientConfig.ClientOptions.MaxRetryAttempts || time.Now().After(totalRetryDeadline) {
 				return nil, fmt.Errorf("max retry attempts reached or total retry duration exceeded")
 			}
 
@@ -320,7 +320,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 			}
 
 			// Return an error with the status code and its description
-			return resp, fmt.Errorf("Error status code: %d - %s", resp.StatusCode, statusDescription)
+			return resp, fmt.Errorf("error status code: %d - %s", resp.StatusCode, statusDescription)
 		}
 	}
 	// TODO refactor to remove repition.
