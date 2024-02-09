@@ -31,8 +31,8 @@ func RedactSensitiveData(client *Client, key string, value string) string {
 	if client.clientConfig.ClientOptions.HideSensitiveData {
 		// Define sensitive data keys that should be redacted.
 		sensitiveKeys := map[string]bool{
-			"AccessToken": true,
-			// Add more sensitive keys as necessary.
+			"AccessToken":   true,
+			"Authorization": true,
 		}
 
 		if _, found := sensitiveKeys[key]; found {
