@@ -18,7 +18,7 @@ const (
 // BuildLogger creates and returns a new zap logger instance.
 // It configures the logger with JSON formatting and a custom encoder to ensure the 'pid', 'application', and 'timestamp' fields
 // appear at the end of each log message. The function panics if the logger cannot be initialized.
-func BuildJSONLogger(logLevel LogLevel, logOutputFormat string) Logger {
+func BuildLogger(logLevel LogLevel, logOutputFormat string) Logger {
 
 	// Set up custom encoder configuration
 	encoderCfg := zap.NewProductionEncoderConfig()

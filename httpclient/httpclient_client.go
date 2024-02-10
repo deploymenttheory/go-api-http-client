@@ -86,7 +86,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.LogLevel)
 
 	// Initialize the logger with the parsed log level and log output format
-	log := logger.BuildJSONLogger(parsedLogLevel, config.ClientOptions.LogOutputFormat)
+	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.LogOutputFormat)
 
 	// Set the logger's level (optional if BuildLogger already sets the level based on the input)
 	log.SetLevel(parsedLogLevel)
