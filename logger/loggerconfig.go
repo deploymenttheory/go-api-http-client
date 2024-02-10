@@ -4,8 +4,6 @@ package logger
 // Ref: https://betterstack.com/community/guides/logging/go/zap/#logging-errors-with-zap
 
 import (
-	"os"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -23,7 +21,10 @@ func BuildLogger(logLevel LogLevel, logOutputFormat string) Logger {
 	// Set up custom encoder configuration
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.TimeKey = "timestamp"
-	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder // Use ISO8601 format for timestamps
+	encoderCfg.EncodeTime = zapcore.RFC3339TimeEncoder        // ISO8601TimeEncoder /Use ISO8601 format for timestamps
+	encoderCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder // Encodes the level in uppercase (e.g., "INFO", "ERROR") with ANSI colour.
+	encoderCfg.EncodeCaller = zapcore.ShortCallerEncoder      // Encodes the file and line number of the caller if the log level is at least DebugLevel
+	encoderCfg.EncodeName = zapcore.FullNameEncoder           // Encodes the logger name
 
 	// Convert the custom LogLevel to zap's logging level
 	zapLogLevel := convertToZapLevel(logLevel)
@@ -58,34 +59,6 @@ func BuildLogger(logLevel LogLevel, logOutputFormat string) Logger {
 	// Wrap the Zap logger in your defaultLogger struct, which implements the Logger interface
 	return &defaultLogger{
 		logger:   wrappedLogger,
-		logLevel: logLevel,
-	}
-}
-
-func NewHumanReadableLogger(logLevel LogLevel, logOutputFormat string) Logger {
-	encoderCfg := zap.NewProductionEncoderConfig()
-	encoderCfg.TimeKey = "timestamp"
-	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
-
-	var encoder zapcore.Encoder
-	if logOutputFormat == LogOutputHumanReadable {
-		// For human-readable format, use a console encoder with customized level encoder
-		encoderCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
-		encoder = zapcore.NewConsoleEncoder(encoderCfg)
-	} else {
-		// Default to JSON encoder for structured logging
-		encoder = zapcore.NewJSONEncoder(encoderCfg)
-	}
-
-	core := zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), convertToZapLevel(logLevel))
-
-	// Wrap the core with customCore to maintain field reordering logic
-	wrappedCore := &customCore{Core: core}
-
-	logger := zap.New(wrappedCore, zap.AddCaller())
-
-	return &defaultLogger{
-		logger:   logger,
 		logLevel: logLevel,
 	}
 }
