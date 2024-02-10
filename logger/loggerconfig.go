@@ -32,7 +32,7 @@ func BuildJSONLogger(logLevel LogLevel, logOutputFormat string) Logger {
 	config := zap.Config{
 		Level:             zap.NewAtomicLevelAt(zapLogLevel), // Default log level is Info
 		Development:       false,                             // Set to true if the logger is used in a development environment
-		Encoding:          "json",                            // Use JSON format for structured logging
+		Encoding:          "console",                         // Supports 'json' and 'console' encodings
 		DisableCaller:     true,
 		DisableStacktrace: true,
 		Sampling:          nil,
