@@ -59,7 +59,7 @@ type AuthConfig struct {
 // ClientOptions holds optional configuration options for the HTTP Client.
 type ClientOptions struct {
 	LogLevel                  string // Field for defining tiered logging level.
-	LogOutputFormat           string // Field for defining the output format of the logs. Use "LogOutputJSON" for JSON format, "LogOutputHumanReadable" for human-readable format
+	LogOutputFormat           string // Field for defining the output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
 	HideSensitiveData         bool   // Field for defining whether sensitive fields should be hidden in logs.
 	MaxRetryAttempts          int    // Config item defines the max number of retry request attempts for retryable HTTP methods.
 	EnableDynamicRateLimiting bool   // Field for defining whether dynamic rate limiting should be enabled.
@@ -166,7 +166,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.String("Override Base Domain", config.Environment.OverrideBaseDomain),
 		zap.String("Authentication Method", authMethod),
 		zap.String("Logging Level", config.ClientOptions.LogLevel),
-		zap.String("Log Output Format", config.ClientOptions.LogOutputFormat),
+		zap.String("Log Encoding Format", config.ClientOptions.LogOutputFormat),
 		zap.Bool("Hide Sensitive Data In Logs", config.ClientOptions.HideSensitiveData),
 		zap.Int("Max Retry Attempts", config.ClientOptions.MaxRetryAttempts),
 		zap.Int("Max Concurrent Requests", config.ClientOptions.MaxConcurrentRequests),
