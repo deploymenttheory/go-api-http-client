@@ -294,16 +294,29 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 			}
 		}
 	*/
-	if strings.Contains(contentType, "text/html") {
-		htmlErrorMessages := ExtractErrorMessageFromHTML(string(bodyBytes))
+	// Handle any errors that occurred during unmarshaling
+	if err != nil {
+		// If unmarshalling fails, check if the content might be HTML
+		if strings.Contains(string(bodyBytes), "<html>") {
+			htmlErrorMessages := ExtractErrorMessageFromHTML(string(bodyBytes))
 
-		for _, msg := range htmlErrorMessages {
-			for key, value := range msg {
-				log.Error("HTML Error", zap.String(key, value))
+			// Combine all HTML error messages into a single string
+			var combinedErrMsgs []string
+			for _, msg := range htmlErrorMessages {
+				for _, value := range msg {
+					combinedErrMsgs = append(combinedErrMsgs, value)
+				}
 			}
-		}
+			combinedErrMsg := strings.Join(combinedErrMsgs, "; ")
 
-		return fmt.Errorf("HTML error encountered")
+			// Log the combined error message as a single entry
+			log.Error("Received HTML content instead of expected format",
+				zap.String("error_message", combinedErrMsg),
+				zap.Int("status_code", resp.StatusCode),
+			)
+
+			return fmt.Errorf("received HTML content instead of expected format: %s", combinedErrMsg)
+		}
 	}
 
 	// Check for non-success status codes before attempting to unmarshal
