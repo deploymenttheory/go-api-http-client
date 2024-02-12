@@ -43,7 +43,7 @@ func BuildLogger(logLevel LogLevel, encoding string) Logger {
 	// encoderCfg.NewReflectedEncoder = customReflectedEncoder // Custom function to encode objects that don't have native or custom marshalers.
 
 	// Console-specific settings (if using console encoding)
-	encoderCfg.ConsoleSeparator = "\n" // Separator character used in console encoding.
+	//encoderCfg.ConsoleSeparator = "\n" // Separator character used in console encoding.
 
 	// Convert the custom LogLevel to zap's logging level
 	zapLogLevel := convertToZapLevel(logLevel)
