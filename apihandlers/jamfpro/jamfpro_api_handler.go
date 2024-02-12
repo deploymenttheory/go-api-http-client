@@ -283,17 +283,7 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 	if err := u.handleBinaryData(contentType, contentDisposition, bodyBytes, out); err != nil {
 		return err
 	}
-	/*
-		// If content type is HTML, extract the error message
-		if strings.Contains(contentType, "text/html") {
-			errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
-			log.Warn("Received HTML content", zap.String("error_message", errMsg), zap.Int("status_code", resp.StatusCode))
-			return &errors.APIError{
-				StatusCode: resp.StatusCode,
-				Message:    errMsg,
-			}
-		}
-	*/
+
 	// Check for non-success status codes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// If the content type is HTML, extract and log the error messages
@@ -321,6 +311,7 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 			)
 		}
 	}
+
 	// Check for non-success status codes before attempting to unmarshal
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Parse the error details from the response body for JSON content type
@@ -359,22 +350,7 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 		// If the content type is neither JSON nor XML nor HTML
 		return fmt.Errorf("unexpected content type: %s", contentType)
 	}
-	/*
-		// Handle any errors that occurred during unmarshaling
-		if err != nil {
-			// If unmarshalling fails, check if the content might be HTML
-			if strings.Contains(string(bodyBytes), "<html>") {
-				errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
 
-				// Log the warning and return an error using the structured logger
-				log.Warn("Received HTML content instead of expected format",
-					zap.String("error_message", errMsg),
-					zap.Int("status_code", resp.StatusCode),
-				)
-				return fmt.Errorf("received HTML content instead of expected format: %s", errMsg)
-			}
-		}
-	*/
 	// Handle any errors that occurred during unmarshaling
 	if err != nil {
 		// If unmarshalling fails, check if the content might be HTML
@@ -413,7 +389,7 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 // the server is informed of the client's versatile content handling capabilities while
 // indicating a preference for XML. The specified MIME types cover common content formats like
 // images, JSON, XML, HTML, plain text, and certificates, with a fallback option for all other types.
-func (u *JamfAPIHandler) GetAcceptHeader() string { // Add closing parenthesis after the function signature
+func (u *JamfAPIHandler) GetAcceptHeader() string {
 	weightedAcceptHeader := "application/x-x509-ca-cert;q=0.95," +
 		"application/pkix-cert;q=0.94," +
 		"application/pem-certificate-chain;q=0.93," +
