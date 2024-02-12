@@ -294,31 +294,33 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 			}
 		}
 	*/
-	// Handle any errors that occurred during unmarshaling
-	if err != nil {
-		// If unmarshalling fails, check if the content might be HTML
-		if strings.Contains(string(bodyBytes), "<html>") {
-			htmlErrorMessages := ExtractErrorMessageFromHTML(string(bodyBytes))
+	// Check for non-success status codes
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// If the content type is HTML, extract and log the error messages
+		if strings.Contains(contentType, "text/html") {
+			htmlErrorDetails := ExtractErrorMessageFromHTML(string(bodyBytes))
 
-			// Combine all HTML error messages into a single string
 			var combinedErrMsgs []string
-			for _, msg := range htmlErrorMessages {
-				for _, value := range msg {
-					combinedErrMsgs = append(combinedErrMsgs, value)
+			for _, detail := range htmlErrorDetails {
+				for key, value := range detail {
+					// Combine the key-value pairs into a single string
+					combinedErrMsgs = append(combinedErrMsgs, key+": "+value)
 				}
 			}
-			combinedErrMsg := strings.Join(combinedErrMsgs, "; ")
+			combinedErrMsg := strings.Join(combinedErrMsgs, " | ")
 
-			// Log the combined error message as a single entry
-			log.Error("Received HTML content instead of expected format",
+			// Log the combined HTML error message using Zap
+			log.Error("Received HTML error content",
 				zap.String("error_message", combinedErrMsg),
 				zap.Int("status_code", resp.StatusCode),
 			)
-
-			return fmt.Errorf("received HTML content instead of expected format: %s", combinedErrMsg)
+		} else {
+			// Log a generic error message if the response is not HTML
+			log.Error("Received non-success status code without detailed error response",
+				zap.Int("status_code", resp.StatusCode),
+			)
 		}
 	}
-
 	// Check for non-success status codes before attempting to unmarshal
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Parse the error details from the response body for JSON content type
