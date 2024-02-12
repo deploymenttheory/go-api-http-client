@@ -49,7 +49,6 @@ import (
 
 	_ "embed"
 
-	"github.com/deploymenttheory/go-api-http-client/errors"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
@@ -284,18 +283,29 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 	if err := u.handleBinaryData(contentType, contentDisposition, bodyBytes, out); err != nil {
 		return err
 	}
-
-	// If content type is HTML, extract the error message
-	if strings.Contains(contentType, "text/html") {
-		errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
-		log.Warn("Received HTML content", zap.String("error_message", errMsg), zap.Int("status_code", resp.StatusCode))
-		return &errors.APIError{
-			StatusCode: resp.StatusCode,
-			Message:    errMsg,
+	/*
+		// If content type is HTML, extract the error message
+		if strings.Contains(contentType, "text/html") {
+			errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
+			log.Warn("Received HTML content", zap.String("error_message", errMsg), zap.Int("status_code", resp.StatusCode))
+			return &errors.APIError{
+				StatusCode: resp.StatusCode,
+				Message:    errMsg,
+			}
 		}
+	*/
+	if strings.Contains(contentType, "text/html") {
+		htmlErrorMessages := ExtractErrorMessageFromHTML(string(bodyBytes))
+
+		for _, msg := range htmlErrorMessages {
+			for key, value := range msg {
+				log.Error("HTML Error", zap.String(key, value))
+			}
+		}
+
+		return fmt.Errorf("HTML error encountered")
 	}
 
-	// Check for non-success status codes before attempting to unmarshal
 	// Check for non-success status codes before attempting to unmarshal
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Parse the error details from the response body for JSON content type
@@ -334,21 +344,50 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 		// If the content type is neither JSON nor XML nor HTML
 		return fmt.Errorf("unexpected content type: %s", contentType)
 	}
+	/*
+		// Handle any errors that occurred during unmarshaling
+		if err != nil {
+			// If unmarshalling fails, check if the content might be HTML
+			if strings.Contains(string(bodyBytes), "<html>") {
+				errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
 
+				// Log the warning and return an error using the structured logger
+				log.Warn("Received HTML content instead of expected format",
+					zap.String("error_message", errMsg),
+					zap.Int("status_code", resp.StatusCode),
+				)
+				return fmt.Errorf("received HTML content instead of expected format: %s", errMsg)
+			}
+		}
+	*/
 	// Handle any errors that occurred during unmarshaling
 	if err != nil {
 		// If unmarshalling fails, check if the content might be HTML
 		if strings.Contains(string(bodyBytes), "<html>") {
-			errMsg := ExtractErrorMessageFromHTML(string(bodyBytes))
+			htmlErrorMessages := ExtractErrorMessageFromHTML(string(bodyBytes))
 
-			// Log the warning and return an error using the structured logger
-			log.Warn("Received HTML content instead of expected format",
-				zap.String("error_message", errMsg),
-				zap.Int("status_code", resp.StatusCode),
-			)
-			return fmt.Errorf("received HTML content instead of expected format: %s", errMsg)
+			for _, msg := range htmlErrorMessages {
+				for key, value := range msg {
+					// Log each HTML error detail as a separate field
+					log.Warn("Received HTML content instead of expected format",
+						zap.String("HTML Error Detail", fmt.Sprintf("%s: %s", key, value)),
+						zap.Int("status_code", resp.StatusCode),
+					)
+				}
+			}
+
+			// Construct a combined error message for the return error
+			var combinedErrMsgs []string
+			for _, msg := range htmlErrorMessages {
+				for _, value := range msg {
+					combinedErrMsgs = append(combinedErrMsgs, value)
+				}
+			}
+			combinedErrMsg := strings.Join(combinedErrMsgs, " | ")
+			return fmt.Errorf("received HTML content instead of expected format: %s", combinedErrMsg)
 		}
 	}
+
 	return err
 }
 
