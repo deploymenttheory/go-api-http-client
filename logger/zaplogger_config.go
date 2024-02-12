@@ -52,7 +52,7 @@ func BuildLogger(logLevel LogLevel, encoding string) Logger {
 	config := zap.Config{
 		Level:             zap.NewAtomicLevelAt(zapLogLevel), // Default log level is Info
 		Development:       false,                             // Set to true if the logger is used in a development environment
-		Encoding:          string(encoding),                  // Supports 'json' and 'console' encodings
+		Encoding:          encoding,                          // Supports 'json' and 'console' encodings
 		DisableCaller:     true,
 		DisableStacktrace: true,
 		Sampling:          nil,
