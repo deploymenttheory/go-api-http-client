@@ -8,15 +8,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const (
-	LogOutputJSON          = "json"
-	LogOutputHumanReadable = "human-readable"
-)
-
 // BuildLogger creates and returns a new zap logger instance.
 // It configures the logger with JSON formatting and a custom encoder to ensure the 'pid', 'application', and 'timestamp' fields
 // appear at the end of each log message. The function panics if the logger cannot be initialized.
-func BuildLogger(logLevel LogLevel, logEncoding string) Logger {
+func BuildLogger(logLevel LogLevel, encoding string) Logger {
 
 	// Set up custom encoder configuration
 	encoderCfg := zap.NewProductionEncoderConfig()
@@ -57,7 +52,7 @@ func BuildLogger(logLevel LogLevel, logEncoding string) Logger {
 	config := zap.Config{
 		Level:             zap.NewAtomicLevelAt(zapLogLevel), // Default log level is Info
 		Development:       false,                             // Set to true if the logger is used in a development environment
-		Encoding:          "console",                         // Supports 'json' and 'console' encodings
+		Encoding:          string(encoding),                  // Supports 'json' and 'console' encodings
 		DisableCaller:     true,
 		DisableStacktrace: true,
 		Sampling:          nil,
