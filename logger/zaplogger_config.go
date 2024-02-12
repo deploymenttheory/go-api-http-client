@@ -16,15 +16,39 @@ const (
 // BuildLogger creates and returns a new zap logger instance.
 // It configures the logger with JSON formatting and a custom encoder to ensure the 'pid', 'application', and 'timestamp' fields
 // appear at the end of each log message. The function panics if the logger cannot be initialized.
-func BuildLogger(logLevel LogLevel, logOutputFormat string) Logger {
+func BuildLogger(logLevel LogLevel, logEncoding string) Logger {
 
 	// Set up custom encoder configuration
 	encoderCfg := zap.NewProductionEncoderConfig()
-	encoderCfg.TimeKey = "timestamp"
-	encoderCfg.EncodeTime = zapcore.RFC3339TimeEncoder        // ISO8601TimeEncoder /Use ISO8601 format for timestamps
-	encoderCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder // Encodes the level in uppercase (e.g., "INFO", "ERROR") with ANSI colour.
-	encoderCfg.EncodeCaller = zapcore.ShortCallerEncoder      // Encodes the file and line number of the caller if the log level is at least DebugLevel
-	encoderCfg.EncodeName = zapcore.FullNameEncoder           // Encodes the logger name
+
+	// Time settings
+	encoderCfg.TimeKey = "timestamp"                   // Key for enabling serialized time field.
+	encoderCfg.EncodeTime = zapcore.RFC3339TimeEncoder // Encodes time in RFC3339 format, which is fully compatible with ISO8601 and more precise.
+
+	// Log level settings
+	encoderCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder // Encodes log levels in uppercase with ANSI colors for better visibility in terminal outputs.
+
+	// Caller settings
+	encoderCfg.EncodeCaller = zapcore.ShortCallerEncoder // Encodes the caller in a shortened format `file:line`, making it concise yet informative. / zapcore.FullCallerEncoder for full path
+
+	// Additional settings
+	encoderCfg.MessageKey = "msg"                             // Key for the log message.
+	encoderCfg.LevelKey = "level"                             // Key for the log level.
+	encoderCfg.NameKey = "logger"                             // Key for the logger name.
+	encoderCfg.CallerKey = "caller"                           // Key for the caller information.
+	encoderCfg.FunctionKey = "func"                           // Key for the function name from where the log was initiated.
+	encoderCfg.StacktraceKey = "stacktrace"                   // Key for the stack trace field in case of errors or panics.
+	encoderCfg.LineEnding = zapcore.DefaultLineEnding         // Specifies the line ending character(s), defaulting to a newline.
+	encoderCfg.EncodeDuration = zapcore.StringDurationEncoder // Encodes durations in a human-readable string format.
+
+	// Name and function encoding (optional, depends on logging requirements)
+	encoderCfg.EncodeName = zapcore.FullNameEncoder // Encodes the logger's name as-is, without any modifications.
+
+	// Configure encoding for complex types and custom objects (optional, advanced usage)
+	// encoderCfg.NewReflectedEncoder = customReflectedEncoder // Custom function to encode objects that don't have native or custom marshalers.
+
+	// Console-specific settings (if using console encoding)
+	encoderCfg.ConsoleSeparator = "\t" // Separator character used in console encoding, defaulting to tab for structured alignment.
 
 	// Convert the custom LogLevel to zap's logging level
 	zapLogLevel := convertToZapLevel(logLevel)
