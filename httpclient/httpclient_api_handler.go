@@ -36,6 +36,7 @@ func LoadAPIHandler(apiType string, log logger.Logger) (APIHandler, error) {
 	switch apiType {
 	case "jamfpro":
 		apiHandler = &jamfpro.JamfAPIHandler{
+
 			// Initialize with necessary parameters
 		}
 		log.Info("API handler loaded successfully", zap.String("APIType", apiType))
