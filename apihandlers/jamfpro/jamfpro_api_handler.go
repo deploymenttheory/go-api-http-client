@@ -70,7 +70,7 @@ var jamfpro_api_exceptions_configuration []byte
 
 // init is invoked automatically on package initialization and is responsible for
 // setting up the default state of the package by loading the default configuration.
-// If an error occurs during the loading process, the program will terminate with a fatal error log.
+// If an error occurs during the loading process, the program will terminate with a fatal error j.Logger.
 func init() {
 	// Load the default configuration from an embedded resource.
 	err := loadDefaultConfig()
@@ -163,7 +163,7 @@ func (j *JamfAPIHandler) SetBaseDomain() string {
 func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(instanceName string, endpointPath string, log logger.Logger) string {
 	urlBaseDomain := j.SetBaseDomain()
 	url := fmt.Sprintf("https://%s%s%s", instanceName, urlBaseDomain, endpointPath)
-	log.Info(fmt.Sprintf("Constructed %s API resource endpoint URL", APIName), zap.String("URL", url))
+	j.Logger.Info(fmt.Sprintf("Constructed %s API resource endpoint URL", APIName), zap.String("URL", url))
 	return url
 }
 
@@ -171,7 +171,7 @@ func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(instanceName string, endpo
 func (j *JamfAPIHandler) ConstructAPIAuthEndpoint(instanceName string, endpointPath string, log logger.Logger) string {
 	urlBaseDomain := j.SetBaseDomain()
 	url := fmt.Sprintf("https://%s%s%s", instanceName, urlBaseDomain, endpointPath)
-	log.Info(fmt.Sprintf("Constructed %s API authentication URL", APIName), zap.String("URL", url))
+	j.Logger.Info(fmt.Sprintf("Constructed %s API authentication URL", APIName), zap.String("URL", url))
 	return url
 }
 
@@ -183,15 +183,15 @@ func (j *JamfAPIHandler) ConstructAPIAuthEndpoint(instanceName string, endpointP
 // - For url endpoints starting with "/api", it defaults to "application/json" for the JamfPro API.
 // If the endpoint does not match any of the predefined patterns, "application/json" is used as a fallback.
 // This method logs the decision process at various stages for debugging purposes.
-func (u *JamfAPIHandler) GetContentTypeHeader(endpoint string, log logger.Logger) string {
+func (j *JamfAPIHandler) GetContentTypeHeader(endpoint string, log logger.Logger) string {
 	// Dynamic lookup from configuration should be the first priority
 	for key, config := range configMap {
 		if strings.HasPrefix(endpoint, key) {
 			if config.ContentType != nil {
-				log.Debug("Content-Type for endpoint found in configMap", zap.String("endpoint", endpoint), zap.String("content_type", *config.ContentType))
+				j.Logger.Debug("Content-Type for endpoint found in configMap", zap.String("endpoint", endpoint), zap.String("content_type", *config.ContentType))
 				return *config.ContentType
 			}
-			log.Debug("Content-Type for endpoint is nil in configMap, handling as special case", zap.String("endpoint", endpoint))
+			j.Logger.Debug("Content-Type for endpoint is nil in configMap, handling as special case", zap.String("endpoint", endpoint))
 			// If a nil ContentType is an expected case, do not set Content-Type header.
 			return "" // Return empty to indicate no Content-Type should be set.
 		}
@@ -199,20 +199,20 @@ func (u *JamfAPIHandler) GetContentTypeHeader(endpoint string, log logger.Logger
 
 	// If no specific configuration is found, then check for standard URL patterns.
 	if strings.Contains(endpoint, "/JSSResource") {
-		log.Debug("Content-Type for endpoint defaulting to XML for Classic API", zap.String("endpoint", endpoint))
+		j.Logger.Debug("Content-Type for endpoint defaulting to XML for Classic API", zap.String("endpoint", endpoint))
 		return "application/xml" // Classic API uses XML
 	} else if strings.Contains(endpoint, "/api") {
-		log.Debug("Content-Type for endpoint defaulting to JSON for JamfPro API", zap.String("endpoint", endpoint))
+		j.Logger.Debug("Content-Type for endpoint defaulting to JSON for JamfPro API", zap.String("endpoint", endpoint))
 		return "application/json" // JamfPro API uses JSON
 	}
 
 	// Fallback to JSON if no other match is found.
-	log.Debug("Content-Type for endpoint not found in configMap or standard patterns, using default JSON", zap.String("endpoint", endpoint))
+	j.Logger.Debug("Content-Type for endpoint not found in configMap or standard patterns, using default JSON", zap.String("endpoint", endpoint))
 	return "application/json"
 }
 
 // MarshalRequest encodes the request body according to the endpoint for the API.
-func (u *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error) {
+func (j *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error) {
 	var (
 		data []byte
 		err  error
@@ -234,18 +234,18 @@ func (u *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoin
 		}
 
 		if method == "POST" || method == "PUT" {
-			log.Debug("XML Request Body", zap.String("Body", string(data)))
+			j.Logger.Debug("XML Request Body", zap.String("Body", string(data)))
 		}
 
 	case "json":
 		data, err = json.Marshal(body)
 		if err != nil {
-			log.Error("Failed marshaling JSON request", zap.Error(err))
+			j.Logger.Error("Failed marshaling JSON request", zap.Error(err))
 			return nil, err
 		}
 
 		if method == "POST" || method == "PUT" || method == "PATCH" {
-			log.Debug("JSON Request Body", zap.String("Body", string(data)))
+			j.Logger.Debug("JSON Request Body", zap.String("Body", string(data)))
 		}
 	}
 
@@ -253,35 +253,35 @@ func (u *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoin
 }
 
 // UnmarshalResponse decodes the response body from XML or JSON format depending on the Content-Type header.
-func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{}, log logger.Logger) error {
+func (j *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{}, log logger.Logger) error {
 	// Handle DELETE method
 	if resp.Request.Method == "DELETE" {
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return nil
 		} else {
-			return log.Error("DELETE request failed", zap.Int("Status Code", resp.StatusCode))
+			return j.Logger.Error("DELETE request failed", zap.Int("Status Code", resp.StatusCode))
 		}
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Error("Failed reading response body", zap.Error(err))
+		j.Logger.Error("Failed reading response body", zap.Error(err))
 		return err
 	}
 
 	// Log the raw response body and headers
-	log.Debug("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
-	log.Debug("Unmarshaling response", zap.String("status", resp.Status))
+	j.Logger.Debug("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
+	j.Logger.Debug("Unmarshaling response", zap.String("status", resp.Status))
 
 	// Log headers when in debug mode
-	log.Debug("HTTP Response Headers", zap.Any("Headers", resp.Header))
+	j.Logger.Debug("HTTP Response Headers", zap.Any("Headers", resp.Header))
 
 	// Check the Content-Type and Content-Disposition headers
 	contentType := resp.Header.Get("Content-Type")
 	contentDisposition := resp.Header.Get("Content-Disposition")
 
 	// Handle binary data if necessary
-	if err := u.handleBinaryData(contentType, contentDisposition, bodyBytes, out); err != nil {
+	if err := j.handleBinaryData(contentType, contentDisposition, bodyBytes, out); err != nil {
 		return err
 	}
 
@@ -292,13 +292,13 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 			htmlErrorMessage := ExtractErrorMessageFromHTML(string(bodyBytes))
 
 			// Log the HTML error message using Zap
-			log.Error("Received HTML error content",
+			j.Logger.Error("Received HTML error content",
 				zap.String("error_message", htmlErrorMessage),
 				zap.Int("status_code", resp.StatusCode),
 			)
 		} else {
 			// Log a generic error message if the response is not HTML
-			log.Error("Received non-success status code without detailed error response",
+			j.Logger.Error("Received non-success status code without detailed error response",
 				zap.Int("status_code", resp.StatusCode),
 			)
 		}
@@ -311,14 +311,14 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 			description, err := ParseJSONErrorResponse(bodyBytes)
 			if err != nil {
 				// Log the error using the structured logger and return the error
-				log.Error("Failed to parse JSON error response",
+				j.Logger.Error("Failed to parse JSON error response",
 					zap.Error(err),
 					zap.Int("status_code", resp.StatusCode),
 				)
 				return err
 			}
 			// Log the error with description using the structured logger and return the error
-			log.Error("Received non-success status code with JSON response",
+			j.Logger.Error("Received non-success status code with JSON response",
 				zap.Int("status_code", resp.StatusCode),
 				zap.String("error_description", description),
 			)
@@ -326,7 +326,7 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 		}
 
 		// If the response is not JSON or another error occurs, log a generic error message and return an error
-		log.Error("Received non-success status code without JSON response",
+		j.Logger.Error("Received non-success status code without JSON response",
 			zap.Int("status_code", resp.StatusCode),
 		)
 		return fmt.Errorf("received non-success status code without JSON response: %d", resp.StatusCode)
@@ -350,19 +350,19 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 			htmlErrorMessage := ExtractErrorMessageFromHTML(string(bodyBytes))
 
 			// Log the HTML error message
-			log.Warn("Received HTML content instead of expected format",
+			j.Logger.Warn("Received HTML content instead of expected format",
 				zap.String("error_message", htmlErrorMessage),
 				zap.Int("status_code", resp.StatusCode),
 			)
 
 			// Use the HTML error message for logging the error
-			log.Error("Unmarshal error with HTML content",
+			j.Logger.Error("Unmarshal error with HTML content",
 				zap.String("error_message", htmlErrorMessage),
 				zap.Int("status_code", resp.StatusCode),
 			)
 		} else {
 			// If the error is not due to HTML content, log the original error
-			log.Error("Unmarshal error",
+			j.Logger.Error("Unmarshal error",
 				zap.Error(err),
 				zap.Int("status_code", resp.StatusCode),
 			)
@@ -379,7 +379,7 @@ func (u *JamfAPIHandler) UnmarshalResponse(resp *http.Response, out interface{},
 // the server is informed of the client's versatile content handling capabilities while
 // indicating a preference for XML. The specified MIME types cover common content formats like
 // images, JSON, XML, HTML, plain text, and certificates, with a fallback option for all other types.
-func (u *JamfAPIHandler) GetAcceptHeader() string {
+func (j *JamfAPIHandler) GetAcceptHeader() string {
 	weightedAcceptHeader := "application/x-x509-ca-cert;q=0.95," +
 		"application/pkix-cert;q=0.94," +
 		"application/pem-certificate-chain;q=0.93," +
@@ -399,7 +399,7 @@ func (u *JamfAPIHandler) GetAcceptHeader() string {
 }
 
 // MarshalMultipartFormData takes a map with form fields and file paths and returns the encoded body and content type.
-func (u *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error) {
+func (j *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -437,7 +437,7 @@ func (u *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files
 }
 
 // handleBinaryData checks if the response should be treated as binary data and assigns to out if so.
-func (u *JamfAPIHandler) handleBinaryData(contentType, contentDisposition string, bodyBytes []byte, out interface{}) error {
+func (j *JamfAPIHandler) handleBinaryData(contentType, contentDisposition string, bodyBytes []byte, out interface{}) error {
 	if strings.Contains(contentType, "application/octet-stream") || strings.HasPrefix(contentDisposition, "attachment") {
 		if outPointer, ok := out.(*[]byte); ok {
 			*outPointer = bodyBytes
