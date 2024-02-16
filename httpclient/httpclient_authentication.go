@@ -22,13 +22,22 @@ func IsValidClientSecret(clientSecret string) (bool, string) {
 		return false, "Client secret must be at least 16 characters long."
 	}
 
-	// Check if the client secret contains at least one lowercase letter, one uppercase letter, one digit, and one special character.
-	// You can customize this regex pattern based on your specific validation requirements.
-	complexityRegex := `[a-zA-Z].*\d.*[\W_]`
-	if matched, _ := regexp.MatchString(complexityRegex, clientSecret); matched {
-		return true, ""
+	// Check for at least one lowercase letter
+	if matched, _ := regexp.MatchString(`[a-z]`, clientSecret); !matched {
+		return false, "Client secret must contain at least one lowercase letter."
 	}
-	return false, "Client secret must contain at least one lowercase letter, one uppercase letter, one digit, and one special character."
+
+	// Check for at least one uppercase letter
+	if matched, _ := regexp.MatchString(`[A-Z]`, clientSecret); !matched {
+		return false, "Client secret must contain at least one uppercase letter."
+	}
+
+	// Check for at least one digit
+	if matched, _ := regexp.MatchString(`\d`, clientSecret); !matched {
+		return false, "Client secret must contain at least one digit."
+	}
+
+	return true, ""
 }
 
 // IsValidUsername checks if the provided username meets your application's validation criteria.

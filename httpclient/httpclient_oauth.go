@@ -109,39 +109,3 @@ func (c *Client) ObtainOAuthToken(credentials AuthConfig, log logger.Logger) err
 
 	return nil
 }
-
-/*
-// InvalidateOAuthToken invalidates the current OAuth access token.
-// After invalidation, the token cannot be used for further API requests.
-func (c *Client) InvalidateOAuthToken(log logger.Logger) error {
-
-	tokenInvalidateEndpoint := c.APIHandler.GetTokenInvalidateEndpoint()
-	invalidateTokenEndpoint := APIHandler.ConstructAPIAuthEndpoint(tokenInvalidateEndpoint, log)
-
-	log.Debug("Attempting to invalidate OAuth token", zap.String("Endpoint", invalidateTokenEndpoint))
-
-	req, err := http.NewRequest("POST", invalidateTokenEndpoint, nil)
-	if err != nil {
-		log.Error("Failed to create new request for token invalidation", zap.Error(err))
-		return err
-	}
-	req.Header.Add("Authorization", "Bearer "+c.Token)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		log.Error("Failed to make request for token invalidation", zap.Error(err))
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusNoContent {
-		errMsg := fmt.Errorf("failed to invalidate token, status code: %d", resp.StatusCode)
-		log.Error("Failed to invalidate OAuth token", zap.Int("StatusCode", resp.StatusCode), zap.Error(errMsg))
-		return errMsg
-	}
-
-	log.Info("OAuth token invalidated successfully", zap.String("Endpoint", invalidateTokenEndpoint))
-
-	return nil
-}
-*/
