@@ -41,51 +41,14 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"strings"
 
-	_ "embed"
-
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
-
-// ConfigMap is a map that associates endpoint URL patterns with their corresponding configurations.
-// The map's keys are strings that identify the endpoint, and the values are EndpointConfig structs
-// that hold the configuration for that endpoint.
-type ConfigMap map[string]EndpointConfig
-
-// Variables
-var configMap ConfigMap
-
-// Embedded Resources
-//
-//go:embed jamfpro_api_exceptions_configuration.json
-var jamfpro_api_exceptions_configuration []byte
-
-// Package-level Functions
-
-// init is invoked automatically on package initialization and is responsible for
-// setting up the default state of the package by loading the default configuration.
-// If an error occurs during the loading process, the program will terminate with a fatal error j.Logger.
-func init() {
-	// Load the default configuration from an embedded resource.
-	err := loadDefaultConfig()
-	if err != nil {
-		log.Fatalf("Error loading default config: %s", err)
-	}
-}
-
-// loadDefaultConfig reads and unmarshals the jamfpro_api_exceptions_configuration JSON data from an embedded file
-// into the configMap variable, which holds the exceptions configuration for endpoint-specific headers.
-// Returns an error if the unmarshalling process fails.
-func loadDefaultConfig() error {
-	// Unmarshal the embedded default configuration into the global configMap.
-	return json.Unmarshal(jamfpro_api_exceptions_configuration, &configMap)
-}
 
 // EndpointConfig is a struct that holds configuration details for a specific API endpoint.
 // It includes what type of content it can accept and what content type it should send.
@@ -101,12 +64,14 @@ type JamfAPIHandler struct {
 	Logger             logger.Logger // Logger is the structured logger used for logging.
 }
 
+/*
 type Logger interface {
 	Debug(msg string, keysAndValues ...interface{})
 	Info(msg string, keysAndValues ...interface{})
 	Warn(msg string, keysAndValues ...interface{})
 	Error(msg string, keysAndValues ...interface{})
 }
+*/
 
 // Functions
 
