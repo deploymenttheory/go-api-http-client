@@ -27,7 +27,7 @@ type APIHandler interface {
 	GetAPIBearerTokenAuthenticationSupportStatus() bool
 	GetAPIOAuthAuthenticationSupportStatus() bool
 	GetAPIOAuthWithCertAuthenticationSupportStatus() bool
-	GetStandardRequestHeaders(endpoint string) map[string]string // Provides standard headers required for making API requests.
+	GetAPIRequestHeaders(endpoint string) map[string]string // Provides standard headers required for making API requests.
 }
 
 // LoadAPIHandler returns an APIHandler based on the provided API type.
