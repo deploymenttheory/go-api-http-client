@@ -168,15 +168,13 @@ func (c *Client) executeRequest(req *http.Request, ctx context.Context, log logg
 	resp, err := c.httpClient.Do(req.WithContext(ctx))
 	if err != nil {
 		log.Error("HTTP request failed", zap.Error(err))
-		return nil, err
-	}
-	// Defer closing the response body only if the request was successful
-	defer func() {
+		// Close the response body if an error occurs after receiving a response
 		if resp != nil {
 			resp.Body.Close()
 		}
-	}()
-	return resp, nil
+		return nil, err
+	}
+	return resp, nil // Caller is responsible for closing the response body in the success path
 }
 
 // executeRequestWithRetry sends an HTTP request with a retry mechanism for handling transient errors and rate limits.
@@ -213,6 +211,7 @@ func (c *Client) executeRequestWithRetry(req *http.Request, ctx context.Context,
 	var lastErr error
 	for i := 0; ; i++ {
 		resp, err := c.executeRequest(req, ctx, log)
+
 		if err != nil {
 			lastErr = err
 			if ctx.Err() != nil {
@@ -220,24 +219,27 @@ func (c *Client) executeRequestWithRetry(req *http.Request, ctx context.Context,
 				return nil, ctx.Err()
 			}
 		} else {
+			// Ensure the response body is closed at the end of each loop iteration if not nil
+			if resp != nil {
+				defer resp.Body.Close()
+			}
+
 			// Check the response status code for success
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				return resp, nil // Success, no need to close the body here as it will be handled by the caller
+				// Return the response for successful requests, no need to close the body here as defer will handle it
+				return resp, nil
 			}
 
-			// Close the response body here to prevent resource leaks.
-			resp.Body.Close()
-
-			// Handle non-retryable and rate limit errors
-			if !errors.IsTransientError(resp) && !errors.IsRateLimitError(resp) {
-				return resp, nil // Non-retryable error, return response as is
-			}
-
-			if errors.IsRateLimitError(resp) {
-				waitDuration := parseRateLimitHeaders(resp)
-				log.Info("Encountered rate limit error, waiting before retrying", zap.Duration("waitDuration", waitDuration), zap.Int("attempt", i+1))
-				time.Sleep(waitDuration)
-				continue // Retry after waiting
+			// For non-retryable or rate limit errors, close the body and return the response
+			if !errors.IsTransientError(resp) || errors.IsRateLimitError(resp) {
+				if errors.IsRateLimitError(resp) {
+					waitDuration := parseRateLimitHeaders(resp)
+					log.Info("Encountered rate limit error, waiting before retrying", zap.Duration("waitDuration", waitDuration), zap.Int("attempt", i+1))
+					time.Sleep(waitDuration)
+					continue // Retry after waiting for rate limit reset
+				}
+				// For non-retryable errors, return the response as is
+				return resp, nil
 			}
 		}
 
@@ -252,7 +254,8 @@ func (c *Client) executeRequestWithRetry(req *http.Request, ctx context.Context,
 		time.Sleep(backoffDuration)
 	}
 
-	return nil, lastErr // Return the last error encountered
+	// Return the last encountered error after exhausting all retries
+	return nil, lastErr
 }
 
 // DoRequest constructs and executes an HTTP request with optional retry logic based on the request method.
