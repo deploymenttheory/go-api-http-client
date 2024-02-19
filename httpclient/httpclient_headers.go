@@ -142,7 +142,4 @@ func (h *HeaderManager) SetRequestHeaders(endpoint string) {
 			h.req.Header.Set(header, value)
 		}
 	}
-
-	// Note: If the User-Agent needs to be set to a specific value, do it here or ensure it's included in the standardHeaders map from the APIHandler
-	// Example: h.SetUserAgent("YourUserAgentString")
 }
