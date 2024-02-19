@@ -92,16 +92,6 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	if err != nil {
 		return nil, err
 	}
-	/*
-		// Define header content type based on url and http method
-		contentType := apiHandler.GetContentTypeHeader(endpoint, log)
-
-		// Get Request Headers dynamically based on api handler
-		acceptHeader := apiHandler.GetAcceptHeader()
-
-		// Set Request Headers
-		c.SetRequestHeaders(req, contentType, acceptHeader, log)
-	*/
 
 	// Initialize HeaderManager with the request, logger, APIHandler, and token from the Client
 	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
@@ -109,16 +99,17 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	// Set and log the HTTP request headers using the HeaderManager
 	headerManager.SetRequestHeaders(endpoint)
 	headerManager.LogHeaders(c)
-
-	// Define if request is retryable
-	retryableHTTPMethods := map[string]bool{
-		http.MethodGet:    true, // GET
-		http.MethodDelete: true, // DELETE
-		http.MethodPut:    true, // PUT
-		http.MethodPatch:  true, // PATCH
-	}
-
-	if retryableHTTPMethods[method] {
+	/*
+		// Define if request is retryable
+		retryableHTTPMethods := map[string]bool{
+			http.MethodGet:    true, // GET
+			http.MethodDelete: true, // DELETE
+			http.MethodPut:    true, // PUT
+			http.MethodPatch:  true, // PATCH
+		}
+	*/
+	if IsIdempotentHTTPMethod(method) {
+		//if retryableHTTPMethods[method] {
 		// Define a deadline for total retries based on http client TotalRetryDuration config
 		totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.TotalRetryDuration)
 		i := 0
@@ -243,7 +234,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 				return resp, errors.HandleAPIError(resp, log)
 			}
 		}
-	} else {
+	} else if IsNonIdempotentHTTPMethod(method) {
 		// Start response time measurement
 		responseTimeStart := time.Now()
 		// For non-retryable HTTP Methods (POST - Create)
@@ -313,6 +304,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 		}
 	}
 	// TODO refactor to remove repition.
+	return nil, fmt.Errorf("an unexpected error occurred")
 }
 
 // DoMultipartRequest creates and executes a multipart HTTP request. It is used for sending files
