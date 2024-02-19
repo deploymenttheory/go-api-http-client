@@ -14,50 +14,20 @@ import (
 	"go.uber.org/zap"
 )
 
-// AcquireConcurrencyToken attempts to acquire a token from the ConcurrencyManager to manage the number of concurrent requests.
-// This function is designed to ensure that the HTTP client adheres to predefined concurrency limits, preventing an excessive number of simultaneous requests.
-// It creates a new context with a timeout to avoid indefinite blocking in case the concurrency limit is reached.
-// Upon successfully acquiring a token, it records the time taken to acquire the token and updates performance metrics accordingly.
-// The function then adds the acquired request ID to the context, which can be used for tracking and managing individual requests.
+// updatePerformanceMetrics updates the client's performance metrics by recording the duration
+// of the HTTP request and incrementing the total request count. This function is thread-safe
+// and uses a mutex to synchronize updates to the performance metrics.
 //
 // Parameters:
-// - ctx: The parent context from which the new context with timeout will be derived. This allows for proper request cancellation and timeout handling.
-// - log: An instance of a logger (conforming to the logger.Logger interface), used to log relevant information and errors during the token acquisition process.
+// - duration: The time duration it took for an HTTP request to complete.
 //
-// Returns:
-// - A new context containing the acquired request ID, which should be passed to subsequent operations requiring concurrency control.
-// - An error if the token could not be acquired within the timeout period or due to any other issues encountered by the ConcurrencyManager.
-//
-// Usage:
-// This function should be called before making an HTTP request that needs to be controlled for concurrency.
-// The returned context should be used for the HTTP request to ensure it is associated with the acquired concurrency token.
-func (c *Client) AcquireConcurrencyToken(ctx context.Context, log logger.Logger) (context.Context, error) {
-	// Measure the token acquisition start time
-	tokenAcquisitionStart := time.Now()
-
-	// Create a new context with a timeout for acquiring the concurrency token
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	requestID, err := c.ConcurrencyMgr.Acquire(ctxWithTimeout)
-	if err != nil {
-		log.Error("Failed to acquire concurrency token", zap.Error(err))
-		return nil, err
-	}
-
-	// Calculate the duration it took to acquire the token
-	tokenAcquisitionDuration := time.Since(tokenAcquisitionStart)
-
-	// Lock the mutex before updating the performance metrics
+// This function should be called after each HTTP request to keep track of the client's
+// performance over time.
+func (c *Client) updatePerformanceMetrics(duration time.Duration) {
 	c.PerfMetrics.lock.Lock()
-	c.PerfMetrics.TokenWaitTime += tokenAcquisitionDuration
-	c.PerfMetrics.lock.Unlock()
-
-	// Add the acquired request ID to the context for use in subsequent operations
-	ctxWithRequestID := context.WithValue(ctx, requestIDKey{}, requestID)
-
-	// Return the updated context and nil error to indicate success
-	return ctxWithRequestID, nil
+	defer c.PerfMetrics.lock.Unlock()
+	c.PerfMetrics.TotalResponseTime += duration
+	c.PerfMetrics.TotalRequests++
 }
 
 // DoRequest constructs and executes a standard HTTP request with support for retry logic.
@@ -191,10 +161,13 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 			}
 			// After each request, compute and update response time
 			responseDuration := time.Since(responseTimeStart)
-			c.PerfMetrics.lock.Lock()
-			c.PerfMetrics.TotalResponseTime += responseDuration
-			c.PerfMetrics.lock.Unlock()
-
+			c.updatePerformanceMetrics(responseDuration)
+			/*
+				responseDuration := time.Since(responseTimeStart)
+				c.PerfMetrics.lock.Lock()
+				c.PerfMetrics.TotalResponseTime += responseDuration
+				c.PerfMetrics.lock.Unlock()
+			*/
 			// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 			if i == 0 {
 				CheckDeprecationHeader(resp, log)
@@ -303,12 +276,15 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 			return nil, err
 		}
 
-		// After the request, compute and update response time
+		// After each request, compute and update response time
 		responseDuration := time.Since(responseTimeStart)
-		c.PerfMetrics.lock.Lock()
-		c.PerfMetrics.TotalResponseTime += responseDuration
-		c.PerfMetrics.lock.Unlock()
-
+		c.updatePerformanceMetrics(responseDuration)
+		/*
+			responseDuration := time.Since(responseTimeStart)
+			c.PerfMetrics.lock.Lock()
+			c.PerfMetrics.TotalResponseTime += responseDuration
+			c.PerfMetrics.lock.Unlock()
+		*/
 		CheckDeprecationHeader(resp, log)
 
 		// Handle (unmarshal) response with API Handler
