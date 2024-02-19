@@ -103,8 +103,8 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 		c.SetRequestHeaders(req, contentType, acceptHeader, log)
 	*/
 
-	// Initialize HeaderManager with the request, logger, and APIHandler
-	headerManager := NewHeaderManager(req, log, c.APIHandler)
+	// Initialize HeaderManager with the request, logger, APIHandler, and token from the Client
+	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
 
 	// Set the necessary HTTP headers for the request using the helper function
 	headerManager.SetRequestHeaders(endpoint)
