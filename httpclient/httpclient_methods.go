@@ -1,3 +1,19 @@
+// httpclient_methods.go
+/* Ref: https://www.rfc-editor.org/rfc/rfc7231#section-8.1.3
+
++---------+------+------------+
+| Method  | Safe | Idempotent |
++---------+------+------------+
+| CONNECT | no   | no         |
+| DELETE  | no   | yes        |
+| GET     | yes  | yes        |
+| HEAD    | yes  | yes        |
+| OPTIONS | yes  | yes        |
+| POST    | no   | no         |
+| PUT     | no   | yes        |
+| TRACE   | yes  | yes        |
++---------+------+------------+  
+*/
 package httpclient
 
 import "net/http"
