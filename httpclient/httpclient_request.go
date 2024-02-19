@@ -50,6 +50,61 @@ func (c *Client) executeHTTPRequest(req *http.Request, log logger.Logger, method
 	return resp, nil
 }
 
+// handleErrorResponse processes and logs errors from an HTTP response, allowing for a customizable error message.
+//
+// Parameters:
+// - resp: The *http.Response received from the server.
+// - log: An instance of a logger (conforming to the logger.Logger interface) for logging the error details.
+// - errorMessage: A custom error message that provides context about the error.
+// - method: The HTTP method used for the request, for logging purposes.
+// - endpoint: The endpoint the request was sent to, for logging purposes.
+//
+// Returns:
+// - An error object parsed from the HTTP response, indicating the nature of the failure.
+func (c *Client) handleErrorResponse(resp *http.Response, log logger.Logger, errorMessage, method, endpoint string) error {
+	apiErr := errors.HandleAPIError(resp, log)
+
+	// Log the provided error message along with method, endpoint, and status code.
+	log.Error(errorMessage,
+		zap.String("method", method),
+		zap.String("endpoint", endpoint),
+		zap.Int("status_code", resp.StatusCode),
+		zap.String("error", apiErr.Error()),
+	)
+
+	return apiErr
+}
+
+// handleSuccessResponse unmarshals a successful HTTP response into the provided output parameter and logs the
+// success details. It's designed for use when the response indicates success (status code within 200-299).
+// The function logs the request's success and, in case of unmarshalling errors, logs the failure and returns the error.
+//
+// Parameters:
+// - resp: The *http.Response received from the server.
+// - out: A pointer to the variable where the unmarshalled response will be stored.
+// - log: An instance of a logger (conforming to the logger.Logger interface) for logging success or unmarshalling errors.
+// - method: The HTTP method used for the request, for logging purposes.
+// - endpoint: The endpoint the request was sent to, for logging purposes.
+//
+// Returns:
+// - nil if the response was successfully unmarshalled into the 'out' parameter, or an error if unmarshalling failed.
+func (c *Client) handleSuccessResponse(resp *http.Response, out interface{}, log logger.Logger, method, endpoint string) error {
+	if err := c.APIHandler.UnmarshalResponse(resp, out, log); err != nil {
+		log.Error("Failed to unmarshal HTTP response",
+			zap.String("method", method),
+			zap.String("endpoint", endpoint),
+			zap.Error(err),
+		)
+		return err
+	}
+	log.Info("HTTP request succeeded",
+		zap.String("method", method),
+		zap.String("endpoint", endpoint),
+		zap.Int("status_code", resp.StatusCode),
+	)
+	return nil
+}
+
 // DoRequest constructs and executes a standard HTTP request with support for retry logic.
 // It is intended for operations that can be encoded in a single JSON or XML body such as
 // creating or updating resources. This method includes token validation, concurrency control,
@@ -87,26 +142,6 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	if err != nil || !valid {
 		return nil, fmt.Errorf("validity of the authentication token failed with error: %w", err)
 	}
-	/*
-		// Acquire a token for concurrency management with a timeout and measure its acquisition time
-		tokenAcquisitionStart := time.Now()
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		requestID, err := c.ConcurrencyMgr.Acquire(ctx)
-		if err != nil {
-			return nil, err
-		}
-		defer c.ConcurrencyMgr.Release(requestID)
-
-		tokenAcquisitionDuration := time.Since(tokenAcquisitionStart)
-		c.PerfMetrics.lock.Lock()
-		c.PerfMetrics.TokenWaitTime += tokenAcquisitionDuration
-		c.PerfMetrics.lock.Unlock()
-
-		// Add the request ID to the context
-		ctx = context.WithValue(ctx, requestIDKey{}, requestID)
-	*/
 
 	// Acquire a token for concurrency management
 	ctx, err := c.AcquireConcurrencyToken(context.Background(), log)
@@ -169,19 +204,6 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 			responseTimeStart := time.Now()
 
 			// Execute the request
-			/*
-				resp, err := c.httpClient.Do(req)
-				if err != nil {
-					log.Error("Failed to send retryable request",
-						zap.String("method", method),
-						zap.String("endpoint", endpoint),
-						zap.Int("status_code", resp.StatusCode),
-						zap.String("status_text", http.StatusText(resp.StatusCode)),
-					)
-					return nil, err
-				}*/
-
-			// Execute the request
 			resp, err := c.executeHTTPRequest(req, log, method, endpoint)
 			if err != nil {
 				return nil, err
@@ -190,12 +212,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 			// After each request, compute and update response time
 			responseDuration := time.Since(responseTimeStart)
 			c.updatePerformanceMetrics(responseDuration)
-			/*
-				responseDuration := time.Since(responseTimeStart)
-				c.PerfMetrics.lock.Lock()
-				c.PerfMetrics.TotalResponseTime += responseDuration
-				c.PerfMetrics.lock.Unlock()
-			*/
+
 			// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 			if i == 0 {
 				CheckDeprecationHeader(resp, log)
@@ -294,33 +311,14 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 		req = req.WithContext(ctx)
 
 		// Execute the request
-		/*
-			resp, err := c.httpClient.Do(req)
-			if err != nil {
-				log.Error("Failed to send request",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", resp.StatusCode),
-					zap.String("status_text", http.StatusText(resp.StatusCode)),
-				)
-				return nil, err
-			}
-		*/
-		// Execute the request
 		resp, err := c.executeHTTPRequest(req, log, method, endpoint)
 		if err != nil {
 			return nil, err
 		}
+
 		// After each request, compute and update response time
 		responseDuration := time.Since(responseTimeStart)
 		c.updatePerformanceMetrics(responseDuration)
-
-		/*
-			responseDuration := time.Since(responseTimeStart)
-			c.PerfMetrics.lock.Lock()
-			c.PerfMetrics.TotalResponseTime += responseDuration
-			c.PerfMetrics.lock.Unlock()
-		*/
 
 		// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 		CheckDeprecationHeader(resp, log)
@@ -432,20 +430,6 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	c.SetRequestHeaders(req, contentType, acceptHeader, log)
 
 	// Execute the request
-	/*
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			log.Error("Failed to send multipart request",
-				zap.String("method", method),
-				zap.String("endpoint", endpoint),
-				zap.Int("status_code", resp.StatusCode),
-				zap.String("status_text", http.StatusText(resp.StatusCode)),
-			)
-			return nil, err
-		}
-	*/
-
-	// Execute the request
 	resp, err := c.executeHTTPRequest(req, log, method, endpoint)
 	if err != nil {
 		return nil, err
@@ -453,30 +437,10 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 
 	// Check for successful status code
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Use HandleAPIError to process the error response and log it accordingly
-		apiErr := errors.HandleAPIError(resp, log)
-
-		// Log additional context about the request that led to the error
-		log.Error("Received non-success status code from multipart request",
-			zap.String("method", method),
-			zap.String("endpoint", endpoint),
-			zap.Int("status_code", resp.StatusCode),
-			zap.String("status_text", http.StatusText(resp.StatusCode)),
-		)
-
-		// Return the original HTTP response and the API error
-		return resp, apiErr
+		// Handle error responses
+		return nil, c.handleErrorResponse(resp, log, "Failed to process the HTTP request", method, endpoint)
+	} else {
+		// Handle successful responses
+		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 	}
-
-	// Unmarshal the response
-	if err := apiHandler.UnmarshalResponse(resp, out, log); err != nil {
-		log.Error("Failed to unmarshal HTTP response",
-			zap.String("method", method),
-			zap.String("endpoint", endpoint),
-			zap.String("error", err.Error()),
-		)
-		return resp, err
-	}
-
-	return resp, nil
 }
