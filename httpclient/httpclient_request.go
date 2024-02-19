@@ -170,7 +170,13 @@ func (c *Client) executeRequest(req *http.Request, ctx context.Context, log logg
 		log.Error("HTTP request failed", zap.Error(err))
 		return nil, err
 	}
-	return resp, nil // The caller is responsible for closing the response body.
+	// Defer closing the response body only if the request was successful
+	defer func() {
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}()
+	return resp, nil
 }
 
 // executeRequestWithRetry sends an HTTP request with a retry mechanism for handling transient errors and rate limits.
@@ -207,33 +213,34 @@ func (c *Client) executeRequestWithRetry(req *http.Request, ctx context.Context,
 	var lastErr error
 	for i := 0; ; i++ {
 		resp, err := c.executeRequest(req, ctx, log)
-		if err == nil {
-			// Check the response status code
+		if err != nil {
+			lastErr = err
+			if ctx.Err() != nil {
+				// Context error takes precedence
+				return nil, ctx.Err()
+			}
+		} else {
+			defer resp.Body.Close() // Ensure the response body is always closed
+
+			// Check the response status code for success
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				return resp, nil
 			}
 
+			// Handle non-retryable and rate limit errors
 			if !errors.IsTransientError(resp) && !errors.IsRateLimitError(resp) {
-				resp.Body.Close() // Ensure the response body is closed
-				return resp, nil
+				return resp, nil // Non-retryable error, return response as is
 			}
 
 			if errors.IsRateLimitError(resp) {
 				waitDuration := parseRateLimitHeaders(resp)
 				log.Info("Encountered rate limit error, waiting before retrying", zap.Duration("waitDuration", waitDuration), zap.Int("attempt", i+1))
 				time.Sleep(waitDuration)
-				resp.Body.Close() // Ensure the response body is closed before the next attempt
-				continue
-			}
-
-			resp.Body.Close() // Ensure the response body is closed before the next attempt
-		} else {
-			lastErr = err
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
+				continue // Retry after waiting
 			}
 		}
 
+		// Check retry attempts and backoff for transient errors
 		if i >= c.clientConfig.ClientOptions.MaxRetryAttempts {
 			log.Error("Max retry attempts reached, giving up", zap.Error(lastErr))
 			break
@@ -244,7 +251,7 @@ func (c *Client) executeRequestWithRetry(req *http.Request, ctx context.Context,
 		time.Sleep(backoffDuration)
 	}
 
-	return nil, lastErr
+	return nil, lastErr // Return the last error encountered
 }
 
 // DoRequest constructs and executes an HTTP request with optional retry logic based on the request method.
