@@ -143,3 +143,15 @@ func (h *HeaderManager) LogHeaders(client *Client) {
 		h.log.Debug("HTTP Request Headers", zap.String("Headers", headersStr))
 	}
 }
+
+// CheckDeprecationHeader checks the response headers for the Deprecation header and logs a warning if present.
+func CheckDeprecationHeader(resp *http.Response, log logger.Logger) {
+	deprecationHeader := resp.Header.Get("Deprecation")
+	if deprecationHeader != "" {
+
+		log.Warn("API endpoint is deprecated",
+			zap.String("Date", deprecationHeader),
+			zap.String("Endpoint", resp.Request.URL.String()),
+		)
+	}
+}

@@ -99,15 +99,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	// Set and log the HTTP request headers using the HeaderManager
 	headerManager.SetRequestHeaders(endpoint)
 	headerManager.LogHeaders(c)
-	/*
-		// Define if request is retryable
-		retryableHTTPMethods := map[string]bool{
-			http.MethodGet:    true, // GET
-			http.MethodDelete: true, // DELETE
-			http.MethodPut:    true, // PUT
-			http.MethodPatch:  true, // PATCH
-		}
-	*/
+
 	if IsIdempotentHTTPMethod(method) {
 		//if retryableHTTPMethods[method] {
 		// Define a deadline for total retries based on http client TotalRetryDuration config
