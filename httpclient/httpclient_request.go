@@ -123,30 +123,15 @@ func (c *Client) prepareRequest(method, endpoint string, body interface{}, log l
 func (c *Client) processResponse(resp *http.Response, out interface{}, log logger.Logger) error {
 	defer resp.Body.Close() // Ensure the response body is always closed
 
-	// Check for successful response first
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		// Delegate the unmarshaling of the response body to the API handler
-		if err := c.APIHandler.UnmarshalResponse(resp, out, log); err != nil {
-			// Errors would have been logged by the API handler, so just return the error
-			return err
-		}
-
-		// If successful, no further action is needed
-		return nil
-	}
-
-	// For non-success responses, delegate error handling to the API handler as well
-	// This might involve logging and constructing a detailed error from the response body
+	// Delegate the processing of the response to the API handler
 	if err := c.APIHandler.UnmarshalResponse(resp, out, log); err != nil {
-		// Since UnmarshalResponse handles both successful and error responses,
-		// it might already log and return an appropriate error, so just return it here
+		// Since UnmarshalResponse is expected to handle all aspects of response processing,
+		// including error handling and logging, just return the error here
 		return err
 	}
 
-	// If the API handler's UnmarshalResponse method doesn't handle non-success status codes,
-	// you can log and return a generic error here
-	log.Error("Received non-success HTTP status code", zap.Int("status_code", resp.StatusCode))
-	return fmt.Errorf("HTTP request failed with status code %d", resp.StatusCode)
+	// If UnmarshalResponse completes without error, the response has been successfully processed
+	return nil
 }
 
 // retryableHTTPMethods returns a map of HTTP methods that are considered suitable for retrying in case of errors.
