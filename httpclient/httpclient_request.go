@@ -13,7 +13,52 @@ import (
 	"go.uber.org/zap"
 )
 
-// DoRequest constructs and executes an HTTP request, choosing the execution path based on the idempotency of the HTTP method.
+// DoRequest constructs and executes an HTTP request based on the provided method, endpoint, request body, and output variable.
+// This function serves as a dispatcher, deciding whether to execute the request with or without retry logic based on the
+// idempotency of the HTTP method. Idempotent methods (GET, PUT, DELETE) are executed with retries to handle transient errors
+// and rate limits, while non-idempotent methods (POST, PATCH) are executed without retries to avoid potential side effects
+// of duplicating non-idempotent operations.
+
+// Parameters:
+// - method: A string representing the HTTP method to be used for the request. This method determines the execution path
+//   and whether the request will be retried in case of failures.
+// - endpoint: The target API endpoint for the request. This should be a relative path that will be appended to the base URL
+//   configured for the HTTP client.
+// - body: The payload for the request, which will be serialized into the request body. The serialization format (e.g., JSON, XML)
+//   is determined by the content-type header and the specific implementation of the API handler used by the client.
+// - out: A pointer to an output variable where the response will be deserialized. The function expects this to be a pointer to
+//   a struct that matches the expected response schema.
+// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings, and
+//   errors encountered during the execution of the request.
+
+// Returns:
+// - *http.Response: The HTTP response received from the server. In case of successful execution, this response contains
+//   the status code, headers, and body of the response. In case of errors, particularly after exhausting retries for
+//   idempotent methods, this response may contain the last received HTTP response that led to the failure.
+// - error: An error object indicating failure during request execution. This could be due to network issues, server errors,
+//   or a failure in request serialization/deserialization. For idempotent methods, an error is returned if all retries are
+//   exhausted without success.
+
+// Usage:
+// This function is the primary entry point for executing HTTP requests using the client. It abstracts away the details of
+// request retries, serialization, and response handling, providing a simplified interface for making HTTP requests. It is
+// suitable for a wide range of HTTP operations, from fetching data with GET requests to submitting data with POST requests.
+
+// Example:
+// var result MyResponseType
+// resp, err := client.DoRequest("GET", "/api/resource", nil, &result, logger)
+// if err != nil {
+//     // Handle error
+// }
+// // Use `result` or `resp` as needed
+
+// Note:
+// - The caller is responsible for closing the response body when not nil to avoid resource leaks.
+// - The function ensures concurrency control by managing concurrency tokens internally, providing safe concurrent operations
+//   within the client's concurrency model.
+// - The decision to retry requests is based on the idempotency of the HTTP method and the client's retry configuration,
+//   including maximum retry attempts and total retry duration.
+
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
 	if IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out, log)
@@ -213,9 +258,9 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
 
 	// Initialize total request counter
-	c.PerfMetrics.lock.Lock()
-	c.PerfMetrics.TotalRequests++
-	c.PerfMetrics.lock.Unlock()
+	//c.PerfMetrics.lock.Lock()
+	//c.PerfMetrics.TotalRequests++
+	//c.PerfMetrics.lock.Unlock()
 
 	// Perform Request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
@@ -229,8 +274,8 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 	headerManager.LogHeaders(c)
 
 	// Start response time measurement
-	responseTimeStart := time.Now()
-	// For non-retryable HTTP Methods (POST - Create)
+	//responseTimeStart := time.Now()
+	// Set the context with the request ID
 	req = req.WithContext(ctx)
 
 	// Execute the HTTP request
@@ -240,8 +285,8 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 	}
 
 	// After each request, compute and update response time
-	responseDuration := time.Since(responseTimeStart)
-	c.updatePerformanceMetrics(responseDuration)
+	//responseDuration := time.Since(responseTimeStart)
+	//c.updatePerformanceMetrics(responseDuration)
 
 	// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 	CheckDeprecationHeader(resp, log)
