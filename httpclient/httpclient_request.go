@@ -14,6 +14,112 @@ import (
 	"go.uber.org/zap"
 )
 
+// DoRequestV2 constructs and executes an HTTP request, choosing the execution path based on the idempotency of the HTTP method.
+func (c *Client) DoRequestV2(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
+	if IsIdempotentHTTPMethod(method) {
+		return c.executeRequestWithRetries(method, endpoint, body, out, log)
+	} else if IsNonIdempotentHTTPMethod(method) {
+		return c.executeRequest(method, endpoint, body, out, log)
+	} else {
+		return nil, log.Error("HTTP method not supported", zap.String("method", method))
+	}
+}
+
+// executeRequestWithRetries handles the execution of non-idempotent HTTP requests with appropriate retry logic.
+// GET / PUT / DELETE
+func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
+	// Include the core logic for handling non-idempotent requests with retries here.
+	log.Debug("Executing non-idempotent request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
+
+	// Placeholder for actual implementation
+	return nil, log.Error("executeRequestWithRetries function is not implemented yet")
+}
+
+// executeRequest handles the execution of idempotent HTTP requests without retry logic.
+// POST / PATCH
+func (c *Client) executeRequest(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
+	// Include the core logic for handling idempotent requests here.
+	log.Debug("Executing idempotent request", zap.String("method", method), zap.String("endpoint", endpoint))
+
+	// Auth Token validation check
+	valid, err := c.ValidAuthTokenCheck(log)
+	if err != nil || !valid {
+		return nil, err
+	}
+
+	// Acquire a token for concurrency management
+	ctx, err := c.AcquireConcurrencyToken(context.Background(), log)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		// Extract the requestID from the context and release the concurrency token
+		if requestID, ok := ctx.Value(requestIDKey{}).(uuid.UUID); ok {
+			c.ConcurrencyMgr.Release(requestID)
+		}
+	}()
+
+	// Determine which set of encoding and content-type request rules to use
+	apiHandler := c.APIHandler
+
+	// Marshal Request with correct encoding
+	requestData, err := apiHandler.MarshalRequest(body, method, endpoint, log)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct URL using the ConstructAPIResourceEndpoint function
+	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
+
+	// Initialize total request counter
+	c.PerfMetrics.lock.Lock()
+	c.PerfMetrics.TotalRequests++
+	c.PerfMetrics.lock.Unlock()
+
+	// Perform Request
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
+	if err != nil {
+		return nil, err
+	}
+
+	// Set request headers
+	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
+	headerManager.SetRequestHeaders(endpoint)
+	headerManager.LogHeaders(c)
+
+	// Start response time measurement
+	responseTimeStart := time.Now()
+	// For non-retryable HTTP Methods (POST - Create)
+	req = req.WithContext(ctx)
+
+	// Execute the HTTP request
+	resp, err := c.executeHTTPRequest(req, log, method, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	// After each request, compute and update response time
+	responseDuration := time.Since(responseTimeStart)
+	c.updatePerformanceMetrics(responseDuration)
+
+	// Checks for the presence of a deprecation header in the HTTP response and logs if found.
+	CheckDeprecationHeader(resp, log)
+
+	// Handle the response
+	if err := c.APIHandler.UnmarshalResponse(resp, out, log); err != nil {
+		// Error handling, including logging and type assertion for APIError
+		return resp, err // Error is already logged in UnmarshalResponse
+	}
+
+	// Successful execution and response handling
+	log.Info("HTTP request executed successfully",
+		zap.String("method", method),
+		zap.String("endpoint", endpoint),
+		zap.Int("status_code", resp.StatusCode))
+
+	return resp, nil
+}
+
 // executeHTTPRequest sends an HTTP request using the client's HTTP client. It logs the request and error details, if any, using structured logging with zap fields.
 //
 // Parameters:
