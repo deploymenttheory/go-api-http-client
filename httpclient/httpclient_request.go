@@ -121,35 +121,39 @@ func (c *Client) prepareRequest(method, endpoint string, body interface{}, log l
 //   - The method is designed to be called immediately after receiving an HTTP response, serving as a central point for handling all outcomes
 //     of an API call.
 func (c *Client) processResponse(resp *http.Response, out interface{}, log logger.Logger) error {
+	// Ensure the response body is closed only after this function completes
 	defer resp.Body.Close()
 
-	// Check for deprecation headers and log if present
-	CheckDeprecationHeader(resp, log)
-
-	// Handle API errors and unmarshal response body if successful
-	if err := c.APIHandler.UnmarshalResponse(resp, out, log); err != nil {
-		if apiErr, ok := err.(*errors.APIError); ok {
-			// Log the structured API error
-			log.Error("Received an API error", zap.Int("status_code", apiErr.StatusCode), zap.String("message", apiErr.Message))
-			return apiErr // Return the structured API error
-		}
-		// Log the error encountered during unmarshaling
-		log.Error("Failed to unmarshal HTTP response", zap.Error(err))
-		return err // Return the original error
-	}
-
-	// Log successful response
+	// First, check the response status code to determine how to proceed
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		// For successful responses, attempt to unmarshal the response body
+		if err := c.APIHandler.UnmarshalResponse(resp, out, log); err != nil {
+			// Log and return errors encountered during unmarshaling
+			log.Error("Failed to unmarshal HTTP response", zap.Error(err))
+			return err
+		}
+
+		// Log successful response
 		log.Info("HTTP request succeeded", zap.Int("status_code", resp.StatusCode))
 		return nil
 	}
 
-	// Handle non-success status codes
+	// For non-success responses, check for API errors or other issues
+	if apiErr := c.APIHandler.UnmarshalResponse(resp, out, log); apiErr != nil {
+		// Even if unmarshaling into the output fails, we might still want to capture the error
+		log.Error("Received an API error or failed to unmarshal error response", zap.Int("status_code", resp.StatusCode), zap.Error(apiErr))
+		return apiErr
+	}
+
+	// If we reach this point, the response was not successful, but did not contain a recognizable API error
 	statusDescription := errors.TranslateStatusCode(resp.StatusCode)
 	errorMessage := fmt.Sprintf("HTTP request failed with status code %d - %s", resp.StatusCode, statusDescription)
-	// Log the error message before returning it
+
+	// Log the error message
 	log.Error(errorMessage, zap.Int("status_code", resp.StatusCode), zap.String("description", statusDescription))
-	return fmt.Errorf(errorMessage) // Construct and return the error with the logged message
+
+	// Return a generic error with the status code and description
+	return fmt.Errorf(errorMessage)
 }
 
 // retryableHTTPMethods returns a map of HTTP methods that are considered suitable for retrying in case of errors.
