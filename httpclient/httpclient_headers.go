@@ -14,14 +14,16 @@ type HeaderManager struct {
 	req        *http.Request
 	log        logger.Logger
 	apiHandler APIHandler
+	token      string
 }
 
 // NewHeaderManager creates a new instance of HeaderManager for a given http.Request, logger, and APIHandler.
-func NewHeaderManager(req *http.Request, log logger.Logger, apiHandler APIHandler) *HeaderManager {
+func NewHeaderManager(req *http.Request, log logger.Logger, apiHandler APIHandler, token string) *HeaderManager {
 	return &HeaderManager{
 		req:        req,
 		log:        log,
 		apiHandler: apiHandler, // Initialize with the provided APIHandler
+		token:      token,      // Initialize with the provided token
 	}
 }
 
@@ -44,7 +46,11 @@ func (h *HeaderManager) LogHeaders() {
 
 // SetAuthorization sets the Authorization header for the request.
 func (h *HeaderManager) SetAuthorization(token string) {
-	h.req.Header.Set("Authorization", "Bearer "+token)
+	// Ensure the token is prefixed with "Bearer " only once
+	if !strings.HasPrefix(token, "Bearer ") {
+		token = "Bearer " + token
+	}
+	h.req.Header.Set("Authorization", token)
 }
 
 // SetContentType sets the Content-Type header for the request.
@@ -147,28 +153,21 @@ func (c *Client) SetRequestHeaders(req *http.Request, contentType, acceptHeader 
 	}
 }
 
-// SetRequestHeaders sets the standard headers required for the API request.
+// SetRequestHeaders sets the necessary HTTP headers for a given request using the APIHandler to determine the required headers.
 func (h *HeaderManager) SetRequestHeaders(endpoint string) {
-	// Use the APIHandler to get the standard request headers required for this endpoint
+	// Retrieve the standard headers required for the request
 	standardHeaders := h.apiHandler.GetStandardRequestHeaders(endpoint)
 
-	// Set each required header on the request
+	// Loop through the standard headers and set them on the request
 	for header, value := range standardHeaders {
-		switch header {
-		case "Authorization":
-			// Assuming the token is set separately and not via GetStandardRequestHeaders
-			h.SetAuthorization("Bearer " + value) // Adjust this according to how you manage tokens
-		case "Content-Type", "Accept", "User-Agent":
-			// Directly set the header if the value is provided, otherwise, it will be skipped
-			if value != "" {
-				h.req.Header.Set(header, value)
-			}
-		default:
-			// Set custom headers that might be added by the APIHandler
+		if header == "Authorization" {
+			// Set the Authorization header using the token
+			h.SetAuthorization(h.token) // Ensure the token is correctly prefixed with "Bearer "
+		} else if value != "" {
 			h.req.Header.Set(header, value)
 		}
 	}
 
-	// Optionally log the headers for debugging
-	h.LogHeaders()
+	// Note: If the User-Agent needs to be set to a specific value, do it here or ensure it's included in the standardHeaders map from the APIHandler
+	// Example: h.SetUserAgent("YourUserAgentString")
 }
