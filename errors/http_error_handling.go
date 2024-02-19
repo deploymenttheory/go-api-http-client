@@ -130,3 +130,17 @@ func IsTransientError(resp *http.Response) bool {
 	}
 	return resp != nil && transientStatusCodes[resp.StatusCode]
 }
+
+// IsRetryableStatusCode checks if the provided HTTP status code is considered retryable.
+func IsRetryableStatusCode(statusCode int) bool {
+	retryableStatusCodes := map[int]bool{
+		http.StatusTooManyRequests:     true, // 429
+		http.StatusInternalServerError: true, // 500
+		http.StatusBadGateway:          true, // 502
+		http.StatusServiceUnavailable:  true, // 503
+		http.StatusGatewayTimeout:      true, // 504
+	}
+
+	_, retryable := retryableStatusCodes[statusCode]
+	return retryable
+}

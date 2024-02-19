@@ -29,10 +29,91 @@ func (c *Client) DoRequestV2(method, endpoint string, body, out interface{}, log
 // GET / PUT / DELETE
 func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
 	// Include the core logic for handling non-idempotent requests with retries here.
-	log.Debug("Executing non-idempotent request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
+	log.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	// Placeholder for actual implementation
-	return nil, log.Error("executeRequestWithRetries function is not implemented yet")
+	// Auth Token validation check
+	valid, err := c.ValidAuthTokenCheck(log)
+	if err != nil || !valid {
+		return nil, err
+	}
+
+	// Acquire a token for concurrency management
+	ctx, err := c.AcquireConcurrencyToken(context.Background(), log)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		// Extract the requestID from the context and release the concurrency token
+		if requestID, ok := ctx.Value(requestIDKey{}).(uuid.UUID); ok {
+			c.ConcurrencyMgr.Release(requestID)
+		}
+	}()
+
+	// Determine which set of encoding and content-type request rules to use
+	apiHandler := c.APIHandler
+
+	// Marshal Request with correct encoding
+	requestData, err := apiHandler.MarshalRequest(body, method, endpoint, log)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct URL using the ConstructAPIResourceEndpoint function
+	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
+
+	// Initialize total request counter
+	c.PerfMetrics.lock.Lock()
+	c.PerfMetrics.TotalRequests++
+	c.PerfMetrics.lock.Unlock()
+
+	// Perform Request
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
+	if err != nil {
+		return nil, err
+	}
+
+	// Set request headers
+	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
+	headerManager.SetRequestHeaders(endpoint)
+	headerManager.LogHeaders(c)
+
+	// Define a retry deadline based on the client's total retry duration configuration
+	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.TotalRetryDuration)
+
+	var resp *http.Response
+	retryCount := 0
+	for time.Now().Before(totalRetryDeadline) { // Check if the current time is before the total retry deadline
+		req = req.WithContext(ctx)
+		resp, err = c.executeHTTPRequest(req, log, method, endpoint)
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
+		}
+
+		if errors.IsRateLimitError(resp) || errors.IsTransientError(resp) {
+			retryCount++
+			if retryCount > c.clientConfig.ClientOptions.MaxRetryAttempts {
+				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
+				break
+			}
+			waitDuration := calculateBackoff(retryCount)
+			log.Warn("Retrying request due to error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err))
+			time.Sleep(waitDuration)
+			continue
+		}
+
+		if err != nil || !errors.IsRetryableStatusCode(resp.StatusCode) {
+			if apiErr := errors.HandleAPIError(resp, log); apiErr != nil {
+				err = apiErr
+			}
+			break
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, errors.HandleAPIError(resp, log)
 }
 
 // executeRequest handles the execution of idempotent HTTP requests without retry logic.
