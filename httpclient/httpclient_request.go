@@ -170,11 +170,13 @@ func (c *Client) executeRequest(req *http.Request, ctx context.Context, log logg
 		log.Error("HTTP request failed", zap.Error(err))
 		return nil, err
 	}
-
-	// Defer closing the response body here to ensure it's always closed
-	defer resp.Body.Close()
-
-	return resp, nil // Caller should not close the body again.
+	// Defer closing the response body only if the request was successful
+	defer func() {
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}()
+	return resp, nil
 }
 
 // executeRequestWithRetry sends an HTTP request with a retry mechanism for handling transient errors and rate limits.
