@@ -106,8 +106,9 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	// Initialize HeaderManager with the request, logger, APIHandler, and token from the Client
 	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
 
-	// Set the necessary HTTP headers for the request using the helper function
+	// Set and log the HTTP request headers using the HeaderManager
 	headerManager.SetRequestHeaders(endpoint)
+	headerManager.LogHeaders()
 
 	// Define if request is retryable
 	retryableHTTPMethods := map[string]bool{

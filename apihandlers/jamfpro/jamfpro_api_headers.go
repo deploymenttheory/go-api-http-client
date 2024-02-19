@@ -76,7 +76,7 @@ func (j *JamfAPIHandler) GetAPIRequestHeaders(endpoint string) map[string]string
 		"Accept":        j.GetAcceptHeader(),                        // Dynamically set based on API requirements.
 		"Content-Type":  j.GetContentTypeHeader(endpoint, j.Logger), // Dynamically set based on the endpoint.
 		"Authorization": "",                                         // To be set by the client with the actual token.
-		"User-Agent":    "",                                         // To be set by the client, usually with application info.
+		"User-Agent":    "go-api-http-client-jamfpro-handler",       // To be set by the client, usually with application info.
 	}
 	return headers
 }
