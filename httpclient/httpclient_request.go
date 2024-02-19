@@ -13,309 +13,176 @@ import (
 	"go.uber.org/zap"
 )
 
-// DoRequest constructs and executes a standard HTTP request with support for retry logic.
-// It is intended for operations that can be encoded in a single JSON or XML body such as
-// creating or updating resources. This method includes token validation, concurrency control,
-// performance metrics, dynamic header setting, and structured error handling.
-//
-// Parameters:
-// - method: The HTTP method to use (e.g., GET, POST, PUT, DELETE, PATCH).
-// - endpoint: The API endpoint to which the request will be sent.
-// - body: The payload to send in the request, which will be marshaled based on the API handler rules.
-// - out: A pointer to a variable where the unmarshaled response will be stored.
-//
-// Returns:
-// - A pointer to the http.Response received from the server.
-// - An error if the request could not be sent, the response could not be processed, or if retry attempts fail.
-//
-// The function starts by validating the client's authentication token and managing concurrency using
-// a token system. It then determines the appropriate API handler for marshaling the request body and
-// setting headers. The request is sent to the constructed URL with all necessary headers including
-// authorization, content type, and user agent.
-//
-// If configured for debug logging, the function logs all request headers before sending. The function then
-// enters a loop to handle retryable HTTP methods, implementing a retry mechanism for transient errors,
-// rate limits, and other retryable conditions based on response status codes.
-//
-// The function also updates performance metrics to track total request count and cumulative response time.
-// After processing the response, it handles any API errors and unmarshals the response body into the provided
-// 'out' parameter if the response is successful.
-//
-// Note:
-// The function assumes that retryable HTTP methods have been properly defined in the retryableHTTPMethods map.
-// It is the caller's responsibility to close the response body when the request is successful to avoid resource leaks.
-func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
-	// Auth Token validation check
-	valid, err := c.ValidAuthTokenCheck(log)
-	if err != nil || !valid {
-		return nil, fmt.Errorf("validity of the authentication token failed with error: %w", err)
-	}
-
-	// Acquire a token for concurrency management with a timeout and measure its acquisition time
-	tokenAcquisitionStart := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	requestID, err := c.ConcurrencyMgr.Acquire(ctx)
+// prepareRequest constructs an HTTP request including marshaling the body and setting necessary headers.
+// It retains the detailed logic for handling different content types and dynamic header setting.
+func (c *Client) prepareRequest(method, endpoint string, body interface{}, log logger.Logger) (*http.Request, error) {
+	// Marshal the request body based on the API handler rules
+	requestData, err := c.APIHandler.MarshalRequest(body, method, endpoint, log)
 	if err != nil {
-		return nil, err
-	}
-	defer c.ConcurrencyMgr.Release(requestID)
-
-	tokenAcquisitionDuration := time.Since(tokenAcquisitionStart)
-	c.PerfMetrics.lock.Lock()
-	c.PerfMetrics.TokenWaitTime += tokenAcquisitionDuration
-	c.PerfMetrics.lock.Unlock()
-
-	// Add the request ID to the context
-	ctx = context.WithValue(ctx, requestIDKey{}, requestID)
-
-	// Determine which set of encoding and content-type request rules to use
-	apiHandler := c.APIHandler
-
-	// Marshal Request with correct encoding
-	requestData, err := apiHandler.MarshalRequest(body, method, endpoint, log)
-	if err != nil {
+		log.Error("Error marshaling request body", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
-	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := apiHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
+	// Construct the full URL for the request
+	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
 
-	// Initialize total request counter
-	c.PerfMetrics.lock.Lock()
-	c.PerfMetrics.TotalRequests++
-	c.PerfMetrics.lock.Unlock()
-
-	// Perform Request
+	// Initialize the HTTP request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
 	if err != nil {
+		log.Error("Error creating HTTP request", zap.String("method", method), zap.String("url", url), zap.Error(err))
 		return nil, err
 	}
 
-	// Define header content type based on url and http method
-	contentType := apiHandler.GetContentTypeHeader(endpoint, log)
-	// Define Request Headers dynamically based on handler logic
-	acceptHeader := apiHandler.GetAcceptHeader()
+	// Set dynamic headers based on API handler logic
+	contentType := c.APIHandler.GetContentTypeHeader(endpoint, log)
+	acceptHeader := c.APIHandler.GetAcceptHeader()
 
-	// Set Headers
 	req.Header.Add("Authorization", "Bearer "+c.Token)
 	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("Accept", acceptHeader)
 	req.Header.Set("User-Agent", GetUserAgentHeader())
 
-	// Debug: Print request headers
-	redactedAuthorization := RedactSensitiveData(c, "Authorization", req.Header.Get("Authorization"))
-	c.Logger.Debug("HTTP Request Headers",
-		zap.String("Authorization", redactedAuthorization),
-		zap.String("Content-Type", req.Header.Get("Content-Type")),
-		zap.String("Accept", req.Header.Get("Accept")),
-		zap.String("User-Agent", req.Header.Get("User-Agent")),
-	)
-
-	// Define if request is retryable
-	retryableHTTPMethods := map[string]bool{
-		http.MethodGet:    true, // GET
-		http.MethodDelete: true, // DELETE
-		http.MethodPut:    true, // PUT
-		http.MethodPatch:  true, // PATCH
+	// Redact sensitive data if configured to do so
+	if c.clientConfig.ClientOptions.HideSensitiveData {
+		req.Header.Set("Authorization", "REDACTED")
 	}
 
-	if retryableHTTPMethods[method] {
-		// Define a deadline for total retries based on http client TotalRetryDuration config
-		totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.TotalRetryDuration)
-		i := 0
-		for {
-			// Check if we've reached the maximum number of retries or if our total retry time has exceeded
-			if i > c.clientConfig.ClientOptions.MaxRetryAttempts || time.Now().After(totalRetryDeadline) {
-				return nil, fmt.Errorf("max retry attempts reached or total retry duration exceeded")
-			}
+	return req, nil
+}
 
-			// This context is used to propagate cancellations and timeouts for the request.
-			// For example, if a request's context gets canceled or times out, the request will be terminated early.
-			req = req.WithContext(ctx)
+// processResponse handles the HTTP response, including error checking, unmarshaling the response body, and logging.
+// It maintains the structured error handling and response processing as per the original implementation.
+func (c *Client) processResponse(resp *http.Response, out interface{}, log logger.Logger) error {
+	defer resp.Body.Close()
 
-			// Start response time measurement
-			responseTimeStart := time.Now()
+	// Check for deprecation headers and log if present
+	CheckDeprecationHeader(resp, log)
 
-			// Execute the request
-			resp, err := c.httpClient.Do(req)
-			if err != nil {
-				log.Error("Failed to send retryable request",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", resp.StatusCode),
-					zap.String("status_text", http.StatusText(resp.StatusCode)),
-				)
-				return nil, err
-			}
-			// After each request, compute and update response time
-			responseDuration := time.Since(responseTimeStart)
-			c.PerfMetrics.lock.Lock()
-			c.PerfMetrics.TotalResponseTime += responseDuration
-			c.PerfMetrics.lock.Unlock()
-
-			// Checks for the presence of a deprecation header in the HTTP response and logs if found.
-			if i == 0 {
-				CheckDeprecationHeader(resp, log)
-			}
-
-			// Handle (unmarshal) response with API Handler
-			if err := apiHandler.UnmarshalResponse(resp, out, log); err != nil {
-				// Use type assertion to check if the error is of type *errors.APIError
-				if apiErr, ok := err.(*errors.APIError); ok {
-					// Log the API error with structured logging for specific APIError handling
-					log.Error("Received an API error",
-						zap.String("method", method),
-						zap.String("endpoint", endpoint),
-						zap.Int("status_code", apiErr.StatusCode),
-						zap.String("message", apiErr.Message),
-					)
-					return resp, apiErr // Return the typed error for further handling if needed
-				} else {
-					// Log other errors with structured logging for general error handling
-					log.Error("Failed to unmarshal HTTP response",
-						zap.String("method", method),
-						zap.String("endpoint", endpoint),
-						zap.Error(err), // Use zap.Error to log the error object
-					)
-					return resp, err
-				}
-			}
-
-			// Successful response
-			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				log.Info("HTTP request succeeded",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", resp.StatusCode),
-				)
-				return resp, nil
-			} else if
-			// Resource not found
-			resp.StatusCode == http.StatusNotFound {
-				log.Warn("Resource not found",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", resp.StatusCode),
-				)
-				// Use a centralized method for handling not found error
-				return resp, err
-			}
-
-			// Retry Logic
-			// Non-retryable error
-			if errors.IsNonRetryableError(resp) {
-				log.Warn("Encountered a non-retryable error",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", resp.StatusCode),
-					zap.String("description", errors.TranslateStatusCode(resp.StatusCode)),
-				)
-				return resp, errors.HandleAPIError(resp, log) // Assume this method logs the error internally
-			} else if errors.IsRateLimitError(resp) {
-				waitDuration := parseRateLimitHeaders(resp) // Parses headers to determine wait duration
-				log.Warn("Encountered a rate limit error. Retrying after wait duration.",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", resp.StatusCode),
-					zap.Duration("wait_duration", waitDuration),
-				)
-				time.Sleep(waitDuration)
-				i++
-				continue // This will restart the loop, effectively "retrying" the request
-			} else if errors.IsTransientError(resp) {
-				waitDuration := calculateBackoff(i) // Calculates backoff duration
-				log.Warn("Encountered a transient error. Retrying after backoff.",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", resp.StatusCode),
-					zap.Duration("wait_duration", waitDuration),
-					zap.Int("attempt", i),
-				)
-				time.Sleep(waitDuration)
-				i++
-				continue // This will restart the loop, effectively "retrying" the request
-			} else {
-				log.Error("Received unexpected error status from HTTP request",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", resp.StatusCode),
-					zap.String("description", errors.TranslateStatusCode(resp.StatusCode)),
-				)
-				return resp, errors.HandleAPIError(resp, log)
-			}
+	// Handle API errors and unmarshal response body if successful
+	if err := c.APIHandler.UnmarshalResponse(resp, out, log); err != nil {
+		if apiErr, ok := err.(*errors.APIError); ok {
+			// Log the structured API error
+			log.Error("Received an API error", zap.Int("status_code", apiErr.StatusCode), zap.String("message", apiErr.Message))
+			return apiErr // Return the structured API error
 		}
-	} else {
-		// Start response time measurement
-		responseTimeStart := time.Now()
-		// For non-retryable HTTP Methods (POST - Create)
-		req = req.WithContext(ctx)
-		// Execute the request
-		resp, err := c.httpClient.Do(req)
+		// Log the error encountered during unmarshaling
+		log.Error("Failed to unmarshal HTTP response", zap.Error(err))
+		return err // Return the original error
+	}
+
+	// Log successful response
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		log.Info("HTTP request succeeded", zap.Int("status_code", resp.StatusCode))
+		return nil
+	}
+
+	// Handle non-success status codes
+	statusDescription := errors.TranslateStatusCode(resp.StatusCode)
+	errorMessage := fmt.Sprintf("HTTP request failed with status code %d - %s", resp.StatusCode, statusDescription)
+	// Log the error message before returning it
+	log.Error(errorMessage, zap.Int("status_code", resp.StatusCode), zap.String("description", statusDescription))
+	return fmt.Errorf(errorMessage) // Construct and return the error with the logged message
+}
+
+// executeRequestWithRetry handles the sending of an HTTP request with retry logic for transient errors and rate limits.
+// It preserves the detailed retry mechanism including logging and backoff calculations.
+func (c *Client) executeRequestWithRetry(req *http.Request, ctx context.Context, log logger.Logger) (*http.Response, error) {
+	var lastErr error
+
+	for i := 0; ; i++ {
+		resp, err := c.httpClient.Do(req.WithContext(ctx))
+
 		if err != nil {
-			log.Error("Failed to send request",
-				zap.String("method", method),
-				zap.String("endpoint", endpoint),
-				zap.Int("status_code", resp.StatusCode),
-				zap.String("status_text", http.StatusText(resp.StatusCode)),
-			)
-			return nil, err
-		}
-
-		// After the request, compute and update response time
-		responseDuration := time.Since(responseTimeStart)
-		c.PerfMetrics.lock.Lock()
-		c.PerfMetrics.TotalResponseTime += responseDuration
-		c.PerfMetrics.lock.Unlock()
-
-		CheckDeprecationHeader(resp, log)
-
-		// Handle (unmarshal) response with API Handler
-		if err := apiHandler.UnmarshalResponse(resp, out, log); err != nil {
-			// Use type assertion to check if the error is of type *errors.APIError
-			if apiErr, ok := err.(*errors.APIError); ok {
-				// Log the API error with structured logging for specific APIError handling
-				log.Error("Received an API error",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", apiErr.StatusCode),
-					zap.String("message", apiErr.Message),
-				)
-				return resp, apiErr // Return the typed error for further handling if needed
-			} else {
-				// Log other errors with structured logging for general error handling
-				log.Error("Failed to unmarshal HTTP response",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Error(err), // Use zap.Error to log the error object
-				)
-				return resp, err // Return the original error
+			// Network error or other request failure
+			log.Error("HTTP request failed", zap.Error(err))
+			lastErr = err
+			if ctx.Err() != nil {
+				// Context cancellation or deadline exceeded
+				return nil, ctx.Err()
 			}
-		}
-
-		// Check if the response status code is within the success range
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			// Success, no need for logging
-			return resp, nil
 		} else {
-			// Translate the status code to a human-readable description
-			statusDescription := errors.TranslateStatusCode(resp.StatusCode)
-			if apiErr, ok := err.(*errors.APIError); ok {
-				// Log the API error with structured logging for specific APIError handling
-				log.Error("Received an API error",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", apiErr.StatusCode),
-					zap.String("message", apiErr.Message),
-				)
+			defer resp.Body.Close() // Ensure response body is closed
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				// Successful response
+				return resp, nil
 			}
 
-			// Return an error with the status code and its description
-			return resp, fmt.Errorf("error status code: %d - %s", resp.StatusCode, statusDescription)
+			// Log non-successful HTTP status
+			log.Error("HTTP request failed", zap.Int("status_code", resp.StatusCode), zap.String("status_text", http.StatusText(resp.StatusCode)))
+			lastErr = errors.HandleAPIError(resp, log) // Use the structured error handling
+
+			if !errors.IsTransientError(resp) {
+				// Non-retryable error, break the loop
+				break
+			}
+
+			if errors.IsRateLimitError(resp) {
+				// Rate limit error detected, parse headers to get wait duration
+				waitDuration := parseRateLimitHeaders(resp)
+				log.Info("Encountered rate limit error, waiting before retrying", zap.Duration("waitDuration", waitDuration), zap.Int("attempt", i+1))
+				time.Sleep(waitDuration) // Wait according to the rate limit before retrying
+				continue                 // Proceed to the next iteration for retry
+			}
 		}
+
+		// Retry logic for transient errors
+		if i >= c.clientConfig.ClientOptions.MaxRetryAttempts {
+			// Maximum retry attempts reached
+			log.Error("Max retry attempts reached, giving up", zap.Error(lastErr))
+			break
+		}
+
+		backoffDuration := calculateBackoff(i) // Calculate backoff duration
+		log.Info("Retrying HTTP request due to transient error", zap.Duration("backoff", backoffDuration), zap.Int("attempt", i+1))
+		time.Sleep(backoffDuration) // Wait before retrying
 	}
-	// TODO refactor to remove repition.
+
+	return nil, lastErr // Return the last encountered error
+}
+
+// DoRequest constructs and executes a standard HTTP request with support for retry logic.
+// This refactored version uses helper functions to handle request preparation, response processing, and retry logic.
+func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
+	// Validate the authentication token
+	valid, err := c.ValidAuthTokenCheck(log)
+	if err != nil || !valid {
+		log.Error("Authentication token validation failed", zap.Error(err))
+		return nil, err
+	}
+
+	// Acquire a concurrency token with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	requestID, err := c.ConcurrencyMgr.Acquire(ctx)
+	if err != nil {
+		log.Error("Failed to acquire concurrency token", zap.Error(err))
+		return nil, err
+	}
+	defer c.ConcurrencyMgr.Release(requestID)
+
+	// Prepare the HTTP request
+	req, err := c.prepareRequest(method, endpoint, body, log)
+	if err != nil {
+		errMsg := "Failed to prepare HTTP request"
+		log.Error(errMsg, zap.Error(err))
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
+	}
+
+	// Execute the request with retry logic
+	resp, err := c.executeRequestWithRetry(req, ctx, log)
+	if err != nil {
+		errMsg := "Failed to execute HTTP request"
+		log.Error(errMsg, zap.Error(err))
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
+	}
+
+	// Process the HTTP response
+	if err := c.processResponse(resp, out, log); err != nil {
+		return resp, err // processResponse already logs and formats the error appropriately
+	}
+
+	return resp, nil
 }
 
 // DoMultipartRequest creates and executes a multipart HTTP request. It is used for sending files
