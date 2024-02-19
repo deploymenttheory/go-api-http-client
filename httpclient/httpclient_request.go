@@ -14,20 +14,40 @@ import (
 	"go.uber.org/zap"
 )
 
-// updatePerformanceMetrics updates the client's performance metrics by recording the duration
-// of the HTTP request and incrementing the total request count. This function is thread-safe
-// and uses a mutex to synchronize updates to the performance metrics.
+// executeHTTPRequest sends an HTTP request using the client's HTTP client. It logs the request and error details, if any, using structured logging with zap fields.
 //
 // Parameters:
-// - duration: The time duration it took for an HTTP request to complete.
+// - req: The *http.Request object that contains all the details of the HTTP request to be sent.
+// - log: An instance of a logger (conforming to the logger.Logger interface) used for logging the request details and any errors.
+// - method: The HTTP method used for the request, used for logging.
+// - endpoint: The API endpoint the request is being sent to, used for logging.
 //
-// This function should be called after each HTTP request to keep track of the client's
-// performance over time.
-func (c *Client) updatePerformanceMetrics(duration time.Duration) {
-	c.PerfMetrics.lock.Lock()
-	defer c.PerfMetrics.lock.Unlock()
-	c.PerfMetrics.TotalResponseTime += duration
-	c.PerfMetrics.TotalRequests++
+// Returns:
+// - *http.Response: The HTTP response from the server.
+// - error: An error object if an error occurred while sending the request or nil if no error occurred.
+//
+// Usage:
+// This function should be used whenever the client needs to send an HTTP request. It abstracts away the common logic of request execution and error handling, providing detailed logs for debugging and monitoring.
+func (c *Client) executeHTTPRequest(req *http.Request, log logger.Logger, method, endpoint string) (*http.Response, error) {
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		// Log the error with structured logging, including method, endpoint, and the error itself
+		log.Error("Failed to send request",
+			zap.String("method", method),
+			zap.String("endpoint", endpoint),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+
+	// Log the response status code for successful requests
+	log.Info("Request sent successfully",
+		zap.String("method", method),
+		zap.String("endpoint", endpoint),
+		zap.Int("status_code", resp.StatusCode),
+	)
+
+	return resp, nil
 }
 
 // DoRequest constructs and executes a standard HTTP request with support for retry logic.
@@ -149,16 +169,24 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 			responseTimeStart := time.Now()
 
 			// Execute the request
-			resp, err := c.httpClient.Do(req)
+			/*
+				resp, err := c.httpClient.Do(req)
+				if err != nil {
+					log.Error("Failed to send retryable request",
+						zap.String("method", method),
+						zap.String("endpoint", endpoint),
+						zap.Int("status_code", resp.StatusCode),
+						zap.String("status_text", http.StatusText(resp.StatusCode)),
+					)
+					return nil, err
+				}*/
+
+			// Execute the request
+			resp, err := c.executeHTTPRequest(req, log, method, endpoint)
 			if err != nil {
-				log.Error("Failed to send retryable request",
-					zap.String("method", method),
-					zap.String("endpoint", endpoint),
-					zap.Int("status_code", resp.StatusCode),
-					zap.String("status_text", http.StatusText(resp.StatusCode)),
-				)
 				return nil, err
 			}
+
 			// After each request, compute and update response time
 			responseDuration := time.Since(responseTimeStart)
 			c.updatePerformanceMetrics(responseDuration)
@@ -264,27 +292,37 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 		responseTimeStart := time.Now()
 		// For non-retryable HTTP Methods (POST - Create)
 		req = req.WithContext(ctx)
+
 		// Execute the request
-		resp, err := c.httpClient.Do(req)
+		/*
+			resp, err := c.httpClient.Do(req)
+			if err != nil {
+				log.Error("Failed to send request",
+					zap.String("method", method),
+					zap.String("endpoint", endpoint),
+					zap.Int("status_code", resp.StatusCode),
+					zap.String("status_text", http.StatusText(resp.StatusCode)),
+				)
+				return nil, err
+			}
+		*/
+		// Execute the request
+		resp, err := c.executeHTTPRequest(req, log, method, endpoint)
 		if err != nil {
-			log.Error("Failed to send request",
-				zap.String("method", method),
-				zap.String("endpoint", endpoint),
-				zap.Int("status_code", resp.StatusCode),
-				zap.String("status_text", http.StatusText(resp.StatusCode)),
-			)
 			return nil, err
 		}
-
 		// After each request, compute and update response time
 		responseDuration := time.Since(responseTimeStart)
 		c.updatePerformanceMetrics(responseDuration)
+
 		/*
 			responseDuration := time.Since(responseTimeStart)
 			c.PerfMetrics.lock.Lock()
 			c.PerfMetrics.TotalResponseTime += responseDuration
 			c.PerfMetrics.lock.Unlock()
 		*/
+
+		// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 		CheckDeprecationHeader(resp, log)
 
 		// Handle (unmarshal) response with API Handler
@@ -394,14 +432,22 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	c.SetRequestHeaders(req, contentType, acceptHeader, log)
 
 	// Execute the request
-	resp, err := c.httpClient.Do(req)
+	/*
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			log.Error("Failed to send multipart request",
+				zap.String("method", method),
+				zap.String("endpoint", endpoint),
+				zap.Int("status_code", resp.StatusCode),
+				zap.String("status_text", http.StatusText(resp.StatusCode)),
+			)
+			return nil, err
+		}
+	*/
+
+	// Execute the request
+	resp, err := c.executeHTTPRequest(req, log, method, endpoint)
 	if err != nil {
-		log.Error("Failed to send multipart request",
-			zap.String("method", method),
-			zap.String("endpoint", endpoint),
-			zap.Int("status_code", resp.StatusCode),
-			zap.String("status_text", http.StatusText(resp.StatusCode)),
-		)
 		return nil, err
 	}
 
