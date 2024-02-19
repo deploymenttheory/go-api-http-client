@@ -88,6 +88,22 @@ func (c *Client) AcquireConcurrencyToken(ctx context.Context, log logger.Logger)
 	return ctxWithRequestID, nil
 }
 
+// updatePerformanceMetrics updates the client's performance metrics by recording the duration
+// of the HTTP request and incrementing the total request count. This function is thread-safe
+// and uses a mutex to synchronize updates to the performance metrics.
+//
+// Parameters:
+// - duration: The time duration it took for an HTTP request to complete.
+//
+// This function should be called after each HTTP request to keep track of the client's
+// performance over time.
+func (c *Client) updatePerformanceMetrics(duration time.Duration) {
+	c.PerfMetrics.lock.Lock()
+	defer c.PerfMetrics.lock.Unlock()
+	c.PerfMetrics.TotalResponseTime += duration
+	c.PerfMetrics.TotalRequests++
+}
+
 // NewConcurrencyManager initializes a new ConcurrencyManager with the given concurrency limit, logger, and debug mode.
 // The ConcurrencyManager ensures no more than a certain number of concurrent requests are made.
 // It uses a semaphore to control concurrency.
