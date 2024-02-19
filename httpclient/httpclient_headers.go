@@ -20,8 +20,8 @@ type HeaderManager struct {
 // NewHeaderManager creates a new instance of HeaderManager for a given http.Request, logger, and APIHandler.
 func NewHeaderManager(req *http.Request, log logger.Logger, apiHandler APIHandler, token string) *HeaderManager {
 	return &HeaderManager{
-		req:        req,
-		log:        log,
+		req:        req,        // Initialize with the provided http.Request
+		log:        log,        // Initialize with the provided logger
 		apiHandler: apiHandler, // Initialize with the provided APIHandler
 		token:      token,      // Initialize with the provided token
 	}
