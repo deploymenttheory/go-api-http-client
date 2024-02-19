@@ -92,15 +92,22 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	if err != nil {
 		return nil, err
 	}
+	/*
+		// Define header content type based on url and http method
+		contentType := apiHandler.GetContentTypeHeader(endpoint, log)
 
-	// Define header content type based on url and http method
-	contentType := apiHandler.GetContentTypeHeader(endpoint, log)
+		// Get Request Headers dynamically based on api handler
+		acceptHeader := apiHandler.GetAcceptHeader()
 
-	// Get Request Headers dynamically based on api handler
-	acceptHeader := apiHandler.GetAcceptHeader()
+		// Set Request Headers
+		c.SetRequestHeaders(req, contentType, acceptHeader, log)
+	*/
 
-	// Set Request Headers
-	c.SetRequestHeaders(req, contentType, acceptHeader, log)
+	// Initialize HeaderManager with the request, logger, and APIHandler
+	headerManager := NewHeaderManager(req, log, c.APIHandler)
+
+	// Set the necessary HTTP headers for the request using the helper function
+	headerManager.SetRequestHeaders(endpoint)
 
 	// Define if request is retryable
 	retryableHTTPMethods := map[string]bool{

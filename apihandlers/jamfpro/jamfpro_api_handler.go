@@ -370,3 +370,14 @@ func (j *JamfAPIHandler) handleBinaryData(contentType, contentDisposition string
 	}
 	return nil // If not binary data, no action needed
 }
+
+// GetStandardRequestHeaders returns a map of standard headers required for making API requests.
+func (j *JamfAPIHandler) GetStandardRequestHeaders(endpoint string) map[string]string {
+	headers := map[string]string{
+		"Accept":        j.GetAcceptHeader(),                        // Dynamically set based on API requirements.
+		"Content-Type":  j.GetContentTypeHeader(endpoint, j.Logger), // Dynamically set based on the endpoint.
+		"Authorization": "",                                         // To be set by the client with the actual token.
+		"User-Agent":    "",                                         // To be set by the client, usually with application info.
+	}
+	return headers
+}
