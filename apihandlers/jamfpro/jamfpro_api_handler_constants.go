@@ -13,27 +13,27 @@ const (
 	OAuthWithCertAuthenticationSupport = false                           // OAuthWithCertAuthSuppport: A boolean to indicate if the API supports OAuth with client certificate authentication.
 )
 
-// GetDefaultBaseDomain returns the default base domain used for constructing API URLs.
+// GetDefaultBaseDomain returns the default base domain used for constructing API URLs to the http client.
 func (j *JamfAPIHandler) GetDefaultBaseDomain() string {
 	return DefaultBaseDomain
 }
 
-// GetOAuthTokenEndpoint returns the endpoint for obtaining an OAuth token. Used for constructing API URLs.
+// GetOAuthTokenEndpoint returns the endpoint for obtaining an OAuth token. Used for constructing API URLs for the http client.
 func (j *JamfAPIHandler) GetOAuthTokenEndpoint() string {
 	return OAuthTokenEndpoint
 }
 
-// GetBearerTokenEndpoint returns the endpoint for obtaining a bearer token. Used for constructing API URLs.
+// GetBearerTokenEndpoint returns the endpoint for obtaining a bearer token. Used for constructing API URLs for the http client.
 func (j *JamfAPIHandler) GetBearerTokenEndpoint() string {
 	return BearerTokenEndpoint
 }
 
-// GetTokenRefreshEndpoint returns the endpoint for refreshing an existing token. Used for constructing API URLs.
+// GetTokenRefreshEndpoint returns the endpoint for refreshing an existing token. Used for constructing API URLs for the http client.
 func (j *JamfAPIHandler) GetTokenRefreshEndpoint() string {
 	return TokenRefreshEndpoint
 }
 
-// GetTokenInvalidateEndpoint returns the endpoint for invalidating an active token. Used for constructing API URLs.
+// GetTokenInvalidateEndpoint returns the endpoint for invalidating an active token. Used for constructing API URLs for the http client.
 func (j *JamfAPIHandler) GetTokenInvalidateEndpoint() string {
 	return TokenInvalidateEndpoint
 }
