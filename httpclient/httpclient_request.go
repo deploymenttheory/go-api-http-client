@@ -220,12 +220,13 @@ func (c *Client) executeRequestWithRetry(req *http.Request, ctx context.Context,
 				return nil, ctx.Err()
 			}
 		} else {
-			defer resp.Body.Close() // Ensure the response body is always closed
-
 			// Check the response status code for success
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				return resp, nil
+				return resp, nil // Success, no need to close the body here as it will be handled by the caller
 			}
+
+			// Close the response body here to prevent resource leaks.
+			resp.Body.Close()
 
 			// Handle non-retryable and rate limit errors
 			if !errors.IsTransientError(resp) && !errors.IsRateLimitError(resp) {
