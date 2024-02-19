@@ -298,6 +298,9 @@ func (c *Client) executeRequestWithRetry(req *http.Request, ctx context.Context,
 // - It is the caller's responsibility to close the response body when the request is successful to avoid resource leaks.
 // - The function adheres to best practices for HTTP communication in Go, ensuring robust error handling and efficient resource management.
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
+	// Start measuring the total request time
+	requestStartTime := time.Now()
+
 	// Validate the authentication token
 	valid, err := c.ValidAuthTokenCheck(log)
 	if err != nil || !valid {
@@ -308,12 +311,19 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	// Acquire a concurrency token with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	tokenAcquisitionStart := time.Now() // Start measuring token acquisition time
 	requestID, err := c.ConcurrencyMgr.Acquire(ctx)
 	if err != nil {
 		log.Error("Failed to acquire concurrency token", zap.Error(err))
 		return nil, err
 	}
 	defer c.ConcurrencyMgr.Release(requestID)
+	tokenAcquisitionDuration := time.Since(tokenAcquisitionStart) // Calculate token acquisition time
+
+	// Update performance metrics for token acquisition time
+	c.PerfMetrics.lock.Lock()
+	c.PerfMetrics.TokenWaitTime += tokenAcquisitionDuration
+	c.PerfMetrics.lock.Unlock()
 
 	// Add the requestID to the context
 	ctx = context.WithValue(ctx, requestIDKey{}, requestID)
@@ -326,6 +336,11 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 
+	// Increment total requests counter
+	c.PerfMetrics.lock.Lock()
+	c.PerfMetrics.TotalRequests++
+	c.PerfMetrics.lock.Unlock()
+
 	// Determine if the request should use retry logic based on the http method
 	var resp *http.Response
 	if retryableHTTPMethods()[method] {
@@ -335,6 +350,12 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 		// Execute the request once without retry logic for non-retryable methods
 		resp, err = c.executeRequest(req, ctx, log)
 	}
+
+	// Calculate the total response time and update the performance metrics
+	responseTime := time.Since(requestStartTime)
+	c.PerfMetrics.lock.Lock()
+	c.PerfMetrics.TotalResponseTime += responseTime
+	c.PerfMetrics.lock.Unlock()
 
 	if err != nil {
 		errMsg := "Failed to execute HTTP request"
