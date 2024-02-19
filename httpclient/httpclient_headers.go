@@ -27,20 +27,39 @@ func NewHeaderManager(req *http.Request, log logger.Logger, apiHandler APIHandle
 	}
 }
 
-// Helper function to convert headers to string for logging
+// HeadersToString converts a http.Header to a string for logging,
+// with each header on a new line for readability.
 func HeadersToString(headers http.Header) string {
 	var headerStrings []string
 	for name, values := range headers {
-		headerStrings = append(headerStrings, fmt.Sprintf("%s: %s", name, strings.Join(values, ", ")))
+		// Join all values for the header with a comma, as per HTTP standard
+		valueStr := strings.Join(values, ", ")
+		headerStrings = append(headerStrings, fmt.Sprintf("%s: %s", name, valueStr))
 	}
-	return strings.Join(headerStrings, "; ")
+	return strings.Join(headerStrings, "\n") // Use "\n" for new line separation in logs
 }
 
 // LogHeaders prints all the current headers in the http.Request using the zap logger.
-func (h *HeaderManager) LogHeaders() {
+// It uses the RedactSensitiveData function to redact sensitive data if required.
+func (h *HeaderManager) LogHeaders(client *Client) {
 	if h.log.GetLogLevel() <= logger.LogLevelDebug {
-		headers := HeadersToString(h.req.Header)
-		h.log.Debug("HTTP Request Headers", zap.String("Headers", headers))
+		// Initialize a new Header to hold the potentially redacted headers
+		redactedHeaders := http.Header{}
+
+		for name, values := range h.req.Header {
+			// Redact sensitive values
+			if len(values) > 0 {
+				// Use the first value for simplicity; adjust if multiple values per header are expected
+				redactedValue := RedactSensitiveData(client, name, values[0])
+				redactedHeaders.Set(name, redactedValue)
+			}
+		}
+
+		// Convert the redacted headers to a string for logging
+		headersStr := HeadersToString(redactedHeaders)
+
+		// Log the redacted headers
+		h.log.Debug("HTTP Request Headers", zap.String("Headers", headersStr))
 	}
 }
 
