@@ -1,6 +1,7 @@
 // http_concurrency_management.go
 // package httpclient provides utilities to manage HTTP client interactions, including concurrency control.
-// The Concurrency Manager ensures no more than a certain number of concurrent requests (e.g., 5 for Jamf Pro) are sent at the same time. This is managed using a semaphore
+// The Concurrency Manager ensures no more than a certain number of concurrent requests
+// (e.g., 5 for Jamf Pro) are sent at the same time. This is managed using a semaphore
 package httpclient
 
 import (
@@ -42,23 +43,47 @@ type requestIDKey struct{}
 
 // Functions:
 
-// AcquireConcurrencyToken attempts to acquire a token from the ConcurrencyManager to manage the number of concurrent requests.
-// This function is designed to ensure that the HTTP client adheres to predefined concurrency limits, preventing an excessive number of simultaneous requests.
-// It creates a new context with a timeout to avoid indefinite blocking in case the concurrency limit is reached.
-// Upon successfully acquiring a token, it records the time taken to acquire the token and updates performance metrics accordingly.
-// The function then adds the acquired request ID to the context, which can be used for tracking and managing individual requests.
+// NewConcurrencyManager initializes a new ConcurrencyManager with the given
+// concurrency limit, logger, and debug mode. The ConcurrencyManager ensures
+// no more than a certain number of concurrent requests are made.
+// It uses a semaphore to control concurrency.
+func NewConcurrencyManager(limit int, logger logger.Logger, debugMode bool) *ConcurrencyManager {
+	return &ConcurrencyManager{
+		sem:              make(chan struct{}, limit),
+		logger:           logger,
+		debugMode:        debugMode,
+		AcquisitionTimes: []time.Duration{},
+	}
+}
+
+// AcquireConcurrencyToken attempts to acquire a token from the ConcurrencyManager
+// to manage the number of concurrent requests. This function is designed to ensure
+// that the HTTP client adheres to predefined concurrency limits, preventing an
+// excessive number of simultaneous requests. It creates a new context with a timeout
+// to avoid indefinite blocking in case the concurrency limit is reached.
+// Upon successfully acquiring a token, it records the time taken to acquire the
+// token and updates performance metrics accordingly. The function then adds the
+// acquired request ID to the context, which can be used for tracking and managing
+// individual requests.
 //
 // Parameters:
-// - ctx: The parent context from which the new context with timeout will be derived. This allows for proper request cancellation and timeout handling.
-// - log: An instance of a logger (conforming to the logger.Logger interface), used to log relevant information and errors during the token acquisition process.
+// - ctx: The parent context from which the new context with timeout will be derived.
+// This allows for proper request cancellation and timeout handling.
+//
+// - log: An instance of a logger (conforming to the logger.Logger interface), used
+// to log relevant information and errors during the token acquisition process.
 //
 // Returns:
-// - A new context containing the acquired request ID, which should be passed to subsequent operations requiring concurrency control.
-// - An error if the token could not be acquired within the timeout period or due to any other issues encountered by the ConcurrencyManager.
+// - A new context containing the acquired request ID, which should be passed to
+// subsequent operations requiring concurrency control.
+//
+// - An error if the token could not be acquired within the timeout period or due to
+// any other issues encountered by the ConcurrencyManager.
 //
 // Usage:
-// This function should be called before making an HTTP request that needs to be controlled for concurrency.
-// The returned context should be used for the HTTP request to ensure it is associated with the acquired concurrency token.
+// This function should be called before making an HTTP request that needs to be
+// controlled for concurrency. The returned context should be used for the HTTP
+// request to ensure it is associated with the acquired concurrency token.
 func (c *Client) AcquireConcurrencyToken(ctx context.Context, log logger.Logger) (context.Context, error) {
 	// Measure the token acquisition start time
 	tokenAcquisitionStart := time.Now()
@@ -102,18 +127,6 @@ func (c *Client) updatePerformanceMetrics(duration time.Duration) {
 	defer c.PerfMetrics.lock.Unlock()
 	c.PerfMetrics.TotalResponseTime += duration
 	c.PerfMetrics.TotalRequests++
-}
-
-// NewConcurrencyManager initializes a new ConcurrencyManager with the given concurrency limit, logger, and debug mode.
-// The ConcurrencyManager ensures no more than a certain number of concurrent requests are made.
-// It uses a semaphore to control concurrency.
-func NewConcurrencyManager(limit int, logger logger.Logger, debugMode bool) *ConcurrencyManager {
-	return &ConcurrencyManager{
-		sem:              make(chan struct{}, limit),
-		logger:           logger,
-		debugMode:        debugMode,
-		AcquisitionTimes: []time.Duration{},
-	}
 }
 
 // Min returns the smaller of the two integers.
@@ -179,8 +192,9 @@ func (c *ConcurrencyManager) Release(requestID uuid.UUID) {
 
 //------ Metric-related Functions:
 
-// AverageAcquisitionTime computes the average time taken to acquire a token from the semaphore.
-// It helps in understanding the contention for tokens and can be used to adjust concurrency limits.
+// AverageAcquisitionTime computes the average time taken to acquire a token
+// from the semaphore. It helps in understanding the contention for tokens
+// and can be used to adjust concurrency limits.
 func (c *ConcurrencyManager) AverageAcquisitionTime() time.Duration {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -196,8 +210,10 @@ func (c *ConcurrencyManager) AverageAcquisitionTime() time.Duration {
 	return totalTime / time.Duration(len(c.AcquisitionTimes))
 }
 
-// HistoricalAverageAcquisitionTime computes the average time taken to acquire a token from the semaphore over a historical period (e.g., the last 5 minutes).
-// It helps in understanding the historical contention for tokens and can be used to adjust concurrency limits.
+// HistoricalAverageAcquisitionTime computes the average time taken to acquire
+// a token from the semaphore over a historical period (e.g., the last 5 minutes).
+// It helps in understanding the historical contention for tokens and can be used
+// to adjust concurrency limits.
 func (c *ConcurrencyManager) HistoricalAverageAcquisitionTime() time.Duration {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -218,9 +234,11 @@ func (c *ConcurrencyManager) HistoricalAverageAcquisitionTime() time.Duration {
 
 //------ Concurrency Adjustment Functions:
 
-// AdjustConcurrencyLimit dynamically modifies the maximum concurrency limit based on the newLimit provided.
-// This function helps in adjusting the concurrency limit in real-time based on observed system performance and other metrics.
-// It transfers the tokens from the old semaphore to the new one, ensuring that there's no loss of tokens during the transition.
+// AdjustConcurrencyLimit dynamically modifies the maximum concurrency limit
+// based on the newLimit provided. This function helps in adjusting the concurrency
+// limit in real-time based on observed system performance and other metrics. It
+// transfers the tokens from the old semaphore to the new one, ensuring that there's
+// no loss of tokens during the transition.
 func (c *ConcurrencyManager) AdjustConcurrencyLimit(newLimit int) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -240,9 +258,10 @@ func (c *ConcurrencyManager) AdjustConcurrencyLimit(newLimit int) {
 	c.sem = newSem
 }
 
-// AdjustConcurrencyBasedOnMetrics evaluates the current metrics and adjusts the concurrency limit if required.
-// It checks metrics like average token acquisition time and decides on a new concurrency limit.
-// The method ensures that the new limit respects the minimum and maximum allowed concurrency bounds.
+// AdjustConcurrencyBasedOnMetrics evaluates the current metrics and adjusts the
+// concurrency limit if required. It checks metrics like average token acquisition
+// time and decides on a new concurrency limit. The method ensures that the new
+// limit respects the minimum and maximum allowed concurrency bounds.
 func (c *Client) AdjustConcurrencyBasedOnMetrics() {
 	// Get average acquisition time
 	avgAcquisitionTime := c.ConcurrencyMgr.AverageAcquisitionTime()
