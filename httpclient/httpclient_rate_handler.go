@@ -2,12 +2,10 @@
 
 /*
 Components:
+
 Backoff Strategy: A function that calculates the delay before the next retry. It will implement exponential backoff with jitter. This strategy is more effective than a fixed delay, as it ensures that in cases of prolonged issues, the client won't keep hammering the server with a high frequency.
-
 Response Time Monitoring: We'll introduce a mechanism to track average response times and use deviations from this average to inform our backoff strategy.
-
 Error Classifier: A function to classify different types of errors. Only transient errors should be retried.
-
 Rate Limit Header Parser: For future compatibility, a function that can parse common rate limit headers (like X-RateLimit-Remaining and Retry-After) and adjust behavior accordingly.
 
 */
