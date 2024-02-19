@@ -10,35 +10,54 @@ import (
 
 	"github.com/deploymenttheory/go-api-http-client/errors"
 	"github.com/deploymenttheory/go-api-http-client/logger"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
-func (c *Client) executeRequest(req *http.Request, log logger.Logger) (*http.Response, error) {
-	// Start response time measurement
-	responseTimeStart := time.Now()
+// AcquireConcurrencyToken attempts to acquire a token from the ConcurrencyManager to manage the number of concurrent requests.
+// This function is designed to ensure that the HTTP client adheres to predefined concurrency limits, preventing an excessive number of simultaneous requests.
+// It creates a new context with a timeout to avoid indefinite blocking in case the concurrency limit is reached.
+// Upon successfully acquiring a token, it records the time taken to acquire the token and updates performance metrics accordingly.
+// The function then adds the acquired request ID to the context, which can be used for tracking and managing individual requests.
+//
+// Parameters:
+// - ctx: The parent context from which the new context with timeout will be derived. This allows for proper request cancellation and timeout handling.
+// - log: An instance of a logger (conforming to the logger.Logger interface), used to log relevant information and errors during the token acquisition process.
+//
+// Returns:
+// - A new context containing the acquired request ID, which should be passed to subsequent operations requiring concurrency control.
+// - An error if the token could not be acquired within the timeout period or due to any other issues encountered by the ConcurrencyManager.
+//
+// Usage:
+// This function should be called before making an HTTP request that needs to be controlled for concurrency.
+// The returned context should be used for the HTTP request to ensure it is associated with the acquired concurrency token.
+func (c *Client) AcquireConcurrencyToken(ctx context.Context, log logger.Logger) (context.Context, error) {
+	// Measure the token acquisition start time
+	tokenAcquisitionStart := time.Now()
 
-	// Execute the request
-	resp, err := c.httpClient.Do(req)
+	// Create a new context with a timeout for acquiring the concurrency token
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	requestID, err := c.ConcurrencyMgr.Acquire(ctxWithTimeout)
 	if err != nil {
-		log.Error("Failed to send request", zap.String("method", req.Method), zap.String("url", req.URL.String()), zap.Error(err))
+		log.Error("Failed to acquire concurrency token", zap.Error(err))
 		return nil, err
 	}
 
-	// Compute and update response time
-	responseDuration := time.Since(responseTimeStart)
+	// Calculate the duration it took to acquire the token
+	tokenAcquisitionDuration := time.Since(tokenAcquisitionStart)
+
+	// Lock the mutex before updating the performance metrics
 	c.PerfMetrics.lock.Lock()
-	c.PerfMetrics.TotalResponseTime += responseDuration
+	c.PerfMetrics.TokenWaitTime += tokenAcquisitionDuration
 	c.PerfMetrics.lock.Unlock()
 
-	// Check for the presence of a deprecation header in the HTTP response and log if found
-	CheckDeprecationHeader(resp, log)
+	// Add the acquired request ID to the context for use in subsequent operations
+	ctxWithRequestID := context.WithValue(ctx, requestIDKey{}, requestID)
 
-	// Basic response status check
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Warn("Received non-success HTTP status", zap.String("method", req.Method), zap.String("url", req.URL.String()), zap.Int("status_code", resp.StatusCode))
-	}
-
-	return resp, nil
+	// Return the updated context and nil error to indicate success
+	return ctxWithRequestID, nil
 }
 
 // DoRequest constructs and executes a standard HTTP request with support for retry logic.
@@ -78,25 +97,38 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	if err != nil || !valid {
 		return nil, fmt.Errorf("validity of the authentication token failed with error: %w", err)
 	}
+	/*
+		// Acquire a token for concurrency management with a timeout and measure its acquisition time
+		tokenAcquisitionStart := time.Now()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
-	// Acquire a token for concurrency management with a timeout and measure its acquisition time
-	tokenAcquisitionStart := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+		requestID, err := c.ConcurrencyMgr.Acquire(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer c.ConcurrencyMgr.Release(requestID)
 
-	requestID, err := c.ConcurrencyMgr.Acquire(ctx)
+		tokenAcquisitionDuration := time.Since(tokenAcquisitionStart)
+		c.PerfMetrics.lock.Lock()
+		c.PerfMetrics.TokenWaitTime += tokenAcquisitionDuration
+		c.PerfMetrics.lock.Unlock()
+
+		// Add the request ID to the context
+		ctx = context.WithValue(ctx, requestIDKey{}, requestID)
+	*/
+
+	// Acquire a token for concurrency management
+	ctx, err := c.AcquireConcurrencyToken(context.Background(), log)
 	if err != nil {
 		return nil, err
 	}
-	defer c.ConcurrencyMgr.Release(requestID)
-
-	tokenAcquisitionDuration := time.Since(tokenAcquisitionStart)
-	c.PerfMetrics.lock.Lock()
-	c.PerfMetrics.TokenWaitTime += tokenAcquisitionDuration
-	c.PerfMetrics.lock.Unlock()
-
-	// Add the request ID to the context
-	ctx = context.WithValue(ctx, requestIDKey{}, requestID)
+	defer func() {
+		// Extract the requestID from the context and release the concurrency token
+		if requestID, ok := ctx.Value(requestIDKey{}).(uuid.UUID); ok {
+			c.ConcurrencyMgr.Release(requestID)
+		}
+	}()
 
 	// Determine which set of encoding and content-type request rules to use
 	apiHandler := c.APIHandler
