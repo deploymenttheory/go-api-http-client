@@ -13,6 +13,34 @@ import (
 	"go.uber.org/zap"
 )
 
+func (c *Client) executeRequest(req *http.Request, log logger.Logger) (*http.Response, error) {
+	// Start response time measurement
+	responseTimeStart := time.Now()
+
+	// Execute the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		log.Error("Failed to send request", zap.String("method", req.Method), zap.String("url", req.URL.String()), zap.Error(err))
+		return nil, err
+	}
+
+	// Compute and update response time
+	responseDuration := time.Since(responseTimeStart)
+	c.PerfMetrics.lock.Lock()
+	c.PerfMetrics.TotalResponseTime += responseDuration
+	c.PerfMetrics.lock.Unlock()
+
+	// Check for the presence of a deprecation header in the HTTP response and log if found
+	CheckDeprecationHeader(resp, log)
+
+	// Basic response status check
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Warn("Received non-success HTTP status", zap.String("method", req.Method), zap.String("url", req.URL.String()), zap.Int("status_code", resp.StatusCode))
+	}
+
+	return resp, nil
+}
+
 // DoRequest constructs and executes a standard HTTP request with support for retry logic.
 // It is intended for operations that can be encoded in a single JSON or XML body such as
 // creating or updating resources. This method includes token validation, concurrency control,
@@ -99,15 +127,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	// Set and log the HTTP request headers using the HeaderManager
 	headerManager.SetRequestHeaders(endpoint)
 	headerManager.LogHeaders(c)
-	/*
-		// Define if request is retryable
-		retryableHTTPMethods := map[string]bool{
-			http.MethodGet:    true, // GET
-			http.MethodDelete: true, // DELETE
-			http.MethodPut:    true, // PUT
-			http.MethodPatch:  true, // PATCH
-		}
-	*/
+
 	if IsIdempotentHTTPMethod(method) {
 		//if retryableHTTPMethods[method] {
 		// Define a deadline for total retries based on http client TotalRetryDuration config

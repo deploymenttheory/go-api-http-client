@@ -27,18 +27,6 @@ func NewHeaderManager(req *http.Request, log logger.Logger, apiHandler APIHandle
 	}
 }
 
-// HeadersToString converts a http.Header to a string for logging,
-// with each header on a new line for readability.
-func HeadersToString(headers http.Header) string {
-	var headerStrings []string
-	for name, values := range headers {
-		// Join all values for the header with a comma, as per HTTP standard
-		valueStr := strings.Join(values, ", ")
-		headerStrings = append(headerStrings, fmt.Sprintf("%s: %s", name, valueStr))
-	}
-	return strings.Join(headerStrings, "\n") // "\n" as seperator.
-}
-
 // SetAuthorization sets the Authorization header for the request.
 func (h *HeaderManager) SetAuthorization(token string) {
 	// Ensure the token is prefixed with "Bearer " only once
@@ -141,5 +129,29 @@ func (h *HeaderManager) LogHeaders(client *Client) {
 
 		// Log the redacted headers
 		h.log.Debug("HTTP Request Headers", zap.String("Headers", headersStr))
+	}
+}
+
+// HeadersToString converts a http.Header to a string for logging,
+// with each header on a new line for readability.
+func HeadersToString(headers http.Header) string {
+	var headerStrings []string
+	for name, values := range headers {
+		// Join all values for the header with a comma, as per HTTP standard
+		valueStr := strings.Join(values, ", ")
+		headerStrings = append(headerStrings, fmt.Sprintf("%s: %s", name, valueStr))
+	}
+	return strings.Join(headerStrings, "\n") // "\n" as seperator.
+}
+
+// CheckDeprecationHeader checks the response headers for the Deprecation header and logs a warning if present.
+func CheckDeprecationHeader(resp *http.Response, log logger.Logger) {
+	deprecationHeader := resp.Header.Get("Deprecation")
+	if deprecationHeader != "" {
+
+		log.Warn("API endpoint is deprecated",
+			zap.String("Date", deprecationHeader),
+			zap.String("Endpoint", resp.Request.URL.String()),
+		)
 	}
 }
