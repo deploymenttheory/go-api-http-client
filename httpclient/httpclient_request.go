@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// DoRequestV2 constructs and executes an HTTP request, choosing the execution path based on the idempotency of the HTTP method.
-func (c *Client) DoRequestV2(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
+// DoRequest constructs and executes an HTTP request, choosing the execution path based on the idempotency of the HTTP method.
+func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
 	if IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out, log)
 	} else if IsNonIdempotentHTTPMethod(method) {
@@ -323,6 +323,7 @@ func (c *Client) handleSuccessResponse(resp *http.Response, out interface{}, log
 // Note:
 // The function assumes that retryable HTTP methods have been properly defined in the retryableHTTPMethods map.
 // It is the caller's responsibility to close the response body when the request is successful to avoid resource leaks.
+/*
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
 	// Auth Token validation check
 	valid, err := c.ValidAuthTokenCheck(log)
@@ -557,7 +558,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 	// TODO refactor to remove repition and to streamline error handling.
 	return nil, fmt.Errorf("an unexpected error occurred")
 }
-
+*/
 // DoMultipartRequest creates and executes a multipart HTTP request. It is used for sending files
 // and form fields in a single request. This method handles the construction of the multipart
 // message body, setting the appropriate headers, and sending the request to the given endpoint.
