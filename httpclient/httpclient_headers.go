@@ -11,19 +11,19 @@ import (
 
 // HeaderManager is responsible for managing and setting headers on HTTP requests.
 type HeaderManager struct {
-	req        *http.Request
-	log        logger.Logger
-	apiHandler APIHandler
-	token      string
+	req        *http.Request // The http.Request for which headers are being managed
+	log        logger.Logger // The logger to use for logging headers
+	apiHandler APIHandler    // The APIHandler to use for retrieving standard headers
+	token      string        // The token to use for setting the Authorization header
 }
 
 // NewHeaderManager creates a new instance of HeaderManager for a given http.Request, logger, and APIHandler.
 func NewHeaderManager(req *http.Request, log logger.Logger, apiHandler APIHandler, token string) *HeaderManager {
 	return &HeaderManager{
-		req:        req,        // Initialize with the provided http.Request
-		log:        log,        // Initialize with the provided logger
-		apiHandler: apiHandler, // Initialize with the provided APIHandler
-		token:      token,      // Initialize with the provided token
+		req:        req,
+		log:        log,
+		apiHandler: apiHandler,
+		token:      token,
 	}
 }
 
@@ -36,31 +36,7 @@ func HeadersToString(headers http.Header) string {
 		valueStr := strings.Join(values, ", ")
 		headerStrings = append(headerStrings, fmt.Sprintf("%s: %s", name, valueStr))
 	}
-	return strings.Join(headerStrings, "\n") // Use "\n" for new line separation in logs
-}
-
-// LogHeaders prints all the current headers in the http.Request using the zap logger.
-// It uses the RedactSensitiveData function to redact sensitive data if required.
-func (h *HeaderManager) LogHeaders(client *Client) {
-	if h.log.GetLogLevel() <= logger.LogLevelDebug {
-		// Initialize a new Header to hold the potentially redacted headers
-		redactedHeaders := http.Header{}
-
-		for name, values := range h.req.Header {
-			// Redact sensitive values
-			if len(values) > 0 {
-				// Use the first value for simplicity; adjust if multiple values per header are expected
-				redactedValue := RedactSensitiveData(client, name, values[0])
-				redactedHeaders.Set(name, redactedValue)
-			}
-		}
-
-		// Convert the redacted headers to a string for logging
-		headersStr := HeadersToString(redactedHeaders)
-
-		// Log the redacted headers
-		h.log.Debug("HTTP Request Headers", zap.String("Headers", headersStr))
-	}
+	return strings.Join(headerStrings, "\n") // "\n" as seperator.
 }
 
 // SetAuthorization sets the Authorization header for the request.
@@ -141,5 +117,29 @@ func (h *HeaderManager) SetRequestHeaders(endpoint string) {
 		} else if value != "" {
 			h.req.Header.Set(header, value)
 		}
+	}
+}
+
+// LogHeaders prints all the current headers in the http.Request using the zap logger.
+// It uses the RedactSensitiveData function to redact sensitive data if required.
+func (h *HeaderManager) LogHeaders(client *Client) {
+	if h.log.GetLogLevel() <= logger.LogLevelDebug {
+		// Initialize a new Header to hold the potentially redacted headers
+		redactedHeaders := http.Header{}
+
+		for name, values := range h.req.Header {
+			// Redact sensitive values
+			if len(values) > 0 {
+				// Use the first value for simplicity; adjust if multiple values per header are expected
+				redactedValue := RedactSensitiveData(client, name, values[0])
+				redactedHeaders.Set(name, redactedValue)
+			}
+		}
+
+		// Convert the redacted headers to a string for logging
+		headersStr := HeadersToString(redactedHeaders)
+
+		// Log the redacted headers
+		h.log.Debug("HTTP Request Headers", zap.String("Headers", headersStr))
 	}
 }
