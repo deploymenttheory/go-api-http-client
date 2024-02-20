@@ -292,7 +292,8 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 	// Check for successful status code
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Handle error responses
-		return nil, c.handleErrorResponse(resp, log, "Failed to process the HTTP request", method, endpoint)
+		//return nil, c.handleErrorResponse(resp, log, "Failed to process the HTTP request", method, endpoint)
+		return nil, c.handleErrorResponse(resp, out, log, method, endpoint)
 	} else {
 		// Handle successful responses
 		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
@@ -349,7 +350,7 @@ func (c *Client) executeHTTPRequest(req *http.Request, log logger.Logger, method
 //
 // Returns:
 // - An error object parsed from the HTTP response, indicating the nature of the failure.
-func (c *Client) handleErrorResponse(resp *http.Response, log logger.Logger, errorMessage, method, endpoint string) error {
+func (c *Client) handleErrorResponseV1(resp *http.Response, log logger.Logger, errorMessage, method, endpoint string) error {
 	apiErr := errors.HandleAPIError(resp, log)
 
 	// Log the provided error message along with method, endpoint, and status code.
@@ -361,6 +362,23 @@ func (c *Client) handleErrorResponse(resp *http.Response, log logger.Logger, err
 	)
 
 	return apiErr
+}
+
+func (c *Client) handleErrorResponse(resp *http.Response, out interface{}, log logger.Logger, method, endpoint string) error {
+	if err := c.APIHandler.HandleResponse(resp, out, log); err != nil {
+		log.Error("Failed to unmarshal HTTP response",
+			zap.String("method", method),
+			zap.String("endpoint", endpoint),
+			zap.Error(err),
+		)
+		return err
+	}
+	log.Info("HTTP request succeeded",
+		zap.String("method", method),
+		zap.String("endpoint", endpoint),
+		zap.Int("status_code", resp.StatusCode),
+	)
+	return nil
 }
 
 // handleSuccessResponse unmarshals a successful HTTP response into the provided output parameter and logs the
@@ -462,7 +480,8 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	// Check for successful status code
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Handle error responses
-		return nil, c.handleErrorResponse(resp, log, "Failed to process the HTTP request", method, endpoint)
+		//return nil, c.handleErrorResponse(resp, log, "Failed to process the HTTP request", method, endpoint)
+		return nil, c.handleErrorResponse(resp, out, log, method, endpoint)
 	} else {
 		// Handle successful responses
 		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
