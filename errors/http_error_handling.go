@@ -74,7 +74,12 @@ func HandleAPIError(resp *http.Response, log logger.Logger) error {
 }
 
 // TranslateStatusCode provides a human-readable message for HTTP status codes.
-func TranslateStatusCode(statusCode int) string {
+func TranslateStatusCode(resp *http.Response) string {
+
+	if resp == nil {
+		return "No status code received, possible network or connection error."
+	}
+
 	messages := map[int]string{
 		http.StatusOK:                            "Request successful.",
 		http.StatusCreated:                       "Request to create or update resource successful.",
@@ -115,7 +120,8 @@ func TranslateStatusCode(statusCode int) string {
 		http.StatusNetworkAuthenticationRequired: "Network authentication required. The client needs to authenticate to gain network access.",
 	}
 
-	if message, exists := messages[statusCode]; exists {
+	// Lookup and return the message for the given status code
+	if message, exists := messages[resp.StatusCode]; exists {
 		return message
 	}
 	return "An unexpected error occurred. Please try again later."

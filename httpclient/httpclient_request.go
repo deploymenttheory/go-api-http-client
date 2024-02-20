@@ -163,11 +163,11 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		}
 
 		// Leverage TranslateStatusCode for more descriptive error logging
-		statusMessage := errors.TranslateStatusCode(resp.StatusCode)
+		statusMessage := errors.TranslateStatusCode(resp)
 
 		// Check for non-retryable errors
 		if resp != nil && errors.IsNonRetryableStatusCode(resp) {
-			log.Info("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
+			log.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
 			return resp, errors.HandleAPIError(resp, log)
 		}
 
@@ -377,7 +377,7 @@ func (c *Client) handleErrorResponse(resp *http.Response, log logger.Logger, err
 // Returns:
 // - nil if the response was successfully unmarshalled into the 'out' parameter, or an error if unmarshalling failed.
 func (c *Client) handleSuccessResponse(resp *http.Response, out interface{}, log logger.Logger, method, endpoint string) error {
-	if err := c.APIHandler.UnmarshalResponse(resp, out, log); err != nil {
+	if err := c.APIHandler.HandleResponse(resp, out, log); err != nil {
 		log.Error("Failed to unmarshal HTTP response",
 			zap.String("method", method),
 			zap.String("endpoint", endpoint),
