@@ -350,22 +350,8 @@ func (c *Client) executeHTTPRequest(req *http.Request, log logger.Logger, method
 //
 // Returns:
 // - An error object parsed from the HTTP response, indicating the nature of the failure.
-func (c *Client) handleErrorResponseV1(resp *http.Response, log logger.Logger, errorMessage, method, endpoint string) error {
-	apiErr := errors.HandleAPIError(resp, log)
-
-	// Log the provided error message along with method, endpoint, and status code.
-	log.Error(errorMessage,
-		zap.String("method", method),
-		zap.String("endpoint", endpoint),
-		zap.Int("status_code", resp.StatusCode),
-		zap.String("error", apiErr.Error()),
-	)
-
-	return apiErr
-}
-
 func (c *Client) handleErrorResponse(resp *http.Response, out interface{}, log logger.Logger, method, endpoint string) error {
-	if err := c.APIHandler.HandleResponse(resp, out, log); err != nil {
+	if err := c.APIHandler.HandleAPIErrorResponse(resp, out, log); err != nil {
 		log.Error("Failed to unmarshal HTTP response",
 			zap.String("method", method),
 			zap.String("endpoint", endpoint),
@@ -395,7 +381,7 @@ func (c *Client) handleErrorResponse(resp *http.Response, out interface{}, log l
 // Returns:
 // - nil if the response was successfully unmarshalled into the 'out' parameter, or an error if unmarshalling failed.
 func (c *Client) handleSuccessResponse(resp *http.Response, out interface{}, log logger.Logger, method, endpoint string) error {
-	if err := c.APIHandler.HandleResponse(resp, out, log); err != nil {
+	if err := c.APIHandler.HandleAPISuccessResponse(resp, out, log); err != nil {
 		log.Error("Failed to unmarshal HTTP response",
 			zap.String("method", method),
 			zap.String("endpoint", endpoint),
