@@ -28,6 +28,9 @@ func (j *JamfAPIHandler) HandleResponse(resp *http.Response, out interface{}, lo
 		return err
 	}
 
+	// Convert bodyBytes to a string to represent the raw response body
+	rawResponse := string(bodyBytes)
+
 	// Log the raw response details for debugging
 	j.logResponseDetails(resp, bodyBytes)
 
@@ -46,11 +49,12 @@ func (j *JamfAPIHandler) HandleResponse(resp *http.Response, out interface{}, lo
 		if strings.Contains(contentType, "text/html") {
 			return j.handleErrorHTMLResponse(bodyBytes, resp.StatusCode)
 		} else if strings.Contains(contentType, "application/json") {
-			return j.handleErrorJSONResponse(bodyBytes, resp.StatusCode)
+			return j.handleErrorJSONResponse(bodyBytes, resp.StatusCode, rawResponse)
 		}
 		// Log generic error for unknown content types
 		j.Logger.Error("Received non-success status code without detailed error response",
 			zap.Int("status_code", resp.StatusCode),
+			zap.String("raw_response", rawResponse),
 		)
 		return fmt.Errorf("received non-success status code: %d", resp.StatusCode)
 	}
@@ -125,7 +129,7 @@ func (j *JamfAPIHandler) handleErrorHTMLResponse(bodyBytes []byte, statusCode in
 }
 
 // handleErrorJSONResponse handles error responses with JSON content by parsing the error message and logging it.
-func (j *JamfAPIHandler) handleErrorJSONResponse(bodyBytes []byte, statusCode int) error {
+func (j *JamfAPIHandler) handleErrorJSONResponse(bodyBytes []byte, statusCode int, rawResponse string) error {
 	// Parse the JSON error response to extract the error description
 	description, err := ParseJSONErrorResponse(bodyBytes)
 	if err != nil {
@@ -133,16 +137,17 @@ func (j *JamfAPIHandler) handleErrorJSONResponse(bodyBytes []byte, statusCode in
 		j.Logger.Error("Failed to parse JSON error response",
 			zap.Error(err),
 			zap.Int("status_code", statusCode),
+			zap.String("raw_response", rawResponse), // Include raw response in the log
 		)
-		return err
+		return fmt.Errorf("failed to parse JSON error response: %v, raw response: %s", err, rawResponse)
 	}
-	// Log the error description along with the status code
+	// Log the error description along with the status code and raw response
 	j.Logger.Error("Received non-success status code with JSON response",
 		zap.Int("status_code", statusCode),
 		zap.String("error_description", description),
+		zap.String("raw_response", rawResponse), // Include raw response in the log
 	)
-	// Return an error with the description
-	return fmt.Errorf("received non-success status code with JSON response: %s", description)
+	return fmt.Errorf("received non-success status code with JSON response: %s, raw response: %s", description, rawResponse)
 }
 
 // unmarshalResponse unmarshals the response body into the provided output structure based on the content type (JSON or XML).
