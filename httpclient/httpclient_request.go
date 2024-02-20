@@ -125,10 +125,10 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	}()
 
 	// Determine which set of encoding and content-type request rules to use
-	apiHandler := c.APIHandler
+	// apiHandler := c.APIHandler
 
 	// Marshal Request with correct encoding
-	requestData, err := apiHandler.MarshalRequest(body, method, endpoint, log)
+	requestData, err := c.APIHandler.MarshalRequest(body, method, endpoint, log)
 	if err != nil {
 		return nil, err
 	}
@@ -257,11 +257,6 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 	// Construct URL using the ConstructAPIResourceEndpoint function
 	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
 
-	// Initialize total request counter
-	//c.PerfMetrics.lock.Lock()
-	//c.PerfMetrics.TotalRequests++
-	//c.PerfMetrics.lock.Unlock()
-
 	// Perform Request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
 	if err != nil {
@@ -273,9 +268,6 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 	headerManager.SetRequestHeaders(endpoint)
 	headerManager.LogHeaders(c)
 
-	// Start response time measurement
-	//responseTimeStart := time.Now()
-	// Set the context with the request ID
 	req = req.WithContext(ctx)
 
 	// Execute the HTTP request
@@ -284,19 +276,17 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 		return nil, err
 	}
 
-	// After each request, compute and update response time
-	//responseDuration := time.Since(responseTimeStart)
-	//c.updatePerformanceMetrics(responseDuration)
-
 	// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 	CheckDeprecationHeader(resp, log)
 
-	// Handle the response
-	if err := c.APIHandler.UnmarshalResponse(resp, out, log); err != nil {
-		return resp, err
+	// Check for successful status code
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// Handle error responses
+		return nil, c.handleErrorResponse(resp, log, "Failed to process the HTTP request", method, endpoint)
+	} else {
+		// Handle successful responses
+		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 	}
-
-	return resp, nil
 }
 
 // executeHTTPRequest sends an HTTP request using the client's HTTP client. It logs the request and error details, if any,
@@ -428,16 +418,16 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Determine which set of encoding and content-type request rules to use
-	apiHandler := c.APIHandler
+	//apiHandler := c.APIHandler
 
 	// Marshal the multipart form data
-	requestData, contentType, err := apiHandler.MarshalMultipartRequest(fields, files, log)
+	requestData, contentType, err := c.APIHandler.MarshalMultipartRequest(fields, files, log)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := apiHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
+	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
 
 	// Create the request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
@@ -445,11 +435,13 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 		return nil, err
 	}
 
-	// Get Request Headers dynamically based on api handler
-	acceptHeader := apiHandler.GetAcceptHeader()
+	// Initialize HeaderManager
+	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
 
-	// Set Request Headers
-	c.SetRequestHeaders(req, contentType, acceptHeader, log)
+	// Use HeaderManager to set headers
+	headerManager.SetContentType(contentType)
+	headerManager.SetRequestHeaders(endpoint)
+	headerManager.LogHeaders(c)
 
 	// Execute the request
 	resp, err := c.executeHTTPRequest(req, log, method, endpoint)
@@ -465,5 +457,4 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 		// Handle successful responses
 		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 	}
-	// TODO refactor to remove dependancy on func (c *Client) SetRequestHeaders
 }
