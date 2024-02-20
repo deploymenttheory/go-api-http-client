@@ -72,6 +72,7 @@ func (j *JamfAPIHandler) HandleAPIErrorResponse(resp *http.Response, out interfa
 	return fmt.Errorf("received non-success status code: %d, raw response: %s", resp.StatusCode, rawResponse)
 }
 
+/*
 // HandleResponse processes an HTTP response for a Jamf API request. It handles different response types and errors accordingly.
 func (j *JamfAPIHandler) HandleResponse(resp *http.Response, out interface{}, log logger.Logger) error {
 	// Special handling for DELETE requests
@@ -119,7 +120,7 @@ func (j *JamfAPIHandler) HandleResponse(resp *http.Response, out interface{}, lo
 	// Unmarshal the response based on content type
 	return j.unmarshalResponse(contentType, bodyBytes, out)
 }
-
+*/
 // handleDeleteRequest handles the special case for DELETE requests, where a successful response might not contain a body.
 func (j *JamfAPIHandler) handleDeleteRequest(resp *http.Response) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
