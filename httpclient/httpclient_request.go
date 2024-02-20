@@ -457,5 +457,4 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 		// Handle successful responses
 		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 	}
-	// TODO refactor to remove dependancy on func (c *Client) SetRequestHeaders
 }

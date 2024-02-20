@@ -1,12 +1,6 @@
 package httpclient
 
-import (
-	"net/http"
-
-	"github.com/deploymenttheory/go-api-http-client/logger"
-	"go.uber.org/zap"
-)
-
+/*
 // SetRequestHeaders sets the necessary HTTP headers for a given request. It configures the Authorization,
 // Content-Type, and Accept headers based on the client's current token, the content type specified by the
 // caller, and the preferred response formats defined by the APIHandler's GetAcceptHeader method.
@@ -50,3 +44,4 @@ func (c *Client) SetRequestHeaders(req *http.Request, contentType, acceptHeader 
 		)
 	}
 }
+*/
