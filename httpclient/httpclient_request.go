@@ -124,16 +124,13 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		}
 	}()
 
-	// Determine which set of encoding and content-type request rules to use
-	// apiHandler := c.APIHandler
-
-	// Marshal Request with correct encoding
+	// Marshal Request with correct encoding defined in api handler
 	requestData, err := c.APIHandler.MarshalRequest(body, method, endpoint, log)
 	if err != nil {
 		return nil, err
 	}
 
-	// Construct URL using the ConstructAPIResourceEndpoint function
+	// Construct URL with correct structure defined in api handler
 	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
 
 	// Initialize total request counter
@@ -160,10 +157,16 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	for time.Now().Before(totalRetryDeadline) { // Check if the current time is before the total retry deadline
 		req = req.WithContext(ctx)
 		resp, err = c.executeHTTPRequest(req, log, method, endpoint)
+		// Check for successful status code
 		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 		}
-
+		// Check for non-retryable errors
+		if resp != nil && errors.IsNonRetryableError(resp) {
+			log.Info("Non-retryable error received", zap.Int("status_code", resp.StatusCode))
+			return resp, errors.HandleAPIError(resp, log)
+		}
+		// Check for retryable errors
 		if errors.IsRateLimitError(resp) || errors.IsTransientError(resp) {
 			retryCount++
 			if retryCount > c.clientConfig.ClientOptions.MaxRetryAttempts {
@@ -175,7 +178,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			time.Sleep(waitDuration)
 			continue
 		}
-
+		// Handle error responses
 		if err != nil || !errors.IsRetryableStatusCode(resp.StatusCode) {
 			if apiErr := errors.HandleAPIError(resp, log); apiErr != nil {
 				err = apiErr
@@ -183,7 +186,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			break
 		}
 	}
-
+	// Handles final non-API error.
 	if err != nil {
 		return nil, err
 	}
