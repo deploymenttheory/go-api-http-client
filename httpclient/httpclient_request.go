@@ -125,10 +125,10 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	}()
 
 	// Determine which set of encoding and content-type request rules to use
-	apiHandler := c.APIHandler
+	// apiHandler := c.APIHandler
 
 	// Marshal Request with correct encoding
-	requestData, err := apiHandler.MarshalRequest(body, method, endpoint, log)
+	requestData, err := c.APIHandler.MarshalRequest(body, method, endpoint, log)
 	if err != nil {
 		return nil, err
 	}
@@ -418,16 +418,16 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Determine which set of encoding and content-type request rules to use
-	apiHandler := c.APIHandler
+	//apiHandler := c.APIHandler
 
 	// Marshal the multipart form data
-	requestData, contentType, err := apiHandler.MarshalMultipartRequest(fields, files, log)
+	requestData, contentType, err := c.APIHandler.MarshalMultipartRequest(fields, files, log)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := apiHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
+	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
 
 	// Create the request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
@@ -435,11 +435,12 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 		return nil, err
 	}
 
-	// Get Request Headers dynamically based on api handler
-	acceptHeader := apiHandler.GetAcceptHeader()
+	// Initialize HeaderManager
+	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
 
-	// Set Request Headers
-	c.SetRequestHeaders(req, contentType, acceptHeader, log)
+	// Use HeaderManager to set headers
+	headerManager.SetContentType(contentType) // Content-Type from MarshalMultipartRequest
+	headerManager.SetRequestHeaders(endpoint) // Set other standard headers
 
 	// Execute the request
 	resp, err := c.executeHTTPRequest(req, log, method, endpoint)
