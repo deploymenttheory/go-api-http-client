@@ -257,11 +257,6 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 	// Construct URL using the ConstructAPIResourceEndpoint function
 	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
 
-	// Initialize total request counter
-	//c.PerfMetrics.lock.Lock()
-	//c.PerfMetrics.TotalRequests++
-	//c.PerfMetrics.lock.Unlock()
-
 	// Perform Request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
 	if err != nil {
@@ -273,9 +268,6 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 	headerManager.SetRequestHeaders(endpoint)
 	headerManager.LogHeaders(c)
 
-	// Start response time measurement
-	//responseTimeStart := time.Now()
-	// Set the context with the request ID
 	req = req.WithContext(ctx)
 
 	// Execute the HTTP request
@@ -283,10 +275,6 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 	if err != nil {
 		return nil, err
 	}
-
-	// After each request, compute and update response time
-	//responseDuration := time.Since(responseTimeStart)
-	//c.updatePerformanceMetrics(responseDuration)
 
 	// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 	CheckDeprecationHeader(resp, log)
