@@ -162,7 +162,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 		}
 		// Check for non-retryable errors
-		if resp != nil && errors.IsNonRetryableError(resp) {
+		if resp != nil && errors.IsNonRetryableStatusCode(resp) {
 			log.Info("Non-retryable error received", zap.Int("status_code", resp.StatusCode))
 			return resp, errors.HandleAPIError(resp, log)
 		}
