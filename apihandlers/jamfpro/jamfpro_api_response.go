@@ -14,6 +14,63 @@ import (
 )
 
 // Functions
+func (j *JamfAPIHandler) HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.Logger) error {
+	// Special handling for DELETE requests
+	if resp.Request.Method == "DELETE" {
+		return j.handleDeleteRequest(resp)
+	}
+
+	// Read the response body
+	bodyBytes, err := j.readResponseBody(resp)
+	if err != nil {
+		return err
+	}
+
+	// Log the raw response details for debugging
+	j.logResponseDetails(resp, bodyBytes)
+
+	// Unmarshal the response based on content type
+	contentType := resp.Header.Get("Content-Type")
+
+	// Check for binary data handling
+	contentDisposition := resp.Header.Get("Content-Disposition")
+	if err := j.handleBinaryData(contentType, contentDisposition, bodyBytes, out); err != nil {
+		return err
+	}
+
+	return j.unmarshalResponse(contentType, bodyBytes, out)
+}
+
+func (j *JamfAPIHandler) HandleAPIErrorResponse(resp *http.Response, out interface{}, log logger.Logger) error {
+	// Read the response body
+	bodyBytes, err := j.readResponseBody(resp)
+	if err != nil {
+		return err
+	}
+
+	// Convert bodyBytes to a string to represent the raw response body
+	rawResponse := string(bodyBytes)
+
+	// Log the raw response details for debugging
+	j.logResponseDetails(resp, bodyBytes)
+
+	// Get the content type from the response headers
+	contentType := resp.Header.Get("Content-Type")
+
+	// Handle known error content types (e.g., JSON, HTML)
+	if strings.Contains(contentType, "application/json") {
+		return j.handleErrorJSONResponse(bodyBytes, resp.StatusCode, rawResponse)
+	} else if strings.Contains(contentType, "text/html") {
+		return j.handleErrorHTMLResponse(bodyBytes, resp.StatusCode)
+	}
+
+	// Generic error handling for unknown content types
+	j.Logger.Error("Received non-success status code without detailed error response",
+		zap.Int("status_code", resp.StatusCode),
+		zap.String("raw_response", rawResponse),
+	)
+	return fmt.Errorf("received non-success status code: %d, raw response: %s", resp.StatusCode, rawResponse)
+}
 
 // HandleResponse processes an HTTP response for a Jamf API request. It handles different response types and errors accordingly.
 func (j *JamfAPIHandler) HandleResponse(resp *http.Response, out interface{}, log logger.Logger) error {
