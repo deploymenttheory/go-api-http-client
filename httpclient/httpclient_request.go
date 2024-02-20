@@ -161,11 +161,16 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 		}
+
+		// Leverage TranslateStatusCode for more descriptive error logging
+		statusMessage := errors.TranslateStatusCode(resp.StatusCode)
+
 		// Check for non-retryable errors
-		if resp != nil && errors.IsNonRetryableError(resp) {
-			log.Info("Non-retryable error received", zap.Int("status_code", resp.StatusCode))
+		if resp != nil && errors.IsNonRetryableStatusCode(resp) {
+			log.Info("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
 			return resp, errors.HandleAPIError(resp, log)
 		}
+
 		// Check for retryable errors
 		if errors.IsRateLimitError(resp) || errors.IsTransientError(resp) {
 			retryCount++
@@ -174,15 +179,17 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 				break
 			}
 			waitDuration := calculateBackoff(retryCount)
-			log.Warn("Retrying request due to error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err))
+			log.Warn("Retrying request due to error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err), zap.String("status_message", statusMessage))
 			time.Sleep(waitDuration)
 			continue
 		}
+
 		// Handle error responses
 		if err != nil || !errors.IsRetryableStatusCode(resp.StatusCode) {
 			if apiErr := errors.HandleAPIError(resp, log); apiErr != nil {
 				err = apiErr
 			}
+			log.Error("API error", zap.String("status_message", statusMessage), zap.Error(err))
 			break
 		}
 	}
