@@ -330,7 +330,7 @@ func (c *Client) executeHTTPRequest(req *http.Request, log logger.Logger, method
 	}
 
 	// Log the response status code for successful requests
-	log.Info("Request sent successfully",
+	log.Debug("Request sent successfully",
 		zap.String("method", method),
 		zap.String("endpoint", endpoint),
 		zap.Int("status_code", resp.StatusCode),

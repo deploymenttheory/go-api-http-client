@@ -54,7 +54,7 @@ func HandleAPIError(resp *http.Response, log logger.Logger) error {
 	if err != nil || errMsg == "" {
 		errMsg = fmt.Sprintf("Unexpected error with status code: %d", resp.StatusCode)
 		// Logging with structured fields
-		log.Warn("Failed to decode API error message, using default error message",
+		log.Error("Failed to decode API error message, using default error message",
 			zap.String("status", resp.Status),
 			zap.String("error_message", errMsg),
 		)
@@ -163,6 +163,10 @@ func IsNonRetryableStatusCode(resp *http.Response) bool {
 
 // IsRateLimitError checks if the provided response indicates a rate limit error.
 func IsRateLimitError(resp *http.Response) bool {
+	if resp == nil {
+		// If the response is nil, it cannot be a rate limit error.
+		return false
+	}
 	return resp.StatusCode == http.StatusTooManyRequests
 }
 

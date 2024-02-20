@@ -21,7 +21,7 @@ func (j *JamfAPIHandler) SetBaseDomain() string {
 func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(instanceName string, endpointPath string, log logger.Logger) string {
 	urlBaseDomain := j.SetBaseDomain()
 	url := fmt.Sprintf("https://%s%s%s", instanceName, urlBaseDomain, endpointPath)
-	j.Logger.Info(fmt.Sprintf("Constructed %s API resource endpoint URL", APIName), zap.String("URL", url))
+	j.Logger.Debug(fmt.Sprintf("Constructed %s API resource endpoint URL", APIName), zap.String("URL", url))
 	return url
 }
 
@@ -29,6 +29,6 @@ func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(instanceName string, endpo
 func (j *JamfAPIHandler) ConstructAPIAuthEndpoint(instanceName string, endpointPath string, log logger.Logger) string {
 	urlBaseDomain := j.SetBaseDomain()
 	url := fmt.Sprintf("https://%s%s%s", instanceName, urlBaseDomain, endpointPath)
-	j.Logger.Info(fmt.Sprintf("Constructed %s API authentication URL", APIName), zap.String("URL", url))
+	j.Logger.Debug(fmt.Sprintf("Constructed %s API authentication URL", APIName), zap.String("URL", url))
 	return url
 }
