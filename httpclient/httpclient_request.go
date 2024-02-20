@@ -163,7 +163,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		}
 
 		// Leverage TranslateStatusCode for more descriptive error logging
-		statusMessage := errors.TranslateStatusCode(resp.StatusCode)
+		statusMessage := errors.TranslateStatusCode(resp)
 
 		// Check for non-retryable errors
 		if resp != nil && errors.IsNonRetryableStatusCode(resp) {
