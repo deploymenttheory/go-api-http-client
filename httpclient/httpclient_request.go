@@ -279,12 +279,14 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}, 
 	// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 	CheckDeprecationHeader(resp, log)
 
-	// Handle the response
-	if err := c.APIHandler.UnmarshalResponse(resp, out, log); err != nil {
-		return resp, err
+	// Check for successful status code
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// Handle error responses
+		return nil, c.handleErrorResponse(resp, log, "Failed to process the HTTP request", method, endpoint)
+	} else {
+		// Handle successful responses
+		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 	}
-
-	return resp, nil
 }
 
 // executeHTTPRequest sends an HTTP request using the client's HTTP client. It logs the request and error details, if any,
