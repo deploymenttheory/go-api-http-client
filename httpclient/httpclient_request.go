@@ -439,8 +439,9 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
 
 	// Use HeaderManager to set headers
-	headerManager.SetContentType(contentType) // Content-Type from MarshalMultipartRequest
-	headerManager.SetRequestHeaders(endpoint) // Set other standard headers
+	headerManager.SetContentType(contentType)
+	headerManager.SetRequestHeaders(endpoint)
+	headerManager.LogHeaders(c)
 
 	// Execute the request
 	resp, err := c.executeHTTPRequest(req, log, method, endpoint)
