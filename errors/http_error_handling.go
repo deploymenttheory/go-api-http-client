@@ -163,6 +163,10 @@ func IsNonRetryableStatusCode(resp *http.Response) bool {
 
 // IsRateLimitError checks if the provided response indicates a rate limit error.
 func IsRateLimitError(resp *http.Response) bool {
+	if resp == nil {
+		// If the response is nil, it cannot be a rate limit error.
+		return false
+	}
 	return resp.StatusCode == http.StatusTooManyRequests
 }
 
