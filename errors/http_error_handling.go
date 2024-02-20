@@ -54,7 +54,7 @@ func HandleAPIError(resp *http.Response, log logger.Logger) error {
 	if err != nil || errMsg == "" {
 		errMsg = fmt.Sprintf("Unexpected error with status code: %d", resp.StatusCode)
 		// Logging with structured fields
-		log.Warn("Failed to decode API error message, using default error message",
+		log.Error("Failed to decode API error message, using default error message",
 			zap.String("status", resp.Status),
 			zap.String("error_message", errMsg),
 		)
