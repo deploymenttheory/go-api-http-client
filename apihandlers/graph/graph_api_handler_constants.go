@@ -1,10 +1,10 @@
 // graph_api_handler_constants.go
 package graph
 
-// Endpoint constants represent the URL suffixes used for Jamf API token interactions.
+// Endpoint constants represent the URL suffixes used for graph API token interactions.
 const (
 	APIName                            = "microsoft graph"     // APIName: represents the name of the API.
-	DefaultBaseDomain                  = "graph.microsoft.com" // DefaultBaseDomain: represents the base domain for the jamf instance.
+	DefaultBaseDomain                  = "graph.microsoft.com" // DefaultBaseDomain: represents the base domain for the graph instance.
 	OAuthTokenEndpoint                 = "graph.microsoft.com" // OAuthTokenEndpoint: The endpoint to obtain an OAuth token.
 	BearerTokenEndpoint                = "graph.microsoft.com" // BearerTokenEndpoint: The endpoint to obtain a bearer token.
 	TokenRefreshEndpoint               = "graph.microsoft.com" // TokenRefreshEndpoint: The endpoint to refresh an existing token.

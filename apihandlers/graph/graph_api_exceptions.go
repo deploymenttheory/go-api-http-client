@@ -34,11 +34,11 @@ func init() {
 	// Load the default configuration from an embedded resource.
 	err := loadAPIExceptionsConfiguration()
 	if err != nil {
-		log.Fatalf("Error loading Jamf Pro API exceptions configuration: %s", err)
+		log.Fatalf("Error loading Microsoft Graph API exceptions configuration: %s", err)
 	}
 }
 
-// loadAPIExceptionsConfiguration reads and unmarshals the jamfpro_api_exceptions_configuration JSON data from an embedded file
+// loadAPIExceptionsConfiguration reads and unmarshals the graph_api_exceptions_configuration JSON data from an embedded file
 // into the configMap variable, which holds the exceptions configuration for endpoint-specific headers.
 func loadAPIExceptionsConfiguration() error {
 	// Unmarshal the embedded default configuration into the global configMap.

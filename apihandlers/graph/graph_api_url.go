@@ -17,7 +17,7 @@ func (g *GraphAPIHandler) SetBaseDomain() string {
 	return DefaultBaseDomain
 }
 
-// ConstructAPIResourceEndpoint constructs the full URL for a Jamf API resource endpoint path and logs the URL.
+// ConstructAPIResourceEndpoint constructs the full URL for a graph API resource endpoint path and logs the URL.
 func (g *GraphAPIHandler) ConstructAPIResourceEndpoint(instanceName string, endpointPath string, log logger.Logger) string {
 	urlBaseDomain := g.SetBaseDomain()
 	url := fmt.Sprintf("https://%s%s%s", instanceName, urlBaseDomain, endpointPath)
@@ -25,7 +25,7 @@ func (g *GraphAPIHandler) ConstructAPIResourceEndpoint(instanceName string, endp
 	return url
 }
 
-// ConstructAPIAuthEndpoint constructs the full URL for a Jamf API auth endpoint path and logs the URL.
+// ConstructAPIAuthEndpoint constructs the full URL for a graph API auth endpoint path and logs the URL.
 func (g *GraphAPIHandler) ConstructAPIAuthEndpoint(instanceName string, endpointPath string, log logger.Logger) string {
 	urlBaseDomain := g.SetBaseDomain()
 	url := fmt.Sprintf("https://%s%s%s", instanceName, urlBaseDomain, endpointPath)
