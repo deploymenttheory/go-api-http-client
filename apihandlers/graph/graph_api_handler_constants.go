@@ -1,13 +1,14 @@
+// graph_api_handler_constants.go
 package graph
 
 // Endpoint constants represent the URL suffixes used for Jamf API token interactions.
 const (
-	APIName                            = "graph"               // APIName: represents the name of the API.
+	APIName                            = "microsoft graph"     // APIName: represents the name of the API.
 	DefaultBaseDomain                  = "graph.microsoft.com" // DefaultBaseDomain: represents the base domain for the jamf instance.
-	OAuthTokenEndpoint                 = ""                    // OAuthTokenEndpoint: The endpoint to obtain an OAuth token.
-	BearerTokenEndpoint                = ""                    // BearerTokenEndpoint: The endpoint to obtain a bearer token.
-	TokenRefreshEndpoint               = ""                    // TokenRefreshEndpoint: The endpoint to refresh an existing token.
-	TokenInvalidateEndpoint            = ""                    // TokenInvalidateEndpoint: The endpoint to invalidate an active token.
+	OAuthTokenEndpoint                 = "graph.microsoft.com" // OAuthTokenEndpoint: The endpoint to obtain an OAuth token.
+	BearerTokenEndpoint                = "graph.microsoft.com" // BearerTokenEndpoint: The endpoint to obtain a bearer token.
+	TokenRefreshEndpoint               = "graph.microsoft.com" // TokenRefreshEndpoint: The endpoint to refresh an existing token.
+	TokenInvalidateEndpoint            = "graph.microsoft.com" // TokenInvalidateEndpoint: The endpoint to invalidate an active token.
 	BearerTokenAuthenticationSupport   = true                  // BearerTokenAuthSuppport: A boolean to indicate if the API supports bearer token authentication.
 	OAuthAuthenticationSupport         = true                  // OAuthAuthSuppport: A boolean to indicate if the API supports OAuth authentication.
 	OAuthWithCertAuthenticationSupport = true                  // OAuthWithCertAuthSuppport: A boolean to indicate if the API supports OAuth with client certificate authentication.
