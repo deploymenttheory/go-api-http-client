@@ -11,7 +11,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// APIHandlerError represents an error response from the Jamf Pro API.
+// APIHandlerError represents an error response from the graph API.
 type APIHandlerError struct {
 	HTTPStatusCode int                    `json:"httpStatusCode"`
 	ErrorType      string                 `json:"errorType"`
@@ -19,7 +19,7 @@ type APIHandlerError struct {
 	ExtraDetails   map[string]interface{} `json:"extraDetails"`
 }
 
-// ReturnAPIErrorResponse parses an HTTP error response from the Jamf Pro API.
+// ReturnAPIErrorResponse parses an HTTP error response from the graph API.
 func (g *GraphAPIHandler) ReturnAPIErrorResponse(resp *http.Response) *APIHandlerError {
 	var errorMessage, errorType string
 	var extraDetails map[string]interface{}
