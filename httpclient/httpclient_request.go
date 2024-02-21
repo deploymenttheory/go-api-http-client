@@ -170,20 +170,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			log.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
 			return resp, errors.HandleAPIError(resp, log)
 		}
-		/*
-			// Check for retryable errors
-			if errors.IsRateLimitError(resp) || errors.IsTransientError(resp) {
-				retryCount++
-				if retryCount > c.clientConfig.ClientOptions.MaxRetryAttempts {
-					log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
-					break
-				}
-				waitDuration := calculateBackoff(retryCount)
-				log.Warn("Retrying request due to error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err), zap.String("status_message", statusMessage))
-				time.Sleep(waitDuration)
-				continue
-			}
-		*/
+
 		// Parsing rate limit headers if a rate-limit error is detected
 		if errors.IsRateLimitError(resp) {
 			waitDuration := parseRateLimitHeaders(resp, log)
