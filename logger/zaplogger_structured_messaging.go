@@ -1,4 +1,4 @@
-// logger.go
+// zaplogger_structured_messaging.go
 package logger
 
 // Ref: https://betterstack.com/community/guides/logging/go/zap/#logging-errors-with-zap
