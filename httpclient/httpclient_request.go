@@ -170,18 +170,41 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			log.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
 			return resp, errors.HandleAPIError(resp, log)
 		}
+		/*
+			// Check for retryable errors
+			if errors.IsRateLimitError(resp) || errors.IsTransientError(resp) {
+				retryCount++
+				if retryCount > c.clientConfig.ClientOptions.MaxRetryAttempts {
+					log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
+					break
+				}
+				waitDuration := calculateBackoff(retryCount)
+				log.Warn("Retrying request due to error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err), zap.String("status_message", statusMessage))
+				time.Sleep(waitDuration)
+				continue
+			}
+		*/
+		// Parsing rate limit headers if a rate-limit error is detected
+		if errors.IsRateLimitError(resp) {
+			waitDuration := parseRateLimitHeaders(resp, log)
+			if waitDuration > 0 {
+				log.Warn("Rate limit encountered, waiting before retrying", zap.Duration("waitDuration", waitDuration))
+				time.Sleep(waitDuration)
+				continue // Continue to next iteration after waiting
+			}
+		}
 
-		// Check for retryable errors
-		if errors.IsRateLimitError(resp) || errors.IsTransientError(resp) {
+		// Handling retryable errors with exponential backoff
+		if errors.IsTransientError(resp) {
 			retryCount++
 			if retryCount > c.clientConfig.ClientOptions.MaxRetryAttempts {
 				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
-				break
+				break // Stop retrying if max attempts are reached
 			}
 			waitDuration := calculateBackoff(retryCount)
-			log.Warn("Retrying request due to error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err), zap.String("status_message", statusMessage))
-			time.Sleep(waitDuration)
-			continue
+			log.Warn("Retrying request due to transient error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err))
+			time.Sleep(waitDuration) // Wait before retrying
+			continue                 // Continue to next iteration after waiting
 		}
 
 		// Handle error responses
@@ -193,6 +216,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			break
 		}
 	}
+
 	// Handles final non-API error.
 	if err != nil {
 		return nil, err
