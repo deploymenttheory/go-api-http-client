@@ -1,5 +1,5 @@
-// jamfpro_api_request.go
-package jamfpro
+// graph_api_request.go
+package graph
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 )
 
 // MarshalRequest encodes the request body according to the endpoint for the API.
-func (j *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error) {
+func (g *GraphAPIHandler) MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error) {
 	var (
 		data []byte
 		err  error
@@ -37,18 +37,18 @@ func (j *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoin
 		}
 
 		if method == "POST" || method == "PUT" {
-			j.Logger.Debug("XML Request Body", zap.String("Body", string(data)))
+			g.Logger.Debug("XML Request Body", zap.String("Body", string(data)))
 		}
 
 	case "json":
 		data, err = json.Marshal(body)
 		if err != nil {
-			j.Logger.Error("Failed marshaling JSON request", zap.Error(err))
+			g.Logger.Error("Failed marshaling JSON request", zap.Error(err))
 			return nil, err
 		}
 
 		if method == "POST" || method == "PUT" || method == "PATCH" {
-			j.Logger.Debug("JSON Request Body", zap.String("Body", string(data)))
+			g.Logger.Debug("JSON Request Body", zap.String("Body", string(data)))
 		}
 	}
 
@@ -56,7 +56,7 @@ func (j *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoin
 }
 
 // MarshalMultipartFormData takes a map with form fields and file paths and returns the encoded body and content type.
-func (j *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error) {
+func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
