@@ -4,6 +4,7 @@ package httpclient
 import (
 	"net/http"
 
+	"github.com/deploymenttheory/go-api-http-client/apihandlers/graph"
 	"github.com/deploymenttheory/go-api-http-client/apihandlers/jamfpro"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
@@ -16,7 +17,6 @@ type APIHandler interface {
 	ConstructAPIAuthEndpoint(instanceName string, endpointPath string, log logger.Logger) string
 	MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error)
 	MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error)
-	//HandleResponse(resp *http.Response, out interface{}, log logger.Logger) error
 	HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.Logger) error
 	HandleAPIErrorResponse(resp *http.Response, out interface{}, log logger.Logger) error
 	GetContentTypeHeader(method string, log logger.Logger) string
@@ -44,12 +44,12 @@ func LoadAPIHandler(apiType string, log logger.Logger) (APIHandler, error) {
 		}
 		log.Info("API handler loaded successfully", zap.String("APIType", apiType))
 
-	/*case "graph":
-	apiHandler = &graph.GraphAPIHandler{
-					// Initialize with necessary parameters
-	}
-	log.Info("API handler loaded successfully", zap.String("APIType", apiType))
-	*/
+	case "graph":
+		apiHandler = &graph.GraphAPIHandler{
+			// Initialize with necessary parameters
+		}
+		log.Info("API handler loaded successfully", zap.String("APIType", apiType))
+
 	default:
 		return nil, log.Error("Unsupported API type", zap.String("APIType", apiType))
 	}
