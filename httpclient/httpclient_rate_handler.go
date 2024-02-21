@@ -18,6 +18,9 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/deploymenttheory/go-api-http-client/logger"
+	"go.uber.org/zap"
 )
 
 // Constants for exponential backoff with jitter
@@ -28,37 +31,53 @@ const (
 )
 
 // calculateBackoff calculates the next delay for retry with exponential backoff and jitter.
+// The baseDelay is the initial delay duration, which is exponentially increased on each retry.
+// The jitterFactor adds randomness to the delay to avoid simultaneous retries (thundering herd problem).
+// The delay is capped at maxDelay to prevent excessive wait times.
 func calculateBackoff(retry int) time.Duration {
+	if retry < 0 {
+		retry = 0 // Ensure non-negative retry count
+	}
+
 	delay := float64(baseDelay) * math.Pow(2, float64(retry))
 	jitter := (rand.Float64() - 0.5) * jitterFactor * 2.0 // Random value between -jitterFactor and +jitterFactor
-	delay *= (1.0 + jitter)
+	delayWithJitter := delay * (1.0 + jitter)
 
-	if delay > float64(maxDelay) {
+	if delayWithJitter > float64(maxDelay) {
 		return maxDelay
 	}
-	return time.Duration(delay)
+	return time.Duration(delayWithJitter)
 }
 
 // parseRateLimitHeaders parses common rate limit headers and adjusts behavior accordingly.
-// For future compatibility.
-func parseRateLimitHeaders(resp *http.Response) time.Duration {
-	// Check for the Retry-After header
+// It handles both Retry-After (in seconds or HTTP-date format) and X-RateLimit-Reset headers.
+func parseRateLimitHeaders(resp *http.Response, log logger.Logger) time.Duration {
+	// Check for the Retry-After header in seconds
 	if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
 		if waitSeconds, err := strconv.Atoi(retryAfter); err == nil {
 			return time.Duration(waitSeconds) * time.Second
+		} else if retryAfterDate, err := time.Parse(time.RFC1123, retryAfter); err == nil {
+			// Handle HTTP-date format in Retry-After
+			return time.Until(retryAfterDate)
+		} else {
+			log.Debug("Unable to parse Retry-After header", zap.String("value", retryAfter), zap.Error(err))
 		}
 	}
 
 	// Check for X-RateLimit-Remaining; if it's 0, use X-RateLimit-Reset to determine how long to wait
 	if remaining := resp.Header.Get("X-RateLimit-Remaining"); remaining == "0" {
 		if resetTimeStr := resp.Header.Get("X-RateLimit-Reset"); resetTimeStr != "" {
-			if resetTimeUnix, err := strconv.ParseInt(resetTimeStr, 10, 64); err == nil {
-				resetTime := time.Unix(resetTimeUnix, 0)
-				return time.Until(resetTime) // Using time.Until instead of t.Sub(time.Now())
+			if resetTimeEpoch, err := strconv.ParseInt(resetTimeStr, 10, 64); err == nil {
+				resetTime := time.Unix(resetTimeEpoch, 0)
+				// Add a buffer to account for potential clock skew
+				const skewBuffer = 5 * time.Second
+				return time.Until(resetTime) + skewBuffer
+			} else {
+				log.Debug("Unable to parse X-RateLimit-Reset header", zap.String("value", resetTimeStr), zap.Error(err))
 			}
 		}
 	}
 
-	// No rate limiting headers found, return 0
+	// No relevant rate limiting headers found, return 0
 	return 0
 }

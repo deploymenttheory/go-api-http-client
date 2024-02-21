@@ -1,5 +1,5 @@
-// jamfpro_api_error_messages.go
-package jamfpro
+// graph_api_error_messages.go
+package graph
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ type APIHandlerError struct {
 }
 
 // ReturnAPIErrorResponse parses an HTTP error response from the Jamf Pro API.
-func (j *JamfAPIHandler) ReturnAPIErrorResponse(resp *http.Response) *APIHandlerError {
+func (g *GraphAPIHandler) ReturnAPIErrorResponse(resp *http.Response) *APIHandlerError {
 	var errorMessage, errorType string
 	var extraDetails map[string]interface{}
 
