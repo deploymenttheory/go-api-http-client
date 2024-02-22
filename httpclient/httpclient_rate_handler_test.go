@@ -17,10 +17,10 @@ func TestCalculateBackoff(t *testing.T) {
 		expectedMin time.Duration
 		expectedMax time.Duration
 	}{
-		{retry: 0, expectedMin: baseDelay, expectedMax: maxDelay},
-		{retry: 1, expectedMin: baseDelay * 2, expectedMax: maxDelay},
-		{retry: 2, expectedMin: baseDelay * 4, expectedMax: maxDelay},
-		{retry: 5, expectedMin: baseDelay * 32, expectedMax: maxDelay},
+		{retry: 0, expectedMin: time.Duration(float64(baseDelay) * (1 - jitterFactor)), expectedMax: maxDelay},
+		{retry: 1, expectedMin: time.Duration(float64(baseDelay*2) * (1 - jitterFactor)), expectedMax: maxDelay},
+		{retry: 2, expectedMin: time.Duration(float64(baseDelay*4) * (1 - jitterFactor)), expectedMax: maxDelay},
+		{retry: 5, expectedMin: time.Duration(float64(baseDelay*32) * (1 - jitterFactor)), expectedMax: maxDelay},
 	}
 
 	for _, tt := range tests {
@@ -28,7 +28,7 @@ func TestCalculateBackoff(t *testing.T) {
 			delay := calculateBackoff(tt.retry)
 
 			// The delay should be within the expected range
-			assert.GreaterOrEqual(t, delay, tt.expectedMin, "Delay should be greater than or equal to expected minimum")
+			assert.GreaterOrEqual(t, delay, tt.expectedMin, "Delay should be greater than or equal to expected minimum after jitter adjustment")
 			assert.LessOrEqual(t, delay, tt.expectedMax, "Delay should be less than or equal to expected maximum")
 		})
 	}
