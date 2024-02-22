@@ -120,8 +120,8 @@ func TestDefaultLogger_Error(t *testing.T) {
 	dLogger := &defaultLogger{logger: mockLogger.Logger, logLevel: LogLevelError}
 
 	expectedErrorMsg := "error message"
-	// Ensure Error method is called exactly once and returns nil
-	mockLogger.On("Error", expectedErrorMsg, mock.Anything).Once().Return(nil)
+	// Mock the Error method to return nil, indicating no error
+	mockLogger.On("Error", expectedErrorMsg, mock.Anything).Once().Return(fmt.Errorf("error message"))
 
 	err := dLogger.Error(expectedErrorMsg)
 

@@ -13,26 +13,23 @@ import (
 // TestCalculateBackoff tests the backoff calculation for various retry counts
 func TestCalculateBackoff(t *testing.T) {
 	tests := []struct {
-		retry int
+		retry       int
+		expectedMin time.Duration
+		expectedMax time.Duration
 	}{
-		{retry: 0},
-		{retry: 1},
-		{retry: 2},
-		{retry: 5}, // Test a higher number of retries to ensure maxDelay is respected
+		{retry: 0, expectedMin: baseDelay, expectedMax: maxDelay},
+		{retry: 1, expectedMin: baseDelay * 2, expectedMax: maxDelay},
+		{retry: 2, expectedMin: baseDelay * 4, expectedMax: maxDelay},
+		{retry: 5, expectedMin: baseDelay * 32, expectedMax: maxDelay},
 	}
 
 	for _, tt := range tests {
 		t.Run("RetryCount"+strconv.Itoa(tt.retry), func(t *testing.T) {
-
 			delay := calculateBackoff(tt.retry)
 
-			// The delay should never exceed maxDelay
-			assert.LessOrEqual(t, delay, maxDelay, "Delay should not exceed maxDelay")
-
-			// The delay for 0 retries should be at least baseDelay
-			if tt.retry == 0 {
-				assert.GreaterOrEqual(t, delay, baseDelay, "Delay for 0 retries should be at least baseDelay")
-			}
+			// The delay should be within the expected range
+			assert.GreaterOrEqual(t, delay, tt.expectedMin, "Delay should be greater than or equal to expected minimum")
+			assert.LessOrEqual(t, delay, tt.expectedMax, "Delay should be less than or equal to expected maximum")
 		})
 	}
 }
