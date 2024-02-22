@@ -5,7 +5,7 @@ package version
 var AppName = "go-api-http-client"
 
 // Version holds the current version of the application
-var Version = "0.0.28"
+var Version = "0.0.65"
 
 // GetAppName returns the name of the application
 func GetAppName() string {
