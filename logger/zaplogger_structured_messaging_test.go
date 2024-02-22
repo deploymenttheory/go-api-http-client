@@ -2,12 +2,10 @@
 package logger
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 // TestParseLogLevelFromString tests the conversion from string to LogLevel
@@ -34,70 +32,23 @@ func TestParseLogLevelFromString(t *testing.T) {
 	}
 }
 
-// TestDefaultLogger_SetLevel tests the SetLevel method of defaultLogger
-func TestDefaultLogger_SetLevel(t *testing.T) {
-	logger := zap.NewNop()
-	dLogger := &defaultLogger{logger: logger}
+// TestToZapFields verifies the functionality of the ToZapFields function, ensuring it correctly converts
+// a variadic list of key-value pairs into a slice of Zap fields for structured logging. This test checks
+// that the function handles various value types and correctly associates keys with their corresponding values,
+// thereby enabling structured logging with strongly-typed values. It uses both string and integer types to
+// validate type handling and asserts that the resulting slice of fields matches the expected structure.
+func TestToZapFields(t *testing.T) {
+	key1 := "key1"
+	value1 := "value1"
+	key2 := "key2"
+	value2 := 123 // Int value to test type handling
 
-	dLogger.SetLevel(LogLevelWarn)
-	assert.Equal(t, LogLevelWarn, dLogger.GetLogLevel())
-}
+	fields := ToZapFields(key1, value1, key2, value2)
 
-// TestDefaultLogger_LoggingMethods tests the logging methods (Debug, Info, Warn, Error, Panic, Fatal)
-// Note: Actual logging output is not tested here due to the complexity of capturing log output
-func TestDefaultLogger_LoggingMethods(t *testing.T) {
-	logger := zap.NewNop() // Using zap's No-op logger for testing
-	dLogger := &defaultLogger{logger: logger, logLevel: LogLevelDebug}
+	// Verify the length of the resulting fields slice to ensure all key-value pairs were processed
+	assert.Len(t, fields, 2, "Expected number of fields does not match")
 
-	// Only testing method calls and log level checks, not the actual logging output
-	assert.NotPanics(t, func() { dLogger.Debug("test message") }, "Debug should not panic")
-	assert.NotPanics(t, func() { dLogger.Info("test message") }, "Info should not panic")
-	assert.NotPanics(t, func() { dLogger.Warn("test message") }, "Warn should not panic")
-	assert.NoError(t, dLogger.Error("test message"), "Error should not return an error")
-	assert.NotPanics(t, func() { dLogger.Panic("test message") }, "Panic should not panic in this test context")
-	assert.NotPanics(t, func() { dLogger.Fatal("test message") }, "Fatal should not panic in this test context")
-}
-
-// TestDefaultLogger_With tests the With method functionality
-func TestDefaultLogger_With(t *testing.T) {
-	logger := zap.NewNop()
-	dLogger := &defaultLogger{logger: logger, logLevel: LogLevelInfo}
-
-	newLogger := dLogger.With(zap.String("key", "value"))
-	assert.NotNil(t, newLogger, "New logger should not be nil")
-
-	// Assert that newLogger is a *defaultLogger and has a modified zap.Logger
-	assert.IsType(t, &defaultLogger{}, newLogger, "New logger should be of type *defaultLogger")
-}
-
-// TestGetLoggerBasedOnEnv tests the GetLoggerBasedOnEnv function for different environment settings
-func TestGetLoggerBasedOnEnv(t *testing.T) {
-	tests := []struct {
-		name          string
-		envValue      string
-		expectedLevel zap.AtomicLevel
-	}{
-		{"DevelopmentLogger", "development", zap.NewAtomicLevelAt(zap.DebugLevel)},
-		{"ProductionLogger", "production", zap.NewAtomicLevelAt(zap.InfoLevel)},
-		{"DefaultToProduction", "", zap.NewAtomicLevelAt(zap.InfoLevel)}, // default case
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Set APP_ENV to the desired test value
-			os.Setenv("APP_ENV", tt.envValue)
-			defer os.Unsetenv("APP_ENV") // Clean up
-
-			logger := GetLoggerBasedOnEnv()
-
-			// Since we cannot directly access the logger's level, we check the logger's development/production status
-			// which indirectly tells us about the log level configuration
-			cfg := zap.NewProductionConfig()
-			if tt.envValue == "development" {
-				cfg = zap.NewDevelopmentConfig()
-			}
-
-			assert.Equal(t, cfg.Level.Level(), logger.Core().Enabled(zapcore.Level(tt.expectedLevel.Level())), "Logger level should match expected")
-		})
-	}
+	// Assert each field matches the expected key-value pair, using zap.String for strings and zap.Any for other types
+	assert.Equal(t, zap.String(key1, value1), fields[0], "First field does not match expected key-value pair")
+	assert.Equal(t, zap.Any(key2, value2), fields[1], "Second field does not match expected key-value pair")
 }

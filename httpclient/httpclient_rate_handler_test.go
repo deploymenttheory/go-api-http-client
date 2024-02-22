@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -84,7 +85,7 @@ func TestParseRateLimitHeaders(t *testing.T) {
 				resp.Header.Add(k, v)
 			}
 
-			wait := parseRateLimitHeaders(resp, &mockLogger{})
+			wait := parseRateLimitHeaders(resp, logger.NewMockLogger())
 
 			// Allow a small margin of error due to processing time
 			assert.InDelta(t, tt.expectedWait, wait, float64(1*time.Second), "Wait duration should be within expected range")
