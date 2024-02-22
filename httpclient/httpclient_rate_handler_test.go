@@ -22,7 +22,8 @@ func TestCalculateBackoff(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("RetryCount"+string(tt.retry), func(t *testing.T) {
+		t.Run("RetryCount"+strconv.Itoa(tt.retry), func(t *testing.T) {
+
 			delay := calculateBackoff(tt.retry)
 
 			// The delay should never exceed maxDelay
