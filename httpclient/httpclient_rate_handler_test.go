@@ -63,7 +63,7 @@ func TestParseRateLimitHeaders(t *testing.T) {
 				"X-RateLimit-Remaining": "0",
 				"X-RateLimit-Reset":     strconv.FormatInt(time.Now().Add(90*time.Second).Unix(), 10), // 90 seconds from now
 			},
-			expectedWait: 90 * time.Second,
+			expectedWait: 90*time.Second + 5*time.Second, // Add 5 seconds for skew buffer
 		},
 		{
 			name:         "NoHeaders",
