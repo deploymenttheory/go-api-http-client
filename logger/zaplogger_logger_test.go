@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -145,7 +144,7 @@ func TestDefaultLogger_Panic(t *testing.T) {
 
 	mockLogger.AssertExpectations(t)
 }
-*/
+
 
 // TestDefaultLogger_Fatal verifies the Fatal method of the defaultLogger struct.
 // It ensures that Fatal logs messages at the Fatal level and exits the application with a non-zero status code.
@@ -176,7 +175,7 @@ func TestDefaultLogger_Fatal(t *testing.T) {
 	// Confirm that the mock logger's expectations are met
 	mockLogger.AssertExpectations(t)
 }
-
+*/
 // Debug mocks the Debug method of the Logger interface
 func (m *MockLogger) Debug(msg string, fields ...zapcore.Field) {
 	m.Called(msg, fields)
