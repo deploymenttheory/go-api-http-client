@@ -50,6 +50,56 @@ func (m *MockAPIHandler) HandleAPIErrorResponse(resp *http.Response, out interfa
 	return args.Error(0)
 }
 
+func (m *MockAPIHandler) GetAPIBearerTokenAuthenticationSupportStatus() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockAPIHandler) GetAPIOAuthAuthenticationSupportStatus() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockAPIHandler) GetAPIOAuthWithCertAuthenticationSupportStatus() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockAPIHandler) GetAcceptHeader() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockAPIHandler) GetContentTypeHeader(method string, log logger.Logger) string {
+	args := m.Called(method, log)
+	return args.String(0)
+}
+
+func (m *MockAPIHandler) GetDefaultBaseDomain() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockAPIHandler) GetOAuthTokenEndpoint() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockAPIHandler) GetBearerTokenEndpoint() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockAPIHandler) GetTokenRefreshEndpoint() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockAPIHandler) GetTokenInvalidateEndpoint() string {
+	args := m.Called()
+	return args.String(0)
+}
+
 // TestLoadAPIHandler verifies the functionality of the LoadAPIHandler function in the httpclient package.
 // This function is designed to return the appropriate APIHandler implementation based on the provided apiType argument.
 // The test cases cover the following scenarios:
