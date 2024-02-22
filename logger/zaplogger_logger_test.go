@@ -143,26 +143,31 @@ func TestDefaultLogger_Panic(t *testing.T) {
 	mockLogger.AssertExpectations(t)
 }
 
-// TestDefaultLogger_Fatal tests the Fatal method of the defaultLogger struct.
-// It confirms that Fatal logs messages at the Fatal level and then terminates the program.
-// Given the os.Exit call in Fatal, this test might need to intercept the os.Exit call to prevent test suite termination.
+// TestDefaultLogger_Fatal verifies the Fatal method of the defaultLogger struct.
+// It ensures that Fatal logs messages at the Fatal level and exits the application with a non-zero status code.
+// The test utilizes a mockLogger to capture and assert the call to the zap.Logger's Fatal method.
 func TestDefaultLogger_Fatal(t *testing.T) {
 	mockLogger := NewMockLogger()
 	dLogger := &defaultLogger{logger: mockLogger.Logger, logLevel: LogLevelFatal}
 
-	mockLogger.On("Fatal", "fatal message", mock.Anything).Once()
+	expectedFatalMsg := "fatal message"
+	mockLogger.On("Fatal", expectedFatalMsg, mock.Anything).Once()
 
-	// Intercept os.Exit calls
-	originalExit := osExit
-	defer func() { osExit = originalExit }()
-	var exitCode int
-	osExit = func(code int) {
-		exitCode = code
-	}
+	// Since Fatal exits the application, we use a sub-test to capture the exit status
+	t.Run("TestFatal", func(t *testing.T) {
+		// Replace os.Exit temporarily to capture exit status
+		oldExit := osExit
+		defer func() { osExit = oldExit }()
+		var exitStatus int
+		osExit = func(code int) {
+			exitStatus = code
+		}
 
-	dLogger.Fatal("fatal message")
+		dLogger.Fatal(expectedFatalMsg)
 
-	assert.Equal(t, 1, exitCode, "Fatal should terminate the program with exit code 1")
+		assert.Equal(t, 1, exitStatus, "Expected non-zero exit status")
+	})
+
 	mockLogger.AssertExpectations(t)
 }
 
