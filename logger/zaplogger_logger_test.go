@@ -121,7 +121,7 @@ func TestDefaultLogger_Error(t *testing.T) {
 
 	expectedErrorMsg := "error message"
 	// Mock the Error method to return nil, indicating no error
-	mockLogger.On("Error", expectedErrorMsg, mock.Anything).Once().Return(nil)
+	mockLogger.On("Error", expectedErrorMsg, mock.Anything).Once().Return(fmt.Errorf("error message"))
 
 	err := dLogger.Error(expectedErrorMsg)
 
