@@ -37,7 +37,6 @@ func TestCalculateBackoff(t *testing.T) {
 	}
 }
 
-// TestParseRateLimitHeaders tests parsing of rate limit headers and calculation of wait duration
 func TestParseRateLimitHeaders(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -54,7 +53,7 @@ func TestParseRateLimitHeaders(t *testing.T) {
 		{
 			name: "RetryAfterHTTPDate",
 			headers: map[string]string{
-				"Retry-After": http.TimeFormat, // Use current time for simplicity
+				"Retry-After": time.Now().UTC().Format(time.RFC1123), // Use current time in RFC1123 format
 			},
 			expectedWait: 0, // Immediate retry since the date is current
 		},

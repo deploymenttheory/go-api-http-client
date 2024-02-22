@@ -105,7 +105,7 @@ func TestDefaultLogger_Warn(t *testing.T) {
 	dLogger := &defaultLogger{logger: mockLogger.Logger, logLevel: LogLevelWarn}
 
 	expectedMessage := "warn message"
-	mockLogger.On("Warn", expectedMessage, mock.Anything).Once()
+	mockLogger.On("Warn", expectedMessage, []zapcore.Field(nil)).Once()
 
 	dLogger.Warn(expectedMessage)
 
@@ -136,9 +136,11 @@ func TestDefaultLogger_Panic(t *testing.T) {
 	mockLogger := NewMockLogger()
 	dLogger := &defaultLogger{logger: mockLogger.Logger, logLevel: LogLevelPanic}
 
-	mockLogger.On("Panic", "panic message", mock.Anything).Once()
+	expectedMessage := "panic message"
+	mockLogger.On("Panic", expectedMessage, mock.Anything).Once()
 
-	assert.Panics(t, func() { dLogger.Panic("panic message") }, "The Panic method should trigger a panic")
+	// Assert that calling Panic method triggers a panic
+	assert.Panics(t, func() { dLogger.Panic(expectedMessage) }, "The Panic method should trigger a panic")
 
 	mockLogger.AssertExpectations(t)
 }
