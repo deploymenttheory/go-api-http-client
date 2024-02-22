@@ -7,14 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/stretchr/testify/assert"
 )
-
-// mockLogger is a minimal implementation of the logger.Logger interface for testing
-type mockLogger struct{}
-
-func (m *mockLogger) Debug(msg string, fields ...interface{}) {}
 
 // TestCalculateBackoff tests the backoff calculation for various retry counts
 func TestCalculateBackoff(t *testing.T) {
@@ -85,7 +79,7 @@ func TestParseRateLimitHeaders(t *testing.T) {
 				resp.Header.Add(k, v)
 			}
 
-			wait := parseRateLimitHeaders(resp, logger.NewMockLogger())
+			wait := parseRateLimitHeaders(resp, NewMockLogger())
 
 			// Allow a small margin of error due to processing time
 			assert.InDelta(t, tt.expectedWait, wait, float64(1*time.Second), "Wait duration should be within expected range")

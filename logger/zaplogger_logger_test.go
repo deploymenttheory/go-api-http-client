@@ -16,19 +16,6 @@ import (
 // It allows overriding os.Exit in tests to prevent exiting the test runner.
 var osExit = os.Exit
 
-// MockLogger is a mock type for the Logger interface, embedding a *zap.Logger to satisfy the type requirement.
-type MockLogger struct {
-	mock.Mock
-	*zap.Logger
-}
-
-// NewMockLogger creates a new instance of MockLogger with an embedded no-op *zap.Logger.
-func NewMockLogger() *MockLogger {
-	return &MockLogger{
-		Logger: zap.NewNop(),
-	}
-}
-
 // TestDefaultLogger_SetLevel tests the SetLevel method of defaultLogger
 func TestDefaultLogger_SetLevel(t *testing.T) {
 	logger := zap.NewNop()

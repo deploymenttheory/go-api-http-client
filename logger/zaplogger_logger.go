@@ -10,19 +10,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Logger interface with structured logging capabilities at various levels.
-type Logger interface {
-	SetLevel(level LogLevel)
-	Debug(msg string, fields ...zapcore.Field)
-	Info(msg string, fields ...zapcore.Field)
-	Warn(msg string, fields ...zapcore.Field)
-	Error(msg string, fields ...zapcore.Field) error
-	Panic(msg string, fields ...zapcore.Field)
-	Fatal(msg string, fields ...zapcore.Field)
-	With(fields ...zapcore.Field) Logger
-	GetLogLevel() LogLevel
-}
-
 // defaultLogger is an implementation of the Logger interface using Uber's zap logging library.
 // It provides structured, leveled logging capabilities. The logLevel field controls the verbosity
 // of the logs that this logger will produce, allowing filtering of logs based on their importance.
@@ -35,6 +22,19 @@ type defaultLogger struct {
 // allowing the option to filter out less severe messages based on the specified level.
 func (d *defaultLogger) SetLevel(level LogLevel) {
 	d.logLevel = level
+}
+
+// Logger interface with structured logging capabilities at various levels.
+type Logger interface {
+	SetLevel(level LogLevel)
+	Debug(msg string, fields ...zapcore.Field)
+	Info(msg string, fields ...zapcore.Field)
+	Warn(msg string, fields ...zapcore.Field)
+	Error(msg string, fields ...zapcore.Field) error
+	Panic(msg string, fields ...zapcore.Field)
+	Fatal(msg string, fields ...zapcore.Field)
+	With(fields ...zapcore.Field) Logger
+	GetLogLevel() LogLevel
 }
 
 // With adds contextual key-value pairs to the logger, returning a new logger instance with the context.
