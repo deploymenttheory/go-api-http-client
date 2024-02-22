@@ -50,27 +50,6 @@ func (m *MockAPIHandler) HandleAPIErrorResponse(resp *http.Response, out interfa
 	return args.Error(0)
 }
 
-func TestConstructAPIResourceEndpoint(t *testing.T) {
-	mockLogger := new(logger.MockLogger)
-	mockAPIHandler := NewMockAPIHandler()
-	instanceName := "testInstance"
-	endpointPath := "/testEndpoint"
-
-	expectedEndpoint := "https://testInstance.apiendpoint.com/testEndpoint"
-
-	// Setup expectations
-	mockAPIHandler.On("ConstructAPIResourceEndpoint", instanceName, endpointPath, mockLogger).Return(expectedEndpoint)
-
-	// Call the method
-	endpoint := mockAPIHandler.ConstructAPIResourceEndpoint(instanceName, endpointPath, mockLogger)
-
-	// Assertions
-	assert.Equal(t, expectedEndpoint, endpoint, "The constructed API resource endpoint did not match the expected value")
-
-	// Verify that the expectations were met
-	mockAPIHandler.AssertExpectations(t)
-}
-
 // TestLoadAPIHandler verifies the functionality of the LoadAPIHandler function in the httpclient package.
 // This function is designed to return the appropriate APIHandler implementation based on the provided apiType argument.
 // The test cases cover the following scenarios:
