@@ -17,7 +17,8 @@ import (
 // This function serves as a dispatcher, deciding whether to execute the request with or without retry logic based on the
 // idempotency of the HTTP method. Idempotent methods (GET, PUT, DELETE) are executed with retries to handle transient errors
 // and rate limits, while non-idempotent methods (POST, PATCH) are executed without retries to avoid potential side effects
-// of duplicating non-idempotent operations.
+// of duplicating non-idempotent operations. function uses an instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings, and
+// errors encountered during the execution of the request.
 
 // Parameters:
 // - method: A string representing the HTTP method to be used for the request. This method determines the execution path
@@ -28,8 +29,6 @@ import (
 //   is determined by the content-type header and the specific implementation of the API handler used by the client.
 // - out: A pointer to an output variable where the response will be deserialized. The function expects this to be a pointer to
 //   a struct that matches the expected response schema.
-// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings, and
-//   errors encountered during the execution of the request.
 
 // Returns:
 // - *http.Response: The HTTP response received from the server. In case of successful execution, this response contains
@@ -59,11 +58,14 @@ import (
 // - The decision to retry requests is based on the idempotency of the HTTP method and the client's retry configuration,
 //   including maximum retry attempts and total retry duration.
 
-func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
+func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
+
+	log := c.Logger
+
 	if IsIdempotentHTTPMethod(method) {
-		return c.executeRequestWithRetries(method, endpoint, body, out, log)
+		return c.executeRequestWithRetries(method, endpoint, body, out)
 	} else if IsNonIdempotentHTTPMethod(method) {
-		return c.executeRequest(method, endpoint, body, out, log)
+		return c.executeRequest(method, endpoint, body, out)
 	} else {
 		return nil, log.Error("HTTP method not supported", zap.String("method", method))
 	}
@@ -73,7 +75,8 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 // It is designed for idempotent HTTP methods (GET, PUT, DELETE), where the request can be safely retried in case of
 // transient errors or rate limiting. The function implements a retry mechanism that respects the client's configuration
 // for maximum retry attempts and total retry duration. Each retry attempt uses exponential backoff with jitter to avoid
-// thundering herd problems.
+// thundering herd problems. An instance of a logger (conforming to the logger.Logger interface) is used for logging the
+// request, retry attempts, and any errors encountered.
 //
 // Parameters:
 // - method: The HTTP method to be used for the request (e.g., "GET", "PUT", "DELETE").
@@ -83,8 +86,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 // methods that do not send a payload.
 // - out: A pointer to the variable where the unmarshaled response will be stored. The function expects this to be a
 // pointer to a struct that matches the expected response schema.
-// - log: An instance of a logger (conforming to the logger.Logger interface) used for logging the request, retry
-// attempts, and any errors encountered.
+// - log:
 //
 // Returns:
 // - *http.Response: The HTTP response from the server, which may be the response from a successful request or the last
@@ -102,7 +104,9 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}, log l
 // - The function respects the client's concurrency token, acquiring and releasing it as needed to ensure safe concurrent
 // operations.
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
-func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
+func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
+	log := c.Logger
+
 	// Include the core logic for handling non-idempotent requests with retries here.
 	log.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
@@ -244,7 +248,9 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 // execution.
 // - The function logs detailed information about the request execution, including the method, endpoint, status code, and
 // any errors encountered.
-func (c *Client) executeRequest(method, endpoint string, body, out interface{}, log logger.Logger) (*http.Response, error) {
+func (c *Client) executeRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
+	log := c.Logger
+
 	// Include the core logic for handling idempotent requests here.
 	log.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
