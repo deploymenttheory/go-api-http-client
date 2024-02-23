@@ -441,7 +441,8 @@ func (c *Client) handleSuccessResponse(resp *http.Response, out interface{}, log
 //
 // Note:
 // The caller should handle closing the response body when successful.
-func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]string, files map[string]string, out interface{}, log logger.Logger) (*http.Response, error) {
+func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]string, files map[string]string, out interface{}) (*http.Response, error) {
+	log := c.Logger
 	// Auth Token validation check
 	valid, err := c.ValidAuthTokenCheck(log)
 	if err != nil || !valid {
