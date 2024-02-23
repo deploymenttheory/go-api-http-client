@@ -70,9 +70,6 @@ func NewConcurrencyManager(limit int, logger logger.Logger, debugMode bool) *Con
 // - ctx: The parent context from which the new context with timeout will be derived.
 // This allows for proper request cancellation and timeout handling.
 //
-// - log: An instance of a logger (conforming to the logger.Logger interface), used
-// to log relevant information and errors during the token acquisition process.
-//
 // Returns:
 // - A new context containing the acquired request ID, which should be passed to
 // subsequent operations requiring concurrency control.
@@ -84,7 +81,9 @@ func NewConcurrencyManager(limit int, logger logger.Logger, debugMode bool) *Con
 // This function should be called before making an HTTP request that needs to be
 // controlled for concurrency. The returned context should be used for the HTTP
 // request to ensure it is associated with the acquired concurrency token.
-func (c *Client) AcquireConcurrencyToken(ctx context.Context, log logger.Logger) (context.Context, error) {
+func (c *Client) AcquireConcurrencyToken(ctx context.Context) (context.Context, error) {
+	log := c.Logger
+
 	// Measure the token acquisition start time
 	tokenAcquisitionStart := time.Now()
 
@@ -263,6 +262,7 @@ func (c *ConcurrencyManager) AdjustConcurrencyLimit(newLimit int) {
 // time and decides on a new concurrency limit. The method ensures that the new
 // limit respects the minimum and maximum allowed concurrency bounds.
 func (c *Client) AdjustConcurrencyBasedOnMetrics() {
+	log := c.Logger
 	// Get average acquisition time
 	avgAcquisitionTime := c.ConcurrencyMgr.AverageAcquisitionTime()
 
@@ -295,7 +295,7 @@ func (c *Client) AdjustConcurrencyBasedOnMetrics() {
 	if newLimit != currentLimit {
 		c.ConcurrencyMgr.AdjustConcurrencyLimit(newLimit)
 
-		c.Logger.Debug("Adjusted concurrency",
+		log.Debug("Adjusted concurrency",
 			zap.Int("OldLimit", currentLimit),
 			zap.Int("NewLimit", newLimit),
 			zap.String("Reason", "Based on average acquisition time"),
