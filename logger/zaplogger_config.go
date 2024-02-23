@@ -40,7 +40,9 @@ func BuildLogger(logLevel LogLevel, encoding string, logConsoleSeparator string)
 	encoderCfg.EncodeName = zapcore.FullNameEncoder // Encodes the logger's name as-is, without any modifications.
 
 	// Console-specific settings (if using console encoding)
-	encoderCfg.ConsoleSeparator = logConsoleSeparator // Separator character used in console encoding.
+	if encoding == "console" {
+		encoderCfg.ConsoleSeparator = logConsoleSeparator
+	}
 
 	// Convert the custom LogLevel to zap's logging level
 	zapLogLevel := convertToZapLevel(logLevel)
