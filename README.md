@@ -26,7 +26,73 @@ go get github.com/yourusername/go-api-http-client
 ```
 
 ### Usage
-Import the package and configure the client according to your API's needs:
+Example usage with a configuration file:
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/deploymenttheory/go-api-http-client/httpclient"
+	"github.com/deploymenttheory/go-api-sdk-jamfpro/sdk/jamfpro"
+)
+
+func main() {
+	configFilePath := "/path/to/clientconfig.json"
+	loadedConfig, err := jamfpro.LoadClientConfig(configFilePath)
+	if err != nil {
+		log.Fatalf("Failed to load client OAuth configuration: %v", err)
+	}
+
+	config := httpclient.ClientConfig{
+		Auth: httpclient.AuthConfig{
+			ClientID:     loadedConfig.Auth.ClientID,
+			ClientSecret: loadedConfig.Auth.ClientSecret,
+		},
+		Environment: httpclient.EnvironmentConfig{
+			APIType:      loadedConfig.Environment.APIType,
+			InstanceName: loadedConfig.Environment.InstanceName,
+		},
+		ClientOptions: httpclient.ClientOptions{
+			LogLevel:          loadedConfig.ClientOptions.LogLevel,
+			HideSensitiveData: loadedConfig.ClientOptions.HideSensitiveData,
+			LogOutputFormat:   loadedConfig.ClientOptions.LogOutputFormat,
+		},
+	}
+
+	client, err := jamfpro.BuildClient(config)
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+}
+
+```
+
+Example configuration file (clientconfig.json):
+
+```json
+{
+   "Auth": {
+    "ClientID": "client-id",
+    "ClientSecret": "client-secret",
+    "Username": "username",
+    "Password": "password"
+  },
+  "Environment": {
+    "InstanceName": "yourinstance",
+    "OverrideBaseDomain": "",
+    "APIType": "" // "jamfpro" / "graph"
+  },
+  "ClientOptions": {
+    "LogLevel": "LogLevelDebug", // "LogLevelDebug" / "LogLevelInfo" / "LogLevelWarn" / "LogLevelError" / "LogLevelFatal" / "LogLevelPanic"
+    "LogOutputFormat": "console", // "console" / "json"
+    "LogConsoleSeparator": " ", // " " / "\t" / "," / etc.
+    "HideSensitiveData": true,  // true / false
+  }
+}
+```
 
 ## Status
 
@@ -45,7 +111,7 @@ If you are taking the time to mention a problem, even a seemingly minor one, it 
 
 ## Feedback
 
-If there is a feature you would like to see in here, please file an issue or feature request in the [GitHub Issues][GitHubIssues] page to provide direct feedback.
+Contributions are welcome to make this HTTP client even better! Feel free to fork the repository, make your improvements, and submit a pull request. For major changes or new features, please file an issue or feature request in the [GitHub Issues][GitHubIssues] page to discuss what you would like to change.
 
 ## Contribution
 
