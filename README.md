@@ -2,6 +2,8 @@
 
 This Go module offers a sophisticated HTTP client designed for seamless API interactions, with a strong emphasis on concurrency management, robust error handling, extensive logging, and adaptive rate limiting. It's particularly suitable for applications requiring high-throughput API interactions with complex authentication and operational resilience.
 
+This client leverages API-specific SDKs to provide a comprehensive and consistent interface for interacting with various APIs, including Microsoft Graph, Jamf Pro, and others. It is designed to be easily extensible to support additional APIs and to be highly configurable to meet specific API requirements. It achieves this through using a modular design, with a core HTTP client and API-specific handlers that encapsulate the unique requirements of each API supported.
+
 ## Features
 
 - **Comprehensive Authentication Support**: Robust support for various authentication schemes, including OAuth and Bearer Token, with built-in token management and validation.
@@ -13,7 +15,18 @@ This Go module offers a sophisticated HTTP client designed for seamless API inte
 - **Flexible Configuration**: Extensive customization of HTTP client behavior to meet specific API requirements, including custom timeouts, retry strategies, header management, and more.
 - **Header Management**: Easy and efficient management of HTTP request headers, ensuring compliance with API requirements.
 - **Enhanced Logging with Zap**: Utilizes Uber's zap library for structured, high-performance logging, offering levels from Debug to Fatal, including structured context and dynamic adjustment based on the environment.
+- **API Handler Interface**: Provides a flexible and extensible way to interact with different APIs, including encoding and decoding requests and responses, managing authentication endpoints, and handling API-specific logic.
 
+## API Handler
+
+The `APIHandler` interface abstracts the functionality needed to interact with various APIs, making the HTTP client adaptable to different API implementations. It includes methods for constructing resource and authentication endpoints, marshaling requests, handling responses, and managing API-specific headers.
+
+### Implementations
+
+Currently, the HTTP client supports the following API handlers:
+
+- **Jamf Pro**: Tailored for interacting with Jamf Pro's API, providing specialized methods for device management and configuration.
+- **Microsoft Graph**: Designed for Microsoft Graph API, enabling access to various Microsoft 365 services.
 
 ## Getting Started
 
