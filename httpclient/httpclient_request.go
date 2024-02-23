@@ -111,13 +111,13 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	log.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
 	// Auth Token validation check
-	valid, err := c.ValidAuthTokenCheck(log)
+	valid, err := c.ValidAuthTokenCheck()
 	if err != nil || !valid {
 		return nil, err
 	}
 
 	// Acquire a token for concurrency management
-	ctx, err := c.AcquireConcurrencyToken(context.Background(), log)
+	ctx, err := c.AcquireConcurrencyToken(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -255,13 +255,13 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	log.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
 	// Auth Token validation check
-	valid, err := c.ValidAuthTokenCheck(log)
+	valid, err := c.ValidAuthTokenCheck()
 	if err != nil || !valid {
 		return nil, err
 	}
 
 	// Acquire a token for concurrency management
-	ctx, err := c.AcquireConcurrencyToken(context.Background(), log)
+	ctx, err := c.AcquireConcurrencyToken(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -443,8 +443,9 @@ func (c *Client) handleSuccessResponse(resp *http.Response, out interface{}, log
 // The caller should handle closing the response body when successful.
 func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]string, files map[string]string, out interface{}) (*http.Response, error) {
 	log := c.Logger
+
 	// Auth Token validation check
-	valid, err := c.ValidAuthTokenCheck(log)
+	valid, err := c.ValidAuthTokenCheck()
 	if err != nil || !valid {
 		return nil, err
 	}

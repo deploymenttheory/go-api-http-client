@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
@@ -42,7 +41,8 @@ func (c *Client) SetOAuthCredentials(credentials OAuthCredentials) {
 
 // ObtainOAuthToken fetches an OAuth access token using the provided OAuthCredentials (Client ID and Client Secret).
 // It updates the client's Token and Expiry fields with the obtained values.
-func (c *Client) ObtainOAuthToken(credentials AuthConfig, log logger.Logger) error {
+func (c *Client) ObtainOAuthToken(credentials AuthConfig) error {
+	log := c.Logger
 
 	// Use the APIHandler's method to get the OAuth token endpoint
 	oauthTokenEndpoint := c.APIHandler.GetOAuthTokenEndpoint()
