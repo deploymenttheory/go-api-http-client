@@ -60,6 +60,7 @@ type AuthConfig struct {
 type ClientOptions struct {
 	LogLevel                  string // Field for defining tiered logging level.
 	LogOutputFormat           string // Field for defining the output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
+	LogConsoleSeparator       string // Field for defining the separator in console output format.
 	HideSensitiveData         bool   // Field for defining whether sensitive fields should be hidden in logs.
 	MaxRetryAttempts          int    // Config item defines the max number of retry request attempts for retryable HTTP methods.
 	EnableDynamicRateLimiting bool   // Field for defining whether dynamic rate limiting should be enabled.
@@ -85,8 +86,13 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	// Parse the log level string to logger.LogLevel
 	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.LogLevel)
 
-	// Initialize the logger with the parsed log level and log output format
-	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.LogOutputFormat)
+	// Set default value if none is provided
+	if config.ClientOptions.LogConsoleSeparator == "" {
+		config.ClientOptions.LogConsoleSeparator = ","
+	}
+
+	// Initialize the logger with parsed config values
+	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.LogOutputFormat, config.ClientOptions.LogConsoleSeparator)
 
 	// Set the logger's level (optional if BuildLogger already sets the level based on the input)
 	log.SetLevel(parsedLogLevel)
@@ -167,6 +173,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.String("Authentication Method", authMethod),
 		zap.String("Logging Level", config.ClientOptions.LogLevel),
 		zap.String("Log Encoding Format", config.ClientOptions.LogOutputFormat),
+		zap.String("Log Separator", config.ClientOptions.LogConsoleSeparator),
 		zap.Bool("Hide Sensitive Data In Logs", config.ClientOptions.HideSensitiveData),
 		zap.Int("Max Retry Attempts", config.ClientOptions.MaxRetryAttempts),
 		zap.Int("Max Concurrent Requests", config.ClientOptions.MaxConcurrentRequests),
