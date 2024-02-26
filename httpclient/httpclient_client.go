@@ -8,7 +8,6 @@ like the baseURL, authentication details, and an embedded standard HTTP client. 
 package httpclient
 
 import (
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -83,22 +82,10 @@ type PerformanceMetrics struct {
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
-func BuildClient(configFilePath string) (*Client, error) {
-
-	// Load the configuration
-	config, err := SetClientConfiguration(configFilePath)
-	if err != nil {
-		log.Printf("Failed to set client configuration: %v", err) // This uses the standard log package before zap logger is initialized
-		return nil, err
-	}
+func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Parse the log level string to logger.LogLevel
 	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.LogLevel)
-
-	// Set default value if none is provided
-	if config.ClientOptions.LogConsoleSeparator == "" {
-		config.ClientOptions.LogConsoleSeparator = ","
-	}
 
 	// Initialize the logger with parsed config values
 	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.LogOutputFormat, config.ClientOptions.LogConsoleSeparator)
@@ -128,7 +115,7 @@ func BuildClient(configFilePath string) (*Client, error) {
 		AuthMethod:         authMethod,
 		OverrideBaseDomain: config.Environment.OverrideBaseDomain,
 		httpClient:         &http.Client{Timeout: config.ClientOptions.CustomTimeout},
-		clientConfig:       *config,
+		clientConfig:       config,
 		Logger:             log,
 		ConcurrencyMgr:     NewConcurrencyManager(config.ClientOptions.MaxConcurrentRequests, log, true),
 		PerfMetrics:        PerformanceMetrics{},
