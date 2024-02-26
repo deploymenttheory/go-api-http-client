@@ -45,39 +45,21 @@ Example usage with a configuration file:
 package main
 
 import (
+	"encoding/xml"
 	"fmt"
 	"log"
 
-	"github.com/deploymenttheory/go-api-http-client/httpclient"
 	"github.com/deploymenttheory/go-api-sdk-jamfpro/sdk/jamfpro"
 )
 
 func main() {
-	configFilePath := "/path/to/clientconfig.json"
-	loadedConfig, err := jamfpro.LoadClientConfig(configFilePath)
-	if err != nil {
-		log.Fatalf("Failed to load client OAuth configuration: %v", err)
-	}
+	// Define the path to the JSON configuration file
+	configFilePath := "/path/to/your/clientconfig.json"
 
-	config := httpclient.ClientConfig{
-		Auth: httpclient.AuthConfig{
-			ClientID:     loadedConfig.Auth.ClientID,
-			ClientSecret: loadedConfig.Auth.ClientSecret,
-		},
-		Environment: httpclient.EnvironmentConfig{
-			APIType:      loadedConfig.Environment.APIType,
-			InstanceName: loadedConfig.Environment.InstanceName,
-		},
-		ClientOptions: httpclient.ClientOptions{
-			LogLevel:          loadedConfig.ClientOptions.LogLevel,
-			HideSensitiveData: loadedConfig.ClientOptions.HideSensitiveData,
-			LogOutputFormat:   loadedConfig.ClientOptions.LogOutputFormat,
-		},
-	}
-
-	client, err := jamfpro.BuildClient(config)
+	// Initialize the Jamf Pro client with the HTTP client configuration
+	client, err := jamfpro.BuildClientWithConfigFile(configFilePath)
 	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
+		log.Fatalf("Failed to initialize Jamf Pro client: %v", err)
 	}
 }
 
