@@ -3,14 +3,15 @@ package httpclient
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
-	"go.uber.org/zap"
 )
 
 const (
@@ -23,7 +24,11 @@ const (
 	DefaultTimeout                   = 10 * time.Second
 )
 
-func SetClientConfiguration(log *zap.Logger, configFilePath string) (*ClientConfig, error) {
+// SetClientConfiguration initializes and configures the HTTP client based on the provided configuration file path and logger.
+// It loads configuration values from environment variables and, if necessary, from the provided file path.
+// Default values are set for any missing configuration options, and a final check is performed to ensure completeness.
+// If any essential configuration values are still missing after setting defaults, it returns an error.
+func SetClientConfiguration(configFilePath string) (*ClientConfig, error) {
 	config := &ClientConfig{}
 
 	// Load config values from environment variables
@@ -31,24 +36,30 @@ func SetClientConfiguration(log *zap.Logger, configFilePath string) (*ClientConf
 
 	// Load config values from file if necessary
 	if validateConfigCompletion(config) && configFilePath != "" {
-		if err := config.loadConfigFromFile(configFilePath, log); err != nil { // Updated to the correct function name
-			log.Error("Failed to load configuration from file", zap.String("path", configFilePath), zap.Error(err))
+		log.Printf("Configuration values are incomplete from environment variables, attempting to load from config file: %s", configFilePath)
+		if err := config.loadConfigFromFile(configFilePath); err != nil {
+			log.Printf("Failed to load configuration from file: %s, error: %v", configFilePath, err)
 			return nil, err
 		}
 	}
 
-	// Validate the configuration
-	if err := validateClientConfig(config, log); err != nil {
-		log.Error("Configuration validation failed", zap.Error(err))
-		return nil, err
-	}
+	// Set default values if necessary
+	setLoggerDefaultValues(config)
+	setClientDefaultValues(config)
 
-	// Set default values where necessary
-	setClientDefaultValues(config, log)
+	// Recheck if config values are still incomplete after setting defaults
+	if validateConfigCompletion(config) {
+		return nil, fmt.Errorf("incomplete configuration values even after setting defaults")
+	}
 
 	return config, nil
 }
 
+// loadConfigFromEnv populates the ClientConfig structure with values from environment variables.
+// It updates the configuration for authentication, environment specifics, and client options
+// based on the presence of environment variables. For each configuration option, if an environment
+// variable is set, its value is used; otherwise, the existing value in the ClientConfig structure
+// is retained.
 func loadConfigFromEnv(config *ClientConfig) {
 	// AuthConfig
 	config.Auth.ClientID = getEnvOrDefault("CLIENT_ID", config.Auth.ClientID)
@@ -117,52 +128,76 @@ func validateConfigCompletion(config *ClientConfig) bool {
 		config.ClientOptions.LogConsoleSeparator == ""
 }
 
-func setClientDefaultValues(config *ClientConfig, log *zap.Logger) {
+// setClientDefaultValues sets default values for the client configuration options if none are provided.
+// It checks each configuration option and sets it to the default value if it is either negative, zero,
+// or not set. This function ensures that the configuration adheres to expected minimums or defaults,
+// enhancing robustness and fault tolerance. It uses the standard log package for logging, ensuring that
+// default value settings are transparent before the zap logger is initialized.
+func setClientDefaultValues(config *ClientConfig) {
 	if config.ClientOptions.MaxRetryAttempts < 0 {
 		config.ClientOptions.MaxRetryAttempts = DefaultMaxRetryAttempts
-		log.Info("MaxRetryAttempts was negative, set to default value", zap.Int("MaxRetryAttempts", DefaultMaxRetryAttempts))
+		log.Printf("MaxRetryAttempts was negative, set to default value: %d", DefaultMaxRetryAttempts)
 	}
 
 	if config.ClientOptions.MaxConcurrentRequests <= 0 {
 		config.ClientOptions.MaxConcurrentRequests = DefaultMaxConcurrentRequests
-		log.Info("MaxConcurrentRequests was negative or zero, set to default value", zap.Int("MaxConcurrentRequests", DefaultMaxConcurrentRequests))
+		log.Printf("MaxConcurrentRequests was negative or zero, set to default value: %d", DefaultMaxConcurrentRequests)
 	}
 
 	if config.ClientOptions.TokenRefreshBufferPeriod < 0 {
 		config.ClientOptions.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
-		log.Info("TokenRefreshBufferPeriod was negative, set to default value", zap.Duration("TokenRefreshBufferPeriod", DefaultTokenBufferPeriod))
+		log.Printf("TokenRefreshBufferPeriod was negative, set to default value: %s", DefaultTokenBufferPeriod)
 	}
 
 	if config.ClientOptions.TotalRetryDuration <= 0 {
 		config.ClientOptions.TotalRetryDuration = DefaultTotalRetryDuration
-		log.Info("TotalRetryDuration was negative or zero, set to default value", zap.Duration("TotalRetryDuration", DefaultTotalRetryDuration))
+		log.Printf("TotalRetryDuration was negative or zero, set to default value: %s", DefaultTotalRetryDuration)
 	}
 
 	if config.ClientOptions.TokenRefreshBufferPeriod == 0 {
 		config.ClientOptions.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
-		log.Info("TokenRefreshBufferPeriod not set, set to default value", zap.Duration("TokenRefreshBufferPeriod", DefaultTokenBufferPeriod))
+		log.Printf("TokenRefreshBufferPeriod not set, set to default value: %s", DefaultTokenBufferPeriod)
 	}
 
 	if config.ClientOptions.TotalRetryDuration == 0 {
 		config.ClientOptions.TotalRetryDuration = DefaultTotalRetryDuration
-		log.Info("TotalRetryDuration not set, set to default value", zap.Duration("TotalRetryDuration", DefaultTotalRetryDuration))
+		log.Printf("TotalRetryDuration not set, set to default value: %s", DefaultTotalRetryDuration)
 	}
 
 	if config.ClientOptions.CustomTimeout == 0 {
 		config.ClientOptions.CustomTimeout = DefaultTimeout
-		log.Info("CustomTimeout not set, set to default value", zap.Duration("CustomTimeout", DefaultTimeout))
+		log.Printf("CustomTimeout not set, set to default value: %s", DefaultTimeout)
 	}
 
 	// Log completion of setting default values
-	log.Info("Default values set for client configuration")
+	log.Println("Default values set for client configuration")
 }
 
-// loadFromFile loads configuration values from a JSON file into the ClientConfig struct.
-func (config *ClientConfig) loadConfigFromFile(filePath string, log *zap.Logger) error {
+// setLoggerDefaultValues sets default values for the client logger configuration options if none are provided.
+// It checks each configuration option and sets it to the default value if it is either negative, zero,
+// or not set. It also logs each default value being set.
+func setLoggerDefaultValues(config *ClientConfig) {
+	// Set default value if none is provided
+	if config.ClientOptions.LogConsoleSeparator == "" {
+		config.ClientOptions.LogConsoleSeparator = ","
+		log.Println("LogConsoleSeparator not set, set to default value: ,")
+	}
+
+	// Log completion of setting default values
+	log.Println("Default values set for logger configuration")
+}
+
+// loadConfigFromFile loads configuration values from a JSON file into the ClientConfig struct.
+// It opens the specified configuration file, reads its content, and unmarshals the JSON data
+// into the ClientConfig struct. This function is crucial for initializing the client configuration
+// with values that may not be provided through environment variables or default values.
+// It uses Go's standard log package for logging, as the zap logger is not yet initialized when
+// this function is called.
+func (config *ClientConfig) loadConfigFromFile(filePath string) error {
 	// Open the configuration file
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Error("Failed to open the configuration file", zap.String("filePath", filePath), zap.Error(err))
+		log.Printf("Failed to open the configuration file: %s, error: %v", filePath, err)
 		return err
 	}
 	defer file.Close()
@@ -177,7 +212,7 @@ func (config *ClientConfig) loadConfigFromFile(filePath string, log *zap.Logger)
 			break
 		}
 		if err != nil {
-			log.Error("Failed to read the configuration file", zap.String("filePath", filePath), zap.Error(err))
+			log.Printf("Failed to read the configuration file: %s, error: %v", filePath, err)
 			return err
 		}
 		builder.Write(part)
@@ -186,76 +221,10 @@ func (config *ClientConfig) loadConfigFromFile(filePath string, log *zap.Logger)
 	// Unmarshal JSON content into the ClientConfig struct
 	err = json.Unmarshal([]byte(builder.String()), config)
 	if err != nil {
-		log.Error("Failed to unmarshal the configuration file", zap.String("filePath", filePath), zap.Error(err))
+		log.Printf("Failed to unmarshal the configuration file: %s, error: %v", filePath, err)
 		return err
 	}
 
-	log.Info("Configuration successfully loaded from file", zap.String("filePath", filePath))
+	log.Printf("Configuration successfully loaded from file: %s", filePath)
 	return nil
-}
-
-// validateClientConfig checks the client configuration and logs any issues using zap logger.
-func validateClientConfig(config *ClientConfig, log *zap.Logger) {
-	// Helper function to log validation errors
-	logValidationError := func(msg string) {
-		log.Error(msg)
-	}
-
-	// Flag to track if any validation errors were found
-	var hasErrors bool
-
-	// Validate AuthConfig
-	if config.Auth.ClientID == "" {
-		logValidationError("Validation error: ClientID in AuthConfig is required")
-		hasErrors = true
-	}
-	if config.Auth.ClientSecret == "" {
-		logValidationError("Validation error: ClientSecret in AuthConfig is required")
-		hasErrors = true
-	}
-
-	// Validate EnvironmentConfig
-	if config.Environment.InstanceName == "" {
-		logValidationError("Validation error: InstanceName in EnvironmentConfig is required")
-		hasErrors = true
-	}
-	if config.Environment.APIType == "" {
-		logValidationError("Validation error: APIType in EnvironmentConfig is required")
-		hasErrors = true
-	}
-
-	// Validate ClientOptions
-	if config.ClientOptions.LogLevel == "" {
-		logValidationError("Validation error: LogLevel in ClientOptions is required")
-		hasErrors = true
-	}
-	if config.ClientOptions.LogOutputFormat == "" {
-		logValidationError("Validation error: LogOutputFormat in ClientOptions is required")
-		hasErrors = true
-	}
-	if config.ClientOptions.MaxRetryAttempts < 0 {
-		logValidationError("Validation error: MaxRetryAttempts in ClientOptions must not be negative")
-		hasErrors = true
-	}
-	if config.ClientOptions.MaxConcurrentRequests <= 0 {
-		logValidationError("Validation error: MaxConcurrentRequests in ClientOptions must be greater than 0")
-		hasErrors = true
-	}
-	if config.ClientOptions.TokenRefreshBufferPeriod < 0 {
-		logValidationError("Validation error: TokenRefreshBufferPeriod in ClientOptions must not be negative")
-		hasErrors = true
-	}
-	if config.ClientOptions.TotalRetryDuration < 0 {
-		logValidationError("Validation error: TotalRetryDuration in ClientOptions must not be negative")
-		hasErrors = true
-	}
-	if config.ClientOptions.CustomTimeout <= 0 {
-		logValidationError("Validation error: CustomTimeout in ClientOptions must be greater than 0")
-		hasErrors = true
-	}
-
-	// Log a summary error if any validation errors were found
-	if hasErrors {
-		log.Error("Configuration validation failed with one or more errors")
-	}
 }
