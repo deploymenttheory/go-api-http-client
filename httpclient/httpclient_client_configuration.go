@@ -41,7 +41,7 @@ func SetClientConfiguration(configFilePath string) (*ClientConfig, error) {
 				return nil, err
 			}
 		} else {
-			return nil, fmt.Errorf("configuration incomplete and no config file path provided")
+			return nil, fmt.Errorf("http client configuration is incomplete. Required environment variables are missing, and no configuration file path is provided. Please set the necessary environment variables or provide a valid configuration file path")
 		}
 	}
 
