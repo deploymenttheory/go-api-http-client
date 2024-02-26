@@ -16,6 +16,7 @@ This client leverages API-specific SDKs to provide a comprehensive and consisten
 - **Header Management**: Easy and efficient management of HTTP request headers, ensuring compliance with API requirements.
 - **Enhanced Logging with Zap**: Utilizes Uber's zap library for structured, high-performance logging, offering levels from Debug to Fatal, including structured context and dynamic adjustment based on the environment.
 - **API Handler Interface**: Provides a flexible and extensible way to interact with different APIs, including encoding and decoding requests and responses, managing authentication endpoints, and handling API-specific logic.
+- **Configuration via JSON or Environment Variables**: The Go API HTTP Client supports configuration via JSON files or environment variables, providing flexibility in defining authentication credentials, API endpoints, logging settings, and other parameters.
 
 ## API Handler
 
