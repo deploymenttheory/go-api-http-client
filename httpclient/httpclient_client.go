@@ -87,11 +87,6 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	// Parse the log level string to logger.LogLevel
 	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.LogLevel)
 
-	// Set default value if none is provided
-	if config.ClientOptions.LogConsoleSeparator == "" {
-		config.ClientOptions.LogConsoleSeparator = ","
-	}
-
 	// Initialize the logger with parsed config values
 	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.LogOutputFormat, config.ClientOptions.LogConsoleSeparator)
 
