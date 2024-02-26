@@ -124,7 +124,7 @@ func TranslateStatusCode(resp *http.Response) string {
 	if message, exists := messages[resp.StatusCode]; exists {
 		return message
 	}
-	return "An unexpected error occurred. Please try again later."
+	return fmt.Sprintf("Unknown status code: %d", resp.StatusCode)
 }
 
 // IsNonRetryableStatusCode checks if the provided response indicates a non-retryable error.

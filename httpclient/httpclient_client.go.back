@@ -8,7 +8,6 @@ like the baseURL, authentication details, and an embedded standard HTTP client. 
 package httpclient
 
 import (
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -83,15 +82,7 @@ type PerformanceMetrics struct {
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
-func BuildClient(configFilePath string) (*Client, error) {
-
-	// Load the configuration
-	config, err := SetClientConfiguration(configFilePath)
-	if err != nil {
-		log.Printf("Failed to set client configuration: %v", err) // This uses the standard log package before zap logger is initialized
-		return nil, err
-	}
-
+func BuildClient(config ClientConfig) (*Client, error) {
 	// Parse the log level string to logger.LogLevel
 	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.LogLevel)
 
@@ -114,6 +105,46 @@ func BuildClient(configFilePath string) (*Client, error) {
 
 	log.Info("Initializing new HTTP client with the provided configuration")
 
+	// Validate and set default values for the configuration
+	if config.Environment.APIType == "" {
+		return nil, log.Error("InstanceName cannot be empty")
+	}
+
+	if config.ClientOptions.MaxRetryAttempts < 0 {
+		config.ClientOptions.MaxRetryAttempts = DefaultMaxRetryAttempts
+		log.Info("MaxRetryAttempts was negative, set to default value", zap.Int("MaxRetryAttempts", DefaultMaxRetryAttempts))
+	}
+
+	if config.ClientOptions.MaxConcurrentRequests <= 0 {
+		config.ClientOptions.MaxConcurrentRequests = DefaultMaxConcurrentRequests
+		log.Info("MaxConcurrentRequests was negative or zero, set to default value", zap.Int("MaxConcurrentRequests", DefaultMaxConcurrentRequests))
+	}
+
+	if config.ClientOptions.TokenRefreshBufferPeriod < 0 {
+		config.ClientOptions.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
+		log.Info("TokenRefreshBufferPeriod was negative, set to default value", zap.Duration("TokenRefreshBufferPeriod", DefaultTokenBufferPeriod))
+	}
+
+	if config.ClientOptions.TotalRetryDuration <= 0 {
+		config.ClientOptions.TotalRetryDuration = DefaultTotalRetryDuration
+		log.Info("TotalRetryDuration was negative or zero, set to default value", zap.Duration("TotalRetryDuration", DefaultTotalRetryDuration))
+	}
+
+	if config.ClientOptions.TokenRefreshBufferPeriod == 0 {
+		config.ClientOptions.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
+		log.Info("TokenRefreshBufferPeriod not set, set to default value", zap.Duration("TokenRefreshBufferPeriod", DefaultTokenBufferPeriod))
+	}
+
+	if config.ClientOptions.TotalRetryDuration == 0 {
+		config.ClientOptions.TotalRetryDuration = DefaultTotalRetryDuration
+		log.Info("TotalRetryDuration not set, set to default value", zap.Duration("TotalRetryDuration", DefaultTotalRetryDuration))
+	}
+
+	if config.ClientOptions.CustomTimeout == 0 {
+		config.ClientOptions.CustomTimeout = DefaultTimeout
+		log.Info("CustomTimeout not set, set to default value", zap.Duration("CustomTimeout", DefaultTimeout))
+	}
+
 	// Determine the authentication method using the helper function
 	authMethod, err := DetermineAuthMethod(config.Auth)
 	if err != nil {
@@ -128,7 +159,7 @@ func BuildClient(configFilePath string) (*Client, error) {
 		AuthMethod:         authMethod,
 		OverrideBaseDomain: config.Environment.OverrideBaseDomain,
 		httpClient:         &http.Client{Timeout: config.ClientOptions.CustomTimeout},
-		clientConfig:       *config,
+		clientConfig:       config,
 		Logger:             log,
 		ConcurrencyMgr:     NewConcurrencyManager(config.ClientOptions.MaxConcurrentRequests, log, true),
 		PerfMetrics:        PerformanceMetrics{},
