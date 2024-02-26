@@ -24,63 +24,127 @@ const (
 	DefaultTimeout                   = 10 * time.Second
 )
 
-// SetClientConfiguration initializes and configures the HTTP client based on the provided configuration file path and logger.
-// It loads configuration values from environment variables and, if necessary, from the provided file path.
-// Default values are set for any missing configuration options, and a final check is performed to ensure completeness.
-// If any essential configuration values are still missing after setting defaults, it returns an error.
-func SetClientConfiguration(configFilePath string) (*ClientConfig, error) {
-	config := &ClientConfig{}
-
-	// Load config values from environment variables
-	loadConfigFromEnv(config)
-
-	// Load config values from file if necessary
-	if validateConfigCompletion(config) && configFilePath != "" {
-		log.Printf("Configuration values are incomplete from environment variables, attempting to load from config file: %s", configFilePath)
-		if err := config.loadConfigFromFile(configFilePath); err != nil {
-			log.Printf("Failed to load configuration from file: %s, error: %v", configFilePath, err)
-			return nil, err
-		}
+// loadConfigFromFile loads configuration values from a JSON file into the ClientConfig struct.
+// It opens the specified configuration file, reads its content, and unmarshals the JSON data
+// into the ClientConfig struct. This function is crucial for initializing the client configuration
+// with values that may not be provided through environment variables or default values.
+// It uses Go's standard log package for logging, as the zap logger is not yet initialized when
+// this function is called.
+func (config *ClientConfig) LoadConfigFromFile(filePath string) error {
+	// Open the configuration file
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Printf("Failed to open the configuration file: %s, error: %v", filePath, err)
+		return err
 	}
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+	var builder strings.Builder
+
+	// Read the file content
+	for {
+		part, _, err := reader.ReadLine()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("Failed to read the configuration file: %s, error: %v", filePath, err)
+			return err
+		}
+		builder.Write(part)
+	}
+
+	// Unmarshal JSON content into the ClientConfig struct
+	err = json.Unmarshal([]byte(builder.String()), config)
+	if err != nil {
+		log.Printf("Failed to unmarshal the configuration file: %s, error: %v", filePath, err)
+		return err
+	}
+
+	log.Printf("Configuration successfully loaded from file: %s", filePath)
 
 	// Set default values if necessary
 	setLoggerDefaultValues(config)
 	setClientDefaultValues(config)
 
-	// Recheck if config values are still incomplete after setting defaults
-	if validateConfigCompletion(config) {
-		return nil, fmt.Errorf("incomplete configuration values even after setting defaults")
+	// validate configuration
+	if err := validateMandatoryConfiguration(config); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	return config, nil
+	return nil
 }
 
-// loadConfigFromEnv populates the ClientConfig structure with values from environment variables.
+// LoadConfigFromEnv populates the ClientConfig structure with values from environment variables.
 // It updates the configuration for authentication, environment specifics, and client options
 // based on the presence of environment variables. For each configuration option, if an environment
 // variable is set, its value is used; otherwise, the existing value in the ClientConfig structure
-// is retained.
-func loadConfigFromEnv(config *ClientConfig) {
+// is retained. It also sets default values if necessary and validates the final configuration,
+// returning an error if the configuration is incomplete.
+func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
+	if config == nil {
+		config = &ClientConfig{} // Initialize config if nil
+	}
+
 	// AuthConfig
 	config.Auth.ClientID = getEnvOrDefault("CLIENT_ID", config.Auth.ClientID)
+	log.Printf("ClientID env value found and set to: %s", config.Auth.ClientID)
+
 	config.Auth.ClientSecret = getEnvOrDefault("CLIENT_SECRET", config.Auth.ClientSecret)
+	log.Printf("ClientSecret env value found and set")
 
 	// EnvironmentConfig
 	config.Environment.InstanceName = getEnvOrDefault("INSTANCE_NAME", config.Environment.InstanceName)
+	log.Printf("InstanceName env value found and set to: %s", config.Environment.InstanceName)
+
 	config.Environment.OverrideBaseDomain = getEnvOrDefault("OVERRIDE_BASE_DOMAIN", config.Environment.OverrideBaseDomain)
+	log.Printf("OverrideBaseDomain env value found and set to: %s", config.Environment.OverrideBaseDomain)
+
 	config.Environment.APIType = getEnvOrDefault("API_TYPE", config.Environment.APIType)
+	log.Printf("APIType env value found and set to: %s", config.Environment.APIType)
 
 	// ClientOptions
 	config.ClientOptions.LogLevel = getEnvOrDefault("LOG_LEVEL", config.ClientOptions.LogLevel)
+	log.Printf("LogLevel env value found and set to: %s", config.ClientOptions.LogLevel)
+
 	config.ClientOptions.LogOutputFormat = getEnvOrDefault("LOG_OUTPUT_FORMAT", config.ClientOptions.LogOutputFormat)
+	log.Printf("LogOutputFormat env value found and set to: %s", config.ClientOptions.LogOutputFormat)
+
 	config.ClientOptions.LogConsoleSeparator = getEnvOrDefault("LOG_CONSOLE_SEPARATOR", config.ClientOptions.LogConsoleSeparator)
+	log.Printf("LogConsoleSeparator env value found and set to: %s", config.ClientOptions.LogConsoleSeparator)
+
 	config.ClientOptions.HideSensitiveData = parseBool(getEnvOrDefault("HIDE_SENSITIVE_DATA", strconv.FormatBool(config.ClientOptions.HideSensitiveData)))
+	log.Printf("HideSensitiveData env value found and set to: %t", config.ClientOptions.HideSensitiveData)
+
 	config.ClientOptions.MaxRetryAttempts = parseInt(getEnvOrDefault("MAX_RETRY_ATTEMPTS", strconv.Itoa(config.ClientOptions.MaxRetryAttempts)), DefaultMaxRetryAttempts)
+	log.Printf("MaxRetryAttempts env value found and set to: %d", config.ClientOptions.MaxRetryAttempts)
+
 	config.ClientOptions.EnableDynamicRateLimiting = parseBool(getEnvOrDefault("ENABLE_DYNAMIC_RATE_LIMITING", strconv.FormatBool(config.ClientOptions.EnableDynamicRateLimiting)))
+	log.Printf("EnableDynamicRateLimiting env value found and set to: %t", config.ClientOptions.EnableDynamicRateLimiting)
+
 	config.ClientOptions.MaxConcurrentRequests = parseInt(getEnvOrDefault("MAX_CONCURRENT_REQUESTS", strconv.Itoa(config.ClientOptions.MaxConcurrentRequests)), DefaultMaxConcurrentRequests)
+	log.Printf("MaxConcurrentRequests env value found and set to: %d", config.ClientOptions.MaxConcurrentRequests)
+
 	config.ClientOptions.TokenRefreshBufferPeriod = parseDuration(getEnvOrDefault("TOKEN_REFRESH_BUFFER_PERIOD", config.ClientOptions.TokenRefreshBufferPeriod.String()), DefaultTokenBufferPeriod)
+	log.Printf("TokenRefreshBufferPeriod env value found and set to: %s", config.ClientOptions.TokenRefreshBufferPeriod)
+
 	config.ClientOptions.TotalRetryDuration = parseDuration(getEnvOrDefault("TOTAL_RETRY_DURATION", config.ClientOptions.TotalRetryDuration.String()), DefaultTotalRetryDuration)
+	log.Printf("TotalRetryDuration env value found and set to: %s", config.ClientOptions.TotalRetryDuration)
+
 	config.ClientOptions.CustomTimeout = parseDuration(getEnvOrDefault("CUSTOM_TIMEOUT", config.ClientOptions.CustomTimeout.String()), DefaultTimeout)
+	log.Printf("CustomTimeout env value found and set to: %s", config.ClientOptions.CustomTimeout)
+
+	// Set default values if necessary
+	setLoggerDefaultValues(config)
+	setClientDefaultValues(config)
+
+	// Validate final configuration
+	if err := validateMandatoryConfiguration(config); err != nil {
+		return nil, err // Return the error if the configuration is incomplete
+	}
+
+	return config, nil
 }
 
 // Helper function to get environment variable or default value
@@ -118,14 +182,42 @@ func parseDuration(value string, defaultVal time.Duration) time.Duration {
 	return result
 }
 
-// validateConfigCompletion checks if any essential configuration fields are missing,
-// indicating the configuration might be incomplete and may require loading from additional sources.
-func validateConfigCompletion(config *ClientConfig) bool {
-	// Check if essential fields are missing; additional fields can be checked as needed
-	return config.Auth.ClientID == "" || config.Auth.ClientSecret == "" ||
-		config.Environment.InstanceName == "" || config.Environment.APIType == "" ||
-		config.ClientOptions.LogLevel == "" || config.ClientOptions.LogOutputFormat == "" ||
-		config.ClientOptions.LogConsoleSeparator == ""
+// validateMandatoryConfiguration checks if any essential configuration fields are missing,
+// and returns an error with details about the missing configurations.
+// This ensures the caller can understand what specific configurations need attention.
+func validateMandatoryConfiguration(config *ClientConfig) error {
+	var missingFields []string
+
+	// Check for missing mandatory fields and add them to the missingFields slice if necessary.
+	if config.Auth.ClientID == "" {
+		missingFields = append(missingFields, "Auth.ClientID")
+	}
+	if config.Auth.ClientSecret == "" {
+		missingFields = append(missingFields, "Auth.ClientSecret")
+	}
+	if config.Environment.InstanceName == "" {
+		missingFields = append(missingFields, "Environment.InstanceName")
+	}
+	if config.Environment.APIType == "" {
+		missingFields = append(missingFields, "Environment.APIType")
+	}
+	if config.ClientOptions.LogLevel == "" {
+		missingFields = append(missingFields, "ClientOptions.LogLevel")
+	}
+	if config.ClientOptions.LogOutputFormat == "" {
+		missingFields = append(missingFields, "ClientOptions.LogOutputFormat")
+	}
+	if config.ClientOptions.LogConsoleSeparator == "" {
+		missingFields = append(missingFields, "ClientOptions.LogConsoleSeparator")
+	}
+
+	// If there are missing fields, return an error detailing what is missing.
+	if len(missingFields) > 0 {
+		return fmt.Errorf("mandatory configuration missing: %s", strings.Join(missingFields, ", "))
+	}
+
+	// If no fields are missing, return nil indicating the configuration is complete.
+	return nil
 }
 
 // setClientDefaultValues sets default values for the client configuration options if none are provided.
@@ -185,46 +277,4 @@ func setLoggerDefaultValues(config *ClientConfig) {
 
 	// Log completion of setting default values
 	log.Println("Default values set for logger configuration")
-}
-
-// loadConfigFromFile loads configuration values from a JSON file into the ClientConfig struct.
-// It opens the specified configuration file, reads its content, and unmarshals the JSON data
-// into the ClientConfig struct. This function is crucial for initializing the client configuration
-// with values that may not be provided through environment variables or default values.
-// It uses Go's standard log package for logging, as the zap logger is not yet initialized when
-// this function is called.
-func (config *ClientConfig) loadConfigFromFile(filePath string) error {
-	// Open the configuration file
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Printf("Failed to open the configuration file: %s, error: %v", filePath, err)
-		return err
-	}
-	defer file.Close()
-
-	reader := bufio.NewReader(file)
-	var builder strings.Builder
-
-	// Read the file content
-	for {
-		part, _, err := reader.ReadLine()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Printf("Failed to read the configuration file: %s, error: %v", filePath, err)
-			return err
-		}
-		builder.Write(part)
-	}
-
-	// Unmarshal JSON content into the ClientConfig struct
-	err = json.Unmarshal([]byte(builder.String()), config)
-	if err != nil {
-		log.Printf("Failed to unmarshal the configuration file: %s, error: %v", filePath, err)
-		return err
-	}
-
-	log.Printf("Configuration successfully loaded from file: %s", filePath)
-	return nil
 }
