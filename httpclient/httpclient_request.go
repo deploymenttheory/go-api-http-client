@@ -157,12 +157,16 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.TotalRetryDuration)
 
 	var resp *http.Response
-	retryCount := 0
+	var retryCount int
 	for time.Now().Before(totalRetryDeadline) { // Check if the current time is before the total retry deadline
 		req = req.WithContext(ctx)
-		resp, err = c.executeHTTPRequest(req, log, method, endpoint)
+		resp, err = c.do(req, log, method, endpoint)
 		// Check for successful status code
-		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 400 {
+			if resp.StatusCode >= 300 {
+				log.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
+			}
+			// Handle the response as successful, even if it's a redirect.
 			return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 		}
 
@@ -298,7 +302,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	req = req.WithContext(ctx)
 
 	// Execute the HTTP request
-	resp, err := c.executeHTTPRequest(req, log, method, endpoint)
+	resp, err := c.do(req, log, method, endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -306,15 +310,17 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 	CheckDeprecationHeader(resp, log)
 
-	// Check for successful status code
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Handle error responses
-		//return nil, c.handleErrorResponse(resp, log, "Failed to process the HTTP request", method, endpoint)
-		return nil, c.handleErrorResponse(resp, out, log, method, endpoint)
-	} else {
-		// Handle successful responses
+	// Check for successful status code, including redirects
+	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+		// Warn on redirects but proceed as successful
+		if resp.StatusCode >= 300 {
+			log.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
+		}
 		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 	}
+
+	// Handle error responses for status codes outside the successful range
+	return nil, c.handleErrorResponse(resp, out, log, method, endpoint)
 }
 
 // executeHTTPRequest sends an HTTP request using the client's HTTP client. It logs the request and error details, if any,
@@ -334,7 +340,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 // Usage:
 // This function should be used whenever the client needs to send an HTTP request. It abstracts away the common logic of
 // request execution and error handling, providing detailed logs for debugging and monitoring.
-func (c *Client) executeHTTPRequest(req *http.Request, log logger.Logger, method, endpoint string) (*http.Response, error) {
+func (c *Client) do(req *http.Request, log logger.Logger, method, endpoint string) (*http.Response, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		// Log the error with structured logging, including method, endpoint, and the error itself
@@ -477,7 +483,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	headerManager.LogHeaders(c)
 
 	// Execute the request
-	resp, err := c.executeHTTPRequest(req, log, method, endpoint)
+	resp, err := c.do(req, log, method, endpoint)
 	if err != nil {
 		return nil, err
 	}
