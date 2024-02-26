@@ -1,10 +1,8 @@
 package httpclient
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strconv"
@@ -24,56 +22,38 @@ const (
 	DefaultTimeout                   = 10 * time.Second
 )
 
-// loadConfigFromFile loads configuration values from a JSON file into the ClientConfig struct.
-// It opens the specified configuration file, reads its content, and unmarshals the JSON data
-// into the ClientConfig struct. This function is crucial for initializing the client configuration
-// with values that may not be provided through environment variables or default values.
-// It uses Go's standard log package for logging, as the zap logger is not yet initialized when
-// this function is called.
-func (config *ClientConfig) LoadConfigFromFile(filePath string) error {
-	// Open the configuration file
-	file, err := os.Open(filePath)
+// LoadConfigFromFile loads configuration values from a JSON file into the ClientConfig struct.
+// This function opens the specified configuration file, reads its content, and unmarshals the JSON data
+// into the ClientConfig struct. It's designed to initialize the client configuration with values
+// from a file, complementing or overriding defaults and environment variable settings.
+// LoadConfigFromFile loads configuration values from a JSON file into the ClientConfig struct.
+func LoadConfigFromFile(filePath string) (*ClientConfig, error) {
+	// Read the entire file
+	fileBytes, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Printf("Failed to open the configuration file: %s, error: %v", filePath, err)
-		return err
-	}
-	defer file.Close()
-
-	reader := bufio.NewReader(file)
-	var builder strings.Builder
-
-	// Read the file content
-	for {
-		part, _, err := reader.ReadLine()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Printf("Failed to read the configuration file: %s, error: %v", filePath, err)
-			return err
-		}
-		builder.Write(part)
+		return nil, fmt.Errorf("failed to read the configuration file: %s, error: %w", filePath, err)
 	}
 
-	// Unmarshal JSON content into the ClientConfig struct
-	err = json.Unmarshal([]byte(builder.String()), config)
-	if err != nil {
-		log.Printf("Failed to unmarshal the configuration file: %s, error: %v", filePath, err)
-		return err
+	// Initialize an instance of ClientConfig
+	var config ClientConfig
+
+	// Unmarshal the file content into the ClientConfig struct
+	if err := json.Unmarshal(fileBytes, &config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal the configuration file: %s, error: %w", filePath, err)
 	}
 
 	log.Printf("Configuration successfully loaded from file: %s", filePath)
 
 	// Set default values if necessary
-	setLoggerDefaultValues(config)
-	setClientDefaultValues(config)
+	setLoggerDefaultValues(&config)
+	setClientDefaultValues(&config)
 
-	// validate configuration
-	if err := validateMandatoryConfiguration(config); err != nil {
-		return fmt.Errorf("configuration validation failed: %w", err)
+	// Validate mandatory configuration fields
+	if err := validateMandatoryConfiguration(&config); err != nil {
+		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	return nil
+	return &config, nil
 }
 
 // LoadConfigFromEnv populates the ClientConfig structure with values from environment variables.
