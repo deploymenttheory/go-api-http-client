@@ -34,14 +34,12 @@ func SetClientConfiguration(configFilePath string) (*ClientConfig, error) {
 	// Load config values from environment variables
 	loadConfigFromEnv(config)
 
-	// Check if the configuration is complete; if not, load from file
-	if !validateConfigCompletion(config) {
-		if configFilePath != "" {
-			if err := config.loadConfigFromFile(configFilePath); err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("http client configuration is incomplete. Required environment variables are missing, and no configuration file path is provided. Please set the necessary environment variables or provide a valid configuration file path")
+	// Load config values from file if necessary
+	if validateConfigCompletion(config) && configFilePath != "" {
+		log.Printf("Configuration values are incomplete from environment variables, attempting to load from config file: %s", configFilePath)
+		if err := config.loadConfigFromFile(configFilePath); err != nil {
+			log.Printf("Failed to load configuration from file: %s, error: %v", configFilePath, err)
+			return nil, err
 		}
 	}
 
