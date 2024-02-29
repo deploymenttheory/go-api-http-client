@@ -12,6 +12,10 @@ import (
 // It configures the logger with JSON formatting and a custom encoder to ensure the 'pid', 'application', and 'timestamp' fields
 // appear at the end of each log message. The function panics if the logger cannot be initialized.
 func BuildLogger(logLevel LogLevel, encoding string, logConsoleSeparator string) Logger {
+	// Set default encoding to console if not provided
+	if encoding == "" {
+		encoding = "console"
+	}
 
 	// Set up custom encoder configuration
 	encoderCfg := zap.NewProductionEncoderConfig()
@@ -38,11 +42,6 @@ func BuildLogger(logLevel LogLevel, encoding string, logConsoleSeparator string)
 
 	// Name and function encoding (optional, depends on logging requirements)
 	encoderCfg.EncodeName = zapcore.FullNameEncoder // Encodes the logger's name as-is, without any modifications.
-
-	// Console-specific settings (if using console encoding)
-	if encoding == "console" {
-		encoderCfg.ConsoleSeparator = logConsoleSeparator
-	}
 
 	// Convert the custom LogLevel to zap's logging level
 	zapLogLevel := convertToZapLevel(logLevel)
