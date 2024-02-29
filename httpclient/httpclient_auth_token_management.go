@@ -25,12 +25,12 @@ func (c *Client) ValidAuthTokenCheck() (bool, error) {
 			log.Info("Credential Match", zap.String("AuthMethod", c.AuthMethod))
 			err := c.ObtainToken(log)
 			if err != nil {
-				return false, log.Error("Failed to obtain bearer token", zap.Error(err))
+				return false, log.Error("Bearer token retrieval failed: invalid credentials. Verify accuracy.", zap.Error(err))
 			}
 		} else if c.AuthMethod == "oauth" {
 			log.Info("Credential Match", zap.String("AuthMethod", c.AuthMethod))
 			if err := c.ObtainOAuthToken(c.clientConfig.Auth); err != nil {
-				return false, log.Error("Failed to obtain OAuth token", zap.Error(err))
+				return false, log.Error("OAuth token retrieval failed: invalid credentials. Verify accuracy.", zap.Error(err))
 			}
 		} else {
 			return false, log.Error("No valid credentials provided. Unable to obtain a token", zap.String("authMethod", c.AuthMethod))

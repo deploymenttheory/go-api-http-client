@@ -32,11 +32,11 @@ func (e *APIError) Error() string {
 }
 
 // HandleAPIError handles error responses from the API, converting them into a structured error if possible.
-func HandleAPIError(resp *http.Response, log logger.Logger) error {
+func HandleAPIError(resp *http.Response, log logger.Logger) *APIError {
 	var structuredErr StructuredError
 	err := json.NewDecoder(resp.Body).Decode(&structuredErr)
 	if err == nil && structuredErr.Error.Message != "" {
-		// Using structured logging to log the structured error details
+		// Log the structured error details
 		log.Warn("API returned structured error",
 			zap.String("status", resp.Status),
 			zap.String("error_code", structuredErr.Error.Code),
@@ -49,22 +49,12 @@ func HandleAPIError(resp *http.Response, log logger.Logger) error {
 		}
 	}
 
-	var errMsg string
-	err = json.NewDecoder(resp.Body).Decode(&errMsg)
-	if err != nil || errMsg == "" {
-		errMsg = fmt.Sprintf("Unexpected error with status code: %d", resp.StatusCode)
-		// Logging with structured fields
-		log.Error("Failed to decode API error message, using default error message",
-			zap.String("status", resp.Status),
-			zap.String("error_message", errMsg),
-		)
-	} else {
-		// Logging non-structured error as a warning with structured fields
-		log.Warn("API returned non-structured error",
-			zap.String("status", resp.Status),
-			zap.String("error_message", errMsg),
-		)
-	}
+	// Default error message for non-structured responses or decode failures
+	errMsg := fmt.Sprintf("Unexpected error with status code: %d", resp.StatusCode)
+	log.Error("Failed to decode API error message, using default error message",
+		zap.String("status", resp.Status),
+		zap.String("error_message", errMsg),
+	)
 
 	return &APIError{
 		StatusCode: resp.StatusCode,
