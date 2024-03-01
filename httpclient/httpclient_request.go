@@ -153,66 +153,71 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	headerManager.SetRequestHeaders(endpoint)
 	headerManager.LogHeaders(c)
 
-	// Calculate the deadline for all retry attempts based on the client configuration.
+	// Define a retry deadline based on the client's total retry duration configuration
 	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.TotalRetryDuration)
 
-	// Execute the HTTP request with retries
 	var resp *http.Response
 	var retryCount int
-	var requestStartTime = time.Now()
-
-	for time.Now().Before(totalRetryDeadline) {
+	for time.Now().Before(totalRetryDeadline) { // Check if the current time is before the total retry deadline
+		req = req.WithContext(ctx)
 		resp, err = c.do(req, log, method, endpoint)
-
-		// Successful response handling
-		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			log.LogRequestEnd(method, endpoint, resp.StatusCode, time.Since(requestStartTime))
+		// Check for successful status code
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 400 {
+			if resp.StatusCode >= 300 {
+				log.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
+			}
+			// Handle the response as successful, even if it's a redirect.
 			return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 		}
 
-		// Log and handle non-retryable errors immediately without retrying
+		// Leverage TranslateStatusCode for more descriptive error logging
+		statusMessage := status.TranslateStatusCode(resp)
+
+		// Check for non-retryable errors
 		if resp != nil && status.IsNonRetryableStatusCode(resp) {
-			log.LogError(method, endpoint, resp.StatusCode, err, status.TranslateStatusCode(resp))
-			return resp, err
+			log.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
+			return resp, handleAPIErrorResponse(resp, log)
 		}
 
-		// Handle rate-limiting errors by parsing the 'Retry-After' header and waiting before the next retry
+		// Parsing rate limit headers if a rate-limit error is detected
 		if status.IsRateLimitError(resp) {
 			waitDuration := parseRateLimitHeaders(resp, log)
-			log.LogRateLimiting(method, endpoint, resp.Header.Get("Retry-After"), waitDuration)
-			time.Sleep(waitDuration)
-			continue
+			if waitDuration > 0 {
+				log.Warn("Rate limit encountered, waiting before retrying", zap.Duration("waitDuration", waitDuration))
+				time.Sleep(waitDuration)
+				continue // Continue to next iteration after waiting
+			}
 		}
 
-		// Retry the request for transient errors using exponential backoff with jitter
+		// Handling retryable errors with exponential backoff
 		if status.IsTransientError(resp) {
 			retryCount++
 			if retryCount > c.clientConfig.ClientOptions.MaxRetryAttempts {
-				// Log max retry attempts reached with structured logging
-				log.LogError(method, endpoint, resp.StatusCode, err, "Max retry attempts reached")
-				break
+				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
+				break // Stop retrying if max attempts are reached
 			}
 			waitDuration := calculateBackoff(retryCount)
-			log.LogRetryAttempt(method, endpoint, retryCount, "Transient error", waitDuration, err)
-			time.Sleep(waitDuration)
-			continue
+			log.Warn("Retrying request due to transient error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err))
+			time.Sleep(waitDuration) // Wait before retrying
+			continue                 // Continue to next iteration after waiting
 		}
 
-		// Log non-retryable API errors and break the retry loop
+		// Handle error responses
 		if err != nil || !status.IsRetryableStatusCode(resp.StatusCode) {
+			if apiErr := handleAPIErrorResponse(resp, log); apiErr != nil {
+				err = apiErr
+			}
 			log.LogError(method, endpoint, resp.StatusCode, err, status.TranslateStatusCode(resp))
 			break
 		}
 	}
 
-	// Final error handling after all retries are exhausted
+	// Handles final non-API error.
 	if err != nil {
-		// Log the final error after retries with structured logging
-		log.LogError(method, endpoint, 0, err, "Final error after retries")
 		return nil, err
 	}
 
-	return resp, nil
+	return resp, handleAPIErrorResponse(resp, log)
 }
 
 // executeRequest executes an HTTP request using the specified method, endpoint, and request body without implementing
