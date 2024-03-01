@@ -34,7 +34,7 @@ type Logger interface {
 	// Updated method signatures to include the 'event' parameter
 	LogRequestStart(event string, requestID string, userID string, method string, url string, headers map[string][]string)
 	LogRequestEnd(event string, method string, url string, statusCode int, duration time.Duration)
-	LogError(event string, method string, url string, statusCode int, err error, stacktrace string)
+	LogError(event string, method string, url string, statusCode int, serverStatusMessage string, err error, stacktrace string)
 	LogAuthTokenError(event string, method string, url string, statusCode int, err error)
 	LogRetryAttempt(event string, method string, url string, attempt int, reason string, waitDuration time.Duration, err error)
 	LogRateLimiting(event string, method string, url string, retryAfter string, waitDuration time.Duration)

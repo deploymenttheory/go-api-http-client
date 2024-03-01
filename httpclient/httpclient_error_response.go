@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"runtime/debug"
 	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
@@ -49,20 +48,18 @@ func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 		return apiError
 	}
 
-	stackTrace := string(debug.Stack())
-
 	// Check if the response is JSON
 	if isJSONResponse(resp) {
 		// Attempt to parse the response into a StructuredError
 		if err := json.Unmarshal(bodyBytes, &apiError); err == nil && apiError.Message != "" {
-			stackTrace := string(debug.Stack())
 			log.LogError(
 				"json_structured_error_detected", // event
 				resp.Request.Method,              // method
 				resp.Request.URL.String(),        // url
 				resp.StatusCode,                  // statusCode
+				resp.Status,                      // status
 				fmt.Errorf(apiError.Message),     // err
-				stackTrace,                       // stacktrace
+				apiError.Raw,                     // raw resp
 			)
 			return apiError
 		}
@@ -71,7 +68,15 @@ func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 		var genericErr map[string]interface{}
 		if err := json.Unmarshal(bodyBytes, &genericErr); err == nil {
 			apiError.updateFromGenericError(genericErr)
-			log.LogError("json_generic_error_detected", resp.Request.Method, resp.Request.URL.String(), resp.StatusCode, fmt.Errorf(apiError.Message), "")
+			log.LogError(
+				"json_generic_error_detected", // event
+				resp.Request.Method,           // method
+				resp.Request.URL.String(),     // url
+				resp.StatusCode,               // statusCode
+				resp.Status,                   // status
+				fmt.Errorf(apiError.Message),  // err
+				apiError.Raw,                  // raw resp
+			)
 			return apiError
 		}
 	} else if isHTMLResponse(resp) {
@@ -82,20 +87,22 @@ func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 			resp.Request.Method,          // method
 			resp.Request.URL.String(),    // url
 			resp.StatusCode,              // statusCode
+			resp.Status,                  // status
 			fmt.Errorf(apiError.Message), // err
-			stackTrace,                   // stacktrace
+			apiError.Raw,                 // raw resp
 		)
 		return apiError
 	} else {
 		// Handle other non-JSON responses
 		apiError.Raw = string(bodyBytes)
 		log.LogError(
-			"api_non_json_error",                           // event
-			resp.Request.Method,                            // method
-			resp.Request.URL.String(),                      // url
-			resp.StatusCode,                                // statusCode
+			"api_non_json_error",      // event
+			resp.Request.Method,       // method
+			resp.Request.URL.String(), // url
+			resp.StatusCode,           // statusCode
+			resp.Status,               // status
 			fmt.Errorf("Non-JSON error response received"), // err
-			stackTrace,                                     // stacktrace
+			apiError.Raw, // raw resp
 		)
 		return apiError
 	}
