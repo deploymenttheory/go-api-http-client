@@ -77,8 +77,8 @@ func (m *MockLogger) LogRequestEnd(event string, method string, url string, stat
 	m.Called(event, method, url, statusCode, duration)
 }
 
-func (m *MockLogger) LogError(event string, method string, url string, statusCode int, serverStatusMessage string, err error, stacktrace string) {
-	m.Called(event, method, url, statusCode, serverStatusMessage, err, stacktrace)
+func (m *MockLogger) LogError(event string, method string, url string, statusCode int, serverStatusMessage string, err error, rawResponse string) {
+	m.Called(event, method, url, statusCode, serverStatusMessage, err, rawResponse)
 }
 
 func (m *MockLogger) LogAuthTokenError(event string, method string, url string, statusCode int, err error) {
