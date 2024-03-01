@@ -34,47 +34,41 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("API Error (Type: %s, Code: %d): %s", e.Type, e.StatusCode, e.Message)
 }
 
-// handleAPIErrorResponse attempts to parse the error response from the API and logs using zap logger.
+// handleAPIErrorResponse attempts to parse the error response from the API and logs using the zap logger.
 func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
-	// Initialize apiError with the HTTP status code and other fields
 	apiError := &APIError{
 		StatusCode: resp.StatusCode,
 		Type:       "APIError",          // Default error type
 		Message:    "An error occurred", // Default error message
 	}
 
-	// Read the response body
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		// Log and return an error if reading the body fails
-		log.LogError("READ", resp.Request.URL.String(), resp.StatusCode, err, "Failed to read API error response body")
+		log.LogError("api_response_read_error", "READ", resp.Request.URL.String(), resp.StatusCode, err, "")
 		return apiError
 	}
 
-	// Attempt to parse the response into a StructuredError
 	if err := json.Unmarshal(bodyBytes, &apiError); err == nil && apiError.Message != "" {
-		// Log the structured error with consistency
-		log.LogError("API", resp.Request.URL.String(), resp.StatusCode, fmt.Errorf(apiError.Message), "")
+		// Log the structured error
+		log.LogError("api_structured_error", "API", resp.Request.URL.String(), resp.StatusCode, fmt.Errorf(apiError.Message), "")
 		return apiError
 	}
 
 	// If structured parsing fails, attempt to parse into a generic error map
 	var genericErr map[string]interface{}
 	if err := json.Unmarshal(bodyBytes, &genericErr); err == nil {
-		// Extract fields from the generic error map and update apiError accordingly
 		apiError.updateFromGenericError(genericErr)
-
-		// Log the error with extracted details consistently
-		log.LogError("API", resp.Request.URL.String(), resp.StatusCode, fmt.Errorf(apiError.Message), "")
+		// Log the error with extracted details
+		log.LogError("api_generic_error", "API", resp.Request.URL.String(), resp.StatusCode, fmt.Errorf(apiError.Message), "")
 		return apiError
 	}
 
 	// If all parsing attempts fail, log the raw response
-	log.LogError("API", resp.Request.URL.String(), resp.StatusCode, fmt.Errorf("failed to parse API error response"), string(bodyBytes))
+	log.LogError("api_unexpected_error", "API", resp.Request.URL.String(), resp.StatusCode, fmt.Errorf("failed to parse API error response"), string(bodyBytes))
 	return apiError
 }
 
-// updateFromGenericError updates the APIError fields based on a generic error map
 func (e *APIError) updateFromGenericError(genericErr map[string]interface{}) {
 	if msg, ok := genericErr["message"].(string); ok {
 		e.Message = msg
@@ -82,5 +76,5 @@ func (e *APIError) updateFromGenericError(genericErr map[string]interface{}) {
 	if detail, ok := genericErr["detail"].(string); ok {
 		e.Detail = detail
 	}
-	// Add more fields if necessary
+	// Add more fields as needed
 }

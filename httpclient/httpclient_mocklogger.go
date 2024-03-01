@@ -81,6 +81,10 @@ func (m *MockLogger) LogError(event string, method string, url string, statusCod
 	m.Called(event, method, url, statusCode, err, stacktrace)
 }
 
+func (m *MockLogger) LogAuthTokenError(event string, method string, url string, statusCode int, err error) {
+	m.Called(event, method, url, statusCode, err)
+}
+
 func (m *MockLogger) LogRetryAttempt(event string, method string, url string, attempt int, reason string, waitDuration time.Duration, err error) {
 	m.Called(event, method, url, attempt, reason, waitDuration, err)
 }

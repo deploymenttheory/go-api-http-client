@@ -207,7 +207,8 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			if apiErr := handleAPIErrorResponse(resp, log); apiErr != nil {
 				err = apiErr
 			}
-			log.LogError(method, endpoint, resp.StatusCode, err, status.TranslateStatusCode(resp))
+			log.LogError("request_error", method, endpoint, resp.StatusCode, err, status.TranslateStatusCode(resp))
+
 			break
 		}
 	}
