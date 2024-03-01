@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime/debug"
 	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
@@ -45,15 +46,24 @@ func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.LogError("api_response_read_failure", resp.Request.Method, resp.Request.URL.String(), resp.StatusCode, err, "Failed to read the API error response body, which might contain further details about the error.")
 		return apiError
 	}
+
+	stackTrace := string(debug.Stack())
 
 	// Check if the response is JSON
 	if isJSONResponse(resp) {
 		// Attempt to parse the response into a StructuredError
 		if err := json.Unmarshal(bodyBytes, &apiError); err == nil && apiError.Message != "" {
-			log.LogError("api_structured_error_detected", resp.Request.Method, resp.Request.URL.String(), resp.StatusCode, fmt.Errorf(apiError.Message), "")
+			stackTrace := string(debug.Stack())
+			log.LogError(
+				"json_structured_error_detected", // event
+				resp.Request.Method,              // method
+				resp.Request.URL.String(),        // url
+				resp.StatusCode,                  // statusCode
+				fmt.Errorf(apiError.Message),     // err
+				stackTrace,                       // stacktrace
+			)
 			return apiError
 		}
 
@@ -61,20 +71,32 @@ func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 		var genericErr map[string]interface{}
 		if err := json.Unmarshal(bodyBytes, &genericErr); err == nil {
 			apiError.updateFromGenericError(genericErr)
-			log.LogError("api_generic_error_detected", resp.Request.Method, resp.Request.URL.String(), resp.StatusCode, fmt.Errorf(apiError.Message), "")
+			log.LogError("json_generic_error_detected", resp.Request.Method, resp.Request.URL.String(), resp.StatusCode, fmt.Errorf(apiError.Message), "")
 			return apiError
 		}
 	} else if isHTMLResponse(resp) {
 		// Handle HTML response
 		apiError.Raw = string(bodyBytes)
-		apiError.Message = "HTML error page received"
-		log.LogError("api_html_error", resp.Request.Method, resp.Request.URL.String(), resp.StatusCode, fmt.Errorf("HTML error page received"), "")
+		log.LogError(
+			"api_html_error",             // event
+			resp.Request.Method,          // method
+			resp.Request.URL.String(),    // url
+			resp.StatusCode,              // statusCode
+			fmt.Errorf(apiError.Message), // err
+			stackTrace,                   // stacktrace
+		)
 		return apiError
 	} else {
 		// Handle other non-JSON responses
 		apiError.Raw = string(bodyBytes)
-		apiError.Message = "Non-JSON error response received"
-		log.LogError("api_non_json_error", resp.Request.Method, resp.Request.URL.String(), resp.StatusCode, fmt.Errorf("Non-JSON error response received"), "")
+		log.LogError(
+			"api_non_json_error",                           // event
+			resp.Request.Method,                            // method
+			resp.Request.URL.String(),                      // url
+			resp.StatusCode,                                // statusCode
+			fmt.Errorf("Non-JSON error response received"), // err
+			stackTrace,                                     // stacktrace
+		)
 		return apiError
 	}
 
