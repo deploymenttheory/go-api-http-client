@@ -30,9 +30,13 @@ type StructuredError struct {
 	} `json:"error"`
 }
 
-// Error returns a string representation of the APIError.
+// Error returns a JSON representation of the APIError.
 func (e *APIError) Error() string {
-	return fmt.Sprintf("API Error (Type: %s, Code: %d): %s", e.Type, e.StatusCode, e.Message)
+	data, err := json.Marshal(e)
+	if err != nil {
+		return fmt.Sprintf("Error encoding APIError to JSON: %s", err)
+	}
+	return string(data)
 }
 
 // handleAPIErrorResponse attempts to parse the error response from the API and logs using the zap logger.
