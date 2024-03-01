@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/errors"
 	"github.com/deploymenttheory/go-api-http-client/logger"
+	"github.com/deploymenttheory/go-api-http-client/status"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -153,71 +153,66 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	headerManager.SetRequestHeaders(endpoint)
 	headerManager.LogHeaders(c)
 
-	// Define a retry deadline based on the client's total retry duration configuration
+	// Calculate the deadline for all retry attempts based on the client configuration.
 	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.TotalRetryDuration)
 
+	// Execute the HTTP request with retries
 	var resp *http.Response
 	var retryCount int
-	for time.Now().Before(totalRetryDeadline) { // Check if the current time is before the total retry deadline
-		req = req.WithContext(ctx)
+	var requestStartTime = time.Now()
+
+	for time.Now().Before(totalRetryDeadline) {
 		resp, err = c.do(req, log, method, endpoint)
-		// Check for successful status code
-		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 400 {
-			if resp.StatusCode >= 300 {
-				log.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
-			}
-			// Handle the response as successful, even if it's a redirect.
+
+		// Successful response handling
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			log.LogRequestEnd(method, endpoint, resp.StatusCode, time.Since(requestStartTime))
 			return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
 		}
 
-		// Leverage TranslateStatusCode for more descriptive error logging
-		statusMessage := errors.TranslateStatusCode(resp)
-
-		// Check for non-retryable errors
-		if resp != nil && errors.IsNonRetryableStatusCode(resp) {
-			log.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
-			return resp, errors.HandleAPIError(resp, log)
+		// Log and handle non-retryable errors immediately without retrying
+		if resp != nil && status.IsNonRetryableStatusCode(resp) {
+			log.LogError(method, endpoint, resp.StatusCode, err, status.TranslateStatusCode(resp))
+			return resp, err
 		}
 
-		// Parsing rate limit headers if a rate-limit error is detected
-		if errors.IsRateLimitError(resp) {
+		// Handle rate-limiting errors by parsing the 'Retry-After' header and waiting before the next retry
+		if status.IsRateLimitError(resp) {
 			waitDuration := parseRateLimitHeaders(resp, log)
-			if waitDuration > 0 {
-				log.Warn("Rate limit encountered, waiting before retrying", zap.Duration("waitDuration", waitDuration))
-				time.Sleep(waitDuration)
-				continue // Continue to next iteration after waiting
-			}
+			log.LogRateLimiting(method, endpoint, resp.Header.Get("Retry-After"), waitDuration)
+			time.Sleep(waitDuration)
+			continue
 		}
 
-		// Handling retryable errors with exponential backoff
-		if errors.IsTransientError(resp) {
+		// Retry the request for transient errors using exponential backoff with jitter
+		if status.IsTransientError(resp) {
 			retryCount++
 			if retryCount > c.clientConfig.ClientOptions.MaxRetryAttempts {
-				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
-				break // Stop retrying if max attempts are reached
+				// Log max retry attempts reached with structured logging
+				log.LogError(method, endpoint, resp.StatusCode, err, "Max retry attempts reached")
+				break
 			}
 			waitDuration := calculateBackoff(retryCount)
-			log.Warn("Retrying request due to transient error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err))
-			time.Sleep(waitDuration) // Wait before retrying
-			continue                 // Continue to next iteration after waiting
+			log.LogRetryAttempt(method, endpoint, retryCount, "Transient error", waitDuration, err)
+			time.Sleep(waitDuration)
+			continue
 		}
 
-		// Handle error responses
-		if err != nil || !errors.IsRetryableStatusCode(resp.StatusCode) {
-			if apiErr := errors.HandleAPIError(resp, log); apiErr != nil {
-				err = apiErr
-			}
-			log.Error("API error", zap.String("status_message", statusMessage), zap.Error(err))
+		// Log non-retryable API errors and break the retry loop
+		if err != nil || !status.IsRetryableStatusCode(resp.StatusCode) {
+			log.LogError(method, endpoint, resp.StatusCode, err, status.TranslateStatusCode(resp))
 			break
 		}
 	}
 
-	// Handles final non-API error.
+	// Final error handling after all retries are exhausted
 	if err != nil {
+		// Log the final error after retries with structured logging
+		log.LogError(method, endpoint, 0, err, "Final error after retries")
 		return nil, err
 	}
 
-	return resp, errors.HandleAPIError(resp, log)
+	return resp, nil
 }
 
 // executeRequest executes an HTTP request using the specified method, endpoint, and request body without implementing
