@@ -1,67 +1,11 @@
-// http_error_handling.go
+// status.go
 // This package provides utility functions and structures for handling and categorizing HTTP error responses.
-package errors
+package status
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"github.com/deploymenttheory/go-api-http-client/logger"
-	"go.uber.org/zap"
 )
-
-// APIError represents a structured API error response.
-type APIError struct {
-	StatusCode int    // HTTP status code
-	Type       string // A brief identifier for the type of error (e.g., "RateLimit", "BadRequest", etc.)
-	Message    string // Human-readable message
-}
-
-// StructuredError represents a structured error response from the API.
-type StructuredError struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	} `json:"error"`
-}
-
-// Error returns a string representation of the APIError.
-func (e *APIError) Error() string {
-	return fmt.Sprintf("API Error (Type: %s, Code: %d): %s", e.Type, e.StatusCode, e.Message)
-}
-
-// HandleAPIError handles error responses from the API, converting them into a structured error if possible.
-func HandleAPIError(resp *http.Response, log logger.Logger) *APIError {
-	var structuredErr StructuredError
-	err := json.NewDecoder(resp.Body).Decode(&structuredErr)
-	if err == nil && structuredErr.Error.Message != "" {
-		// Log the structured error details
-		log.Warn("API returned structured error",
-			zap.String("status", resp.Status),
-			zap.String("error_code", structuredErr.Error.Code),
-			zap.String("error_message", structuredErr.Error.Message),
-		)
-		return &APIError{
-			StatusCode: resp.StatusCode,
-			Type:       structuredErr.Error.Code,
-			Message:    structuredErr.Error.Message,
-		}
-	}
-
-	// Default error message for non-structured responses or decode failures
-	errMsg := fmt.Sprintf("Unexpected error with status code: %d", resp.StatusCode)
-	log.Error("Failed to decode API error message, using default error message",
-		zap.String("status", resp.Status),
-		zap.String("error_message", errMsg),
-	)
-
-	return &APIError{
-		StatusCode: resp.StatusCode,
-		Type:       "UnexpectedError",
-		Message:    errMsg,
-	}
-}
 
 // TranslateStatusCode provides a human-readable message for HTTP status codes.
 func TranslateStatusCode(resp *http.Response) string {

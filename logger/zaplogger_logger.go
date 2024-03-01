@@ -5,6 +5,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -18,23 +19,36 @@ type defaultLogger struct {
 	logLevel LogLevel    // logLevel determines the current logging level (e.g., DEBUG, INFO, WARN).
 }
 
-// SetLevel updates the logging level of the logger. It controls the verbosity of the logs,
-// allowing the option to filter out less severe messages based on the specified level.
-func (d *defaultLogger) SetLevel(level LogLevel) {
-	d.logLevel = level
-}
-
 // Logger interface with structured logging capabilities at various levels.
 type Logger interface {
+	GetLogLevel() LogLevel
 	SetLevel(level LogLevel)
+	With(fields ...zapcore.Field) Logger
 	Debug(msg string, fields ...zapcore.Field)
 	Info(msg string, fields ...zapcore.Field)
 	Warn(msg string, fields ...zapcore.Field)
 	Error(msg string, fields ...zapcore.Field) error
 	Panic(msg string, fields ...zapcore.Field)
 	Fatal(msg string, fields ...zapcore.Field)
-	With(fields ...zapcore.Field) Logger
-	GetLogLevel() LogLevel
+
+	LogRequestStart(requestID string, userID string, method string, url string, headers map[string][]string)
+	LogRequestEnd(method string, url string, statusCode int, duration time.Duration)
+	LogError(method string, url string, statusCode int, err error, stacktrace string)
+	LogRetryAttempt(method string, url string, attempt int, reason string, waitDuration time.Duration, err error)
+	LogRateLimiting(method string, url string, retryAfter string, waitDuration time.Duration)
+	LogResponse(method string, url string, statusCode int, responseBody string, responseHeaders map[string][]string, duration time.Duration)
+}
+
+// GetLogLevel returns the current logging level of the logger. This allows for checking the logger's
+// verbosity level programmatically, which can be useful in conditional logging scenarios.
+func (d *defaultLogger) GetLogLevel() LogLevel {
+	return d.logLevel
+}
+
+// SetLevel updates the logging level of the logger. It controls the verbosity of the logs,
+// allowing the option to filter out less severe messages based on the specified level.
+func (d *defaultLogger) SetLevel(level LogLevel) {
+	d.logLevel = level
 }
 
 // With adds contextual key-value pairs to the logger, returning a new logger instance with the context.
@@ -44,12 +58,6 @@ func (d *defaultLogger) With(fields ...zapcore.Field) Logger {
 		logger:   d.logger.With(fields...),
 		logLevel: d.logLevel,
 	}
-}
-
-// GetLogLevel returns the current logging level of the logger. This allows for checking the logger's
-// verbosity level programmatically, which can be useful in conditional logging scenarios.
-func (d *defaultLogger) GetLogLevel() LogLevel {
-	return d.logLevel
 }
 
 // Debug logs a message at the Debug level. This level is typically used for detailed troubleshooting
@@ -110,14 +118,14 @@ func GetLoggerBasedOnEnv() *zap.Logger {
 	if os.Getenv("APP_ENV") == "development" {
 		logger, err := zap.NewDevelopment()
 		if err != nil {
-			panic(err) // Handle error according to your application's error policy
+			panic(err)
 		}
 		return logger
 	}
 
 	logger, err := zap.NewProduction()
 	if err != nil {
-		panic(err) // Handle error according to your application's error policy
+		panic(err)
 	}
 	return logger
 }
