@@ -51,6 +51,15 @@ func (d *defaultLogger) SetLevel(level LogLevel) {
 	d.logLevel = level
 }
 
+// With adds contextual key-value pairs to the logger, returning a new logger instance with the context.
+// This is useful for creating a logger with common fields that should be included in all subsequent log entries.
+func (d *defaultLogger) With(fields ...zapcore.Field) Logger {
+	return &defaultLogger{
+		logger:   d.logger.With(fields...),
+		logLevel: d.logLevel,
+	}
+}
+
 // Debug logs a message at the Debug level. This level is typically used for detailed troubleshooting
 // information that is only relevant during active development or debugging.
 func (d *defaultLogger) Debug(msg string, fields ...zapcore.Field) {
@@ -109,14 +118,14 @@ func GetLoggerBasedOnEnv() *zap.Logger {
 	if os.Getenv("APP_ENV") == "development" {
 		logger, err := zap.NewDevelopment()
 		if err != nil {
-			panic(err) // Handle error according to your application's error policy
+			panic(err)
 		}
 		return logger
 	}
 
 	logger, err := zap.NewProduction()
 	if err != nil {
-		panic(err) // Handle error according to your application's error policy
+		panic(err)
 	}
 	return logger
 }

@@ -2,6 +2,8 @@
 package httpclient
 
 import (
+	"time"
+
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -28,6 +30,8 @@ func (m *MockLogger) SetLevel(level logger.LogLevel) {
 	m.Called(level)
 }
 
+// Mock implementations for unstructured logging methods
+
 func (m *MockLogger) Debug(msg string, fields ...zap.Field) {
 	m.Called(msg, fields)
 }
@@ -40,7 +44,6 @@ func (m *MockLogger) Warn(msg string, fields ...zap.Field) {
 	m.Called(msg, fields)
 }
 
-// Error method
 func (m *MockLogger) Error(msg string, fields ...zap.Field) error {
 	args := m.Called(msg, fields)
 	return args.Error(0)
@@ -62,4 +65,30 @@ func (m *MockLogger) With(fields ...zap.Field) logger.Logger {
 func (m *MockLogger) GetLogLevel() logger.LogLevel {
 	args := m.Called()
 	return args.Get(0).(logger.LogLevel)
+}
+
+// Mock implementations for structured logging methods
+
+func (m *MockLogger) LogRequestStart(requestID string, userID string, method string, url string, headers map[string][]string) {
+	m.Called(requestID, userID, method, url, headers)
+}
+
+func (m *MockLogger) LogRequestEnd(method string, url string, statusCode int, duration time.Duration) {
+	m.Called(method, url, statusCode, duration)
+}
+
+func (m *MockLogger) LogError(method string, url string, statusCode int, err error, stacktrace string) {
+	m.Called(method, url, statusCode, err, stacktrace)
+}
+
+func (m *MockLogger) LogRetryAttempt(method string, url string, attempt int, reason string, waitDuration time.Duration, err error) {
+	m.Called(method, url, attempt, reason, waitDuration, err)
+}
+
+func (m *MockLogger) LogRateLimiting(method string, url string, retryAfter string, waitDuration time.Duration) {
+	m.Called(method, url, retryAfter, waitDuration)
+}
+
+func (m *MockLogger) LogResponse(method string, url string, statusCode int, responseBody string, responseHeaders map[string][]string, duration time.Duration) {
+	m.Called(method, url, statusCode, responseBody, responseHeaders, duration)
 }
