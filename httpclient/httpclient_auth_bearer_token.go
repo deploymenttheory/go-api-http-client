@@ -6,6 +6,7 @@ package httpclient
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -39,21 +40,21 @@ func (c *Client) ObtainToken(log logger.Logger) error {
 
 	req, err := http.NewRequest("POST", authenticationEndpoint, nil)
 	if err != nil {
-		log.LogError("POST", authenticationEndpoint, 0, err, "Failed to create new request for token")
+		log.LogError("authentication_request_creation_error", "POST", authenticationEndpoint, 0, err, "Failed to create new request for token")
 		return err
 	}
 	req.SetBasicAuth(c.BearerTokenAuthCredentials.Username, c.BearerTokenAuthCredentials.Password)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		log.LogError("POST", authenticationEndpoint, 0, err, "Failed to make request for token")
+		log.LogError("authentication_request_error", "POST", authenticationEndpoint, 0, err, "Failed to make request for token")
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Error("Received non-OK response while obtaining token", zap.Int("StatusCode", resp.StatusCode))
-		return err
+		log.LogError("token_authentication_failed", "POST", authenticationEndpoint, resp.StatusCode, fmt.Errorf("authentication failed with status code: %d", resp.StatusCode), "Token acquisition attempt resulted in a non-OK response")
+		return fmt.Errorf("received non-OK response status: %d", resp.StatusCode)
 	}
 
 	tokenResp := &TokenResponse{}

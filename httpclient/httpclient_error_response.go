@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
-	"go.uber.org/zap"
 )
 
 // APIError represents a more flexible structure for API error responses.
@@ -35,68 +34,47 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("API Error (Type: %s, Code: %d): %s", e.Type, e.StatusCode, e.Message)
 }
 
-// handleAPIErrorResponse attempts to parse the error response from the API and logs using zap logger.
+// handleAPIErrorResponse attempts to parse the error response from the API and logs using the zap logger.
 func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
-	apiError := &APIError{StatusCode: resp.StatusCode}
-
-	// Attempt to parse the response into a StructuredError
-	var structuredErr StructuredError
-	if err := json.NewDecoder(resp.Body).Decode(&structuredErr); err == nil && structuredErr.Error.Message != "" {
-		apiError.Type = structuredErr.Error.Code
-		apiError.Message = structuredErr.Error.Message
-
-		// Log the structured error details with zap logger
-		log.Warn("API returned structured error",
-			zap.String("error_code", structuredErr.Error.Code),
-			zap.String("error_message", structuredErr.Error.Message),
-			zap.Int("status_code", resp.StatusCode),
-		)
-
-		return apiError
+	apiError := &APIError{
+		StatusCode: resp.StatusCode,
+		Type:       "APIError",          // Default error type
+		Message:    "An error occurred", // Default error message
 	}
 
-	// If the structured error parsing fails, attempt a more generic parsing
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		// If reading the response body fails, store the error message and log the error
-		apiError.Raw = "Failed to read API error response body"
-		apiError.Message = err.Error()
-		apiError.Type = "ReadError"
-
-		log.Error("Failed to read API error response body",
-			zap.Error(err),
-		)
-
+		// Log and return an error if reading the body fails
+		log.LogError("api_response_read_error", "READ", resp.Request.URL.String(), resp.StatusCode, err, "")
 		return apiError
 	}
 
-	if err := json.Unmarshal(bodyBytes, &apiError.Errors); err != nil {
-		// If generic parsing also fails, store the raw response body and log the error
-		apiError.Raw = string(bodyBytes)
-		apiError.Message = "Failed to parse API error response"
-		apiError.Type = "UnexpectedError"
-
-		log.Error("Failed to parse API error response",
-			zap.String("raw_response", apiError.Raw),
-		)
-
+	if err := json.Unmarshal(bodyBytes, &apiError); err == nil && apiError.Message != "" {
+		// Log the structured error
+		log.LogError("api_structured_error", "API", resp.Request.URL.String(), resp.StatusCode, fmt.Errorf(apiError.Message), "")
 		return apiError
 	}
 
-	// Extract fields from the generic error map and log the error with extracted details
-	if msg, ok := apiError.Errors["message"].(string); ok {
-		apiError.Message = msg
-	}
-	if detail, ok := apiError.Errors["detail"].(string); ok {
-		apiError.Detail = detail
+	// If structured parsing fails, attempt to parse into a generic error map
+	var genericErr map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &genericErr); err == nil {
+		apiError.updateFromGenericError(genericErr)
+		// Log the error with extracted details
+		log.LogError("api_generic_error", "API", resp.Request.URL.String(), resp.StatusCode, fmt.Errorf(apiError.Message), "")
+		return apiError
 	}
 
-	log.Error("API error",
-		zap.Int("status_code", apiError.StatusCode),
-		zap.String("type", apiError.Type),
-		zap.String("message", apiError.Message),
-		zap.String("detail", apiError.Detail),
-	)
-
+	// If all parsing attempts fail, log the raw response
+	log.LogError("api_unexpected_error", "API", resp.Request.URL.String(), resp.StatusCode, fmt.Errorf("failed to parse API error response"), string(bodyBytes))
 	return apiError
+}
+
+func (e *APIError) updateFromGenericError(genericErr map[string]interface{}) {
+	if msg, ok := genericErr["message"].(string); ok {
+		e.Message = msg
+	}
+	if detail, ok := genericErr["detail"].(string); ok {
+		e.Detail = detail
+	}
+	// Add more fields as needed
 }
