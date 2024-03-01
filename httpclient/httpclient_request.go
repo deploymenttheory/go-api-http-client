@@ -318,7 +318,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	return nil, c.handleErrorResponse(resp, out, log, method, endpoint)
 }
 
-// executeHTTPRequest sends an HTTP request using the client's HTTP client. It logs the request and error details, if any,
+// do sends an HTTP request using the client's HTTP client. It logs the request and error details, if any,
 // using structured logging with zap fields.
 //
 // Parameters:
