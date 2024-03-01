@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"runtime/debug"
 	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
@@ -49,20 +48,17 @@ func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 		return apiError
 	}
 
-	stackTrace := string(debug.Stack())
-
 	// Check if the response is JSON
 	if isJSONResponse(resp) {
 		// Attempt to parse the response into a StructuredError
 		if err := json.Unmarshal(bodyBytes, &apiError); err == nil && apiError.Message != "" {
-			stackTrace := string(debug.Stack())
 			log.LogError(
 				"json_structured_error_detected", // event
 				resp.Request.Method,              // method
 				resp.Request.URL.String(),        // url
 				resp.StatusCode,                  // statusCode
 				fmt.Errorf(apiError.Message),     // err
-				stackTrace,                       // stacktrace
+				apiError.Raw,                     // raw resp
 			)
 			return apiError
 		}
@@ -83,7 +79,7 @@ func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 			resp.Request.URL.String(),    // url
 			resp.StatusCode,              // statusCode
 			fmt.Errorf(apiError.Message), // err
-			stackTrace,                   // stacktrace
+			apiError.Raw,                 // raw resp
 		)
 		return apiError
 	} else {
@@ -95,7 +91,7 @@ func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 			resp.Request.URL.String(),                      // url
 			resp.StatusCode,                                // statusCode
 			fmt.Errorf("Non-JSON error response received"), // err
-			stackTrace,                                     // stacktrace
+			apiError.Raw,                                   // raw resp
 		)
 		return apiError
 	}

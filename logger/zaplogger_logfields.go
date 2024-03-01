@@ -36,7 +36,7 @@ func (d *defaultLogger) LogRequestEnd(event string, method string, url string, s
 }
 
 // LogError logs an error that occurs during the processing of an HTTP request or any other event, if the current log level permits.
-func (d *defaultLogger) LogError(event string, method, url string, statusCode int, err error, stacktrace string) {
+func (d *defaultLogger) LogError(event string, method, url string, statusCode int, serverStatusMessage string, err error, stacktrace string) {
 	if d.logLevel <= LogLevelError {
 		errorMessage := ""
 		if err != nil {
@@ -48,6 +48,7 @@ func (d *defaultLogger) LogError(event string, method, url string, statusCode in
 			zap.String("method", method),
 			zap.String("url", url),
 			zap.Int("status_code", statusCode),
+			zap.String("status_message", serverStatusMessage),
 			zap.String("error_message", errorMessage),
 			zap.String("stacktrace", stacktrace),
 		}
