@@ -50,6 +50,20 @@ func (d *defaultLogger) LogError(method string, url string, statusCode int, err 
 	}
 }
 
+// LogAuthTokenError logs issues encountered during the authentication token acquisition process.
+func (d *defaultLogger) LogAuthTokenError(method string, url string, statusCode int, err error) {
+	if d.logLevel <= LogLevelError {
+		fields := []zap.Field{
+			zap.String("event", "auth_token_error"),
+			zap.String("method", method),
+			zap.String("url", url),
+			zap.Int("status_code", statusCode),
+			zap.String("error_message", err.Error()),
+		}
+		d.logger.Error("Error obtaining authentication token", fields...)
+	}
+}
+
 // LogRetryAttempt logs a retry attempt for an HTTP request if the current log level permits, including wait duration and the error that triggered the retry.
 func (d *defaultLogger) LogRetryAttempt(method string, url string, attempt int, reason string, waitDuration time.Duration, err error) {
 	if d.logLevel <= LogLevelWarn {

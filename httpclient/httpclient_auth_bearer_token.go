@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/errors"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
@@ -40,21 +39,21 @@ func (c *Client) ObtainToken(log logger.Logger) error {
 
 	req, err := http.NewRequest("POST", authenticationEndpoint, nil)
 	if err != nil {
-		log.Error("Failed to create new request for token", zap.Error(err))
+		log.LogError("POST", authenticationEndpoint, 0, err, "Failed to create new request for token")
 		return err
 	}
 	req.SetBasicAuth(c.BearerTokenAuthCredentials.Username, c.BearerTokenAuthCredentials.Password)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		log.Error("Failed to make request for token", zap.Error(err))
+		log.LogError("POST", authenticationEndpoint, 0, err, "Failed to make request for token")
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Warn("Received non-OK response while obtaining token", zap.Int("StatusCode", resp.StatusCode))
-		return errors.HandleAPIError(resp, log)
+		log.Error("Received non-OK response while obtaining token", zap.Int("StatusCode", resp.StatusCode))
+		return err
 	}
 
 	tokenResp := &TokenResponse{}
@@ -101,7 +100,7 @@ func (c *Client) RefreshToken(log logger.Logger) error {
 
 	if resp.StatusCode != http.StatusOK {
 		log.Warn("Token refresh response status is not OK", zap.Int("StatusCode", resp.StatusCode))
-		return errors.HandleAPIError(resp, log)
+		return err
 	}
 
 	tokenResp := &TokenResponse{}
