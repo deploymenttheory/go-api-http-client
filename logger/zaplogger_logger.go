@@ -31,12 +31,14 @@ type Logger interface {
 	Panic(msg string, fields ...zapcore.Field)
 	Fatal(msg string, fields ...zapcore.Field)
 
-	LogRequestStart(requestID string, userID string, method string, url string, headers map[string][]string)
-	LogRequestEnd(method string, url string, statusCode int, duration time.Duration)
-	LogError(method string, url string, statusCode int, err error, stacktrace string)
-	LogRetryAttempt(method string, url string, attempt int, reason string, waitDuration time.Duration, err error)
-	LogRateLimiting(method string, url string, retryAfter string, waitDuration time.Duration)
-	LogResponse(method string, url string, statusCode int, responseBody string, responseHeaders map[string][]string, duration time.Duration)
+	// Updated method signatures to include the 'event' parameter
+	LogRequestStart(event string, requestID string, userID string, method string, url string, headers map[string][]string)
+	LogRequestEnd(event string, method string, url string, statusCode int, duration time.Duration)
+	LogError(event string, method string, url string, statusCode int, err error, stacktrace string)
+	LogAuthTokenError(event string, method string, url string, statusCode int, err error)
+	LogRetryAttempt(event string, method string, url string, attempt int, reason string, waitDuration time.Duration, err error)
+	LogRateLimiting(event string, method string, url string, retryAfter string, waitDuration time.Duration)
+	LogResponse(event string, method string, url string, statusCode int, responseBody string, responseHeaders map[string][]string, duration time.Duration)
 }
 
 // GetLogLevel returns the current logging level of the logger. This allows for checking the logger's

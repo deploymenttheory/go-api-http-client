@@ -69,26 +69,26 @@ func (m *MockLogger) GetLogLevel() logger.LogLevel {
 
 // Mock implementations for structured logging methods
 
-func (m *MockLogger) LogRequestStart(requestID string, userID string, method string, url string, headers map[string][]string) {
-	m.Called(requestID, userID, method, url, headers)
+func (m *MockLogger) LogRequestStart(event string, requestID string, userID string, method string, url string, headers map[string][]string) {
+	m.Called(event, requestID, userID, method, url, headers)
 }
 
-func (m *MockLogger) LogRequestEnd(method string, url string, statusCode int, duration time.Duration) {
-	m.Called(method, url, statusCode, duration)
+func (m *MockLogger) LogRequestEnd(event string, method string, url string, statusCode int, duration time.Duration) {
+	m.Called(event, method, url, statusCode, duration)
 }
 
-func (m *MockLogger) LogError(method string, url string, statusCode int, err error, stacktrace string) {
-	m.Called(method, url, statusCode, err, stacktrace)
+func (m *MockLogger) LogError(event string, method string, url string, statusCode int, err error, stacktrace string) {
+	m.Called(event, method, url, statusCode, err, stacktrace)
 }
 
-func (m *MockLogger) LogRetryAttempt(method string, url string, attempt int, reason string, waitDuration time.Duration, err error) {
-	m.Called(method, url, attempt, reason, waitDuration, err)
+func (m *MockLogger) LogRetryAttempt(event string, method string, url string, attempt int, reason string, waitDuration time.Duration, err error) {
+	m.Called(event, method, url, attempt, reason, waitDuration, err)
 }
 
-func (m *MockLogger) LogRateLimiting(method string, url string, retryAfter string, waitDuration time.Duration) {
-	m.Called(method, url, retryAfter, waitDuration)
+func (m *MockLogger) LogRateLimiting(event string, method string, url string, retryAfter string, waitDuration time.Duration) {
+	m.Called(event, method, url, retryAfter, waitDuration)
 }
 
-func (m *MockLogger) LogResponse(method string, url string, statusCode int, responseBody string, responseHeaders map[string][]string, duration time.Duration) {
-	m.Called(method, url, statusCode, responseBody, responseHeaders, duration)
+func (m *MockLogger) LogResponse(event string, method string, url string, statusCode int, responseBody string, responseHeaders map[string][]string, duration time.Duration) {
+	m.Called(event, method, url, statusCode, responseBody, responseHeaders, duration)
 }

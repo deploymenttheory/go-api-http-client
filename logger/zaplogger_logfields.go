@@ -7,10 +7,10 @@ import (
 )
 
 // LogRequestStart logs the initiation of an HTTP request if the current log level permits.
-func (d *defaultLogger) LogRequestStart(requestID string, userID string, method string, url string, headers map[string][]string) {
+func (d *defaultLogger) LogRequestStart(event string, requestID string, userID string, method string, url string, headers map[string][]string) {
 	if d.logLevel <= LogLevelInfo {
 		fields := []zap.Field{
-			zap.String("event", "request_start"),
+			zap.String("event", event),
 			zap.String("method", method),
 			zap.String("url", url),
 			zap.String("request_id", requestID),
@@ -22,10 +22,10 @@ func (d *defaultLogger) LogRequestStart(requestID string, userID string, method 
 }
 
 // LogRequestEnd logs the completion of an HTTP request if the current log level permits.
-func (d *defaultLogger) LogRequestEnd(method string, url string, statusCode int, duration time.Duration) {
+func (d *defaultLogger) LogRequestEnd(event string, method string, url string, statusCode int, duration time.Duration) {
 	if d.logLevel <= LogLevelInfo {
 		fields := []zap.Field{
-			zap.String("event", "request_end"),
+			zap.String("event", event),
 			zap.String("method", method),
 			zap.String("url", url),
 			zap.Int("status_code", statusCode),
@@ -35,8 +35,8 @@ func (d *defaultLogger) LogRequestEnd(method string, url string, statusCode int,
 	}
 }
 
-// LogError logs an error that occurs during the processing of an HTTP request if the current log level permits.
-func (d *defaultLogger) LogError(method string, url string, statusCode int, err error, stacktrace string) {
+// LogError logs an error that occurs during the processing of an HTTP request or any other event, if the current log level permits.
+func (d *defaultLogger) LogError(event string, method, url string, statusCode int, err error, stacktrace string) {
 	if d.logLevel <= LogLevelError {
 		errorMessage := ""
 		if err != nil {
@@ -44,22 +44,22 @@ func (d *defaultLogger) LogError(method string, url string, statusCode int, err 
 		}
 
 		fields := []zap.Field{
-			zap.String("event", "request_error"),
+			zap.String("event", event),
 			zap.String("method", method),
 			zap.String("url", url),
 			zap.Int("status_code", statusCode),
 			zap.String("error_message", errorMessage),
 			zap.String("stacktrace", stacktrace),
 		}
-		d.logger.Error("Error during HTTP request", fields...)
+		d.logger.Error("Error occurred", fields...)
 	}
 }
 
 // LogAuthTokenError logs issues encountered during the authentication token acquisition process.
-func (d *defaultLogger) LogAuthTokenError(method string, url string, statusCode int, err error) {
+func (d *defaultLogger) LogAuthTokenError(event string, method string, url string, statusCode int, err error) {
 	if d.logLevel <= LogLevelError {
 		fields := []zap.Field{
-			zap.String("event", "auth_token_error"),
+			zap.String("event", event),
 			zap.String("method", method),
 			zap.String("url", url),
 			zap.Int("status_code", statusCode),
@@ -70,10 +70,10 @@ func (d *defaultLogger) LogAuthTokenError(method string, url string, statusCode 
 }
 
 // LogRetryAttempt logs a retry attempt for an HTTP request if the current log level permits, including wait duration and the error that triggered the retry.
-func (d *defaultLogger) LogRetryAttempt(method string, url string, attempt int, reason string, waitDuration time.Duration, err error) {
+func (d *defaultLogger) LogRetryAttempt(event string, method string, url string, attempt int, reason string, waitDuration time.Duration, err error) {
 	if d.logLevel <= LogLevelWarn {
 		fields := []zap.Field{
-			zap.String("event", "retry_attempt"),
+			zap.String("event", event),
 			zap.String("method", method),
 			zap.String("url", url),
 			zap.Int("attempt", attempt),
@@ -86,10 +86,10 @@ func (d *defaultLogger) LogRetryAttempt(method string, url string, attempt int, 
 }
 
 // LogRateLimiting logs when an HTTP request is rate-limited, including the HTTP method, URL, the value of the 'Retry-After' header, and the actual wait duration.
-func (d *defaultLogger) LogRateLimiting(method string, url string, retryAfter string, waitDuration time.Duration) {
+func (d *defaultLogger) LogRateLimiting(event string, method string, url string, retryAfter string, waitDuration time.Duration) {
 	if d.logLevel <= LogLevelWarn {
 		fields := []zap.Field{
-			zap.String("event", "rate_limited"),
+			zap.String("event", event),
 			zap.String("method", method),
 			zap.String("url", url),
 			zap.String("retry_after", retryAfter),
@@ -100,10 +100,10 @@ func (d *defaultLogger) LogRateLimiting(method string, url string, retryAfter st
 }
 
 // LogResponse logs details about an HTTP response if the current log level permits.
-func (d *defaultLogger) LogResponse(method string, url string, statusCode int, responseBody string, responseHeaders map[string][]string, duration time.Duration) {
+func (d *defaultLogger) LogResponse(event string, method string, url string, statusCode int, responseBody string, responseHeaders map[string][]string, duration time.Duration) {
 	if d.logLevel <= LogLevelInfo {
 		fields := []zap.Field{
-			zap.String("event", "response_received"),
+			zap.String("event", event),
 			zap.String("method", method),
 			zap.String("url", url),
 			zap.Int("status_code", statusCode),
