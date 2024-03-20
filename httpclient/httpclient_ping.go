@@ -57,7 +57,7 @@ func (c *Client) DoPing(method, endpoint string, body, out interface{}) (*http.R
 	// Loop until a successful response is received or maximum retries are reached
 	for retryCount <= maxRetries {
 		// Use the existing 'do' function for sending the request
-		resp, err := c.executeRequest(method, endpoint, body, out)
+		resp, err := c.executeRequestWithRetries(method, endpoint, body, out)
 
 		// If request is successful and returns 200 status code, return the response
 		if err == nil && resp.StatusCode == http.StatusOK {
