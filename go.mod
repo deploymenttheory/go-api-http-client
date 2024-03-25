@@ -3,7 +3,7 @@ module github.com/deploymenttheory/go-api-http-client
 go 1.21
 
 require (
-	github.com/PuerkitoBio/goquery v1.8.1
+	github.com/PuerkitoBio/goquery v1.9.1
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
