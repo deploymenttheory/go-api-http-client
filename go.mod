@@ -3,7 +3,7 @@ module github.com/deploymenttheory/go-api-http-client
 go 1.21
 
 require (
-	github.com/PuerkitoBio/goquery v1.8.1
+	github.com/PuerkitoBio/goquery v1.9.1
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
@@ -11,7 +11,7 @@ require (
 )
 
 require (
-	github.com/andybalholm/cascadia v1.3.1 // indirect
+	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
