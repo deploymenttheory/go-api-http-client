@@ -96,3 +96,7 @@ func (m *MockLogger) LogRateLimiting(event string, method string, url string, re
 func (m *MockLogger) LogResponse(event string, method string, url string, statusCode int, responseBody string, responseHeaders map[string][]string, duration time.Duration) {
 	m.Called(event, method, url, statusCode, responseBody, responseHeaders, duration)
 }
+
+func (m *MockLogger) LogCookies(direction string, obj interface{}, method, url string) {
+	m.Called(direction, obj, method, url)
+}
