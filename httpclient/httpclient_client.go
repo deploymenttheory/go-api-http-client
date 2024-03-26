@@ -9,6 +9,7 @@ package httpclient
 
 import (
 	"net/http"
+	"net/http/cookiejar"
 	"sync"
 	"time"
 
@@ -41,13 +42,6 @@ type ClientConfig struct {
 	ClientOptions ClientOptions     // Optional configuration options for the HTTP Client
 }
 
-// EnvironmentConfig represents the structure to read authentication details from a JSON configuration file.
-type EnvironmentConfig struct {
-	InstanceName       string `json:"InstanceName,omitempty"`
-	OverrideBaseDomain string `json:"OverrideBaseDomain,omitempty"`
-	APIType            string `json:"APIType,omitempty"`
-}
-
 // AuthConfig represents the structure to read authentication details from a JSON configuration file.
 type AuthConfig struct {
 	Username     string `json:"Username,omitempty"`
@@ -56,8 +50,16 @@ type AuthConfig struct {
 	ClientSecret string `json:"ClientSecret,omitempty"`
 }
 
+// EnvironmentConfig represents the structure to read authentication details from a JSON configuration file.
+type EnvironmentConfig struct {
+	InstanceName       string `json:"InstanceName,omitempty"`
+	OverrideBaseDomain string `json:"OverrideBaseDomain,omitempty"`
+	APIType            string `json:"APIType,omitempty"`
+}
+
 // ClientOptions holds optional configuration options for the HTTP Client.
 type ClientOptions struct {
+	EnableCookieJar           bool   // Field to enable or disable cookie jar
 	LogLevel                  string // Field for defining tiered logging level.
 	LogOutputFormat           string // Field for defining the output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
 	LogConsoleSeparator       string // Field for defining the separator in console output format.
@@ -101,6 +103,20 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	log.Info("Initializing new HTTP client with the provided configuration")
 
+	// Initialize the internal HTTP client
+	httpClient := &http.Client{
+		Timeout: config.ClientOptions.CustomTimeout,
+	}
+
+	// Conditionally create and set a cookie jar if the option is enabled
+	if config.ClientOptions.EnableCookieJar {
+		jar, err := cookiejar.New(nil) // nil means no options, which uses default options
+		if err != nil {
+			return nil, log.Error("Failed to create cookie jar", zap.Error(err))
+		}
+		httpClient.Jar = jar
+	}
+
 	// Determine the authentication method using the helper function
 	authMethod, err := DetermineAuthMethod(config.Auth)
 	if err != nil {
@@ -114,7 +130,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		InstanceName:       config.Environment.InstanceName,
 		AuthMethod:         authMethod,
 		OverrideBaseDomain: config.Environment.OverrideBaseDomain,
-		httpClient:         &http.Client{Timeout: config.ClientOptions.CustomTimeout},
+		httpClient:         httpClient,
 		clientConfig:       config,
 		Logger:             log,
 		ConcurrencyMgr:     NewConcurrencyManager(config.ClientOptions.MaxConcurrentRequests, log, true),
@@ -131,6 +147,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.String("Log Encoding Format", config.ClientOptions.LogOutputFormat),
 		zap.String("Log Separator", config.ClientOptions.LogConsoleSeparator),
 		zap.Bool("Hide Sensitive Data In Logs", config.ClientOptions.HideSensitiveData),
+		zap.Bool("Cookie Jar Enabled", config.ClientOptions.EnableCookieJar),
 		zap.Int("Max Retry Attempts", config.ClientOptions.MaxRetryAttempts),
 		zap.Int("Max Concurrent Requests", config.ClientOptions.MaxConcurrentRequests),
 		zap.Bool("Enable Dynamic Rate Limiting", config.ClientOptions.EnableDynamicRateLimiting),

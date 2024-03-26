@@ -109,7 +109,7 @@ func (h *HeaderManager) SetRequestHeaders(endpoint string) {
 }
 
 // LogHeaders prints all the current headers in the http.Request using the zap logger.
-// It uses the RedactSensitiveData function to redact sensitive data if required.
+// It uses the RedactSensitiveHeaderData function to redact sensitive data if required.
 func (h *HeaderManager) LogHeaders(client *Client) {
 	if h.log.GetLogLevel() <= logger.LogLevelDebug {
 		// Initialize a new Header to hold the potentially redacted headers
@@ -119,7 +119,7 @@ func (h *HeaderManager) LogHeaders(client *Client) {
 			// Redact sensitive values
 			if len(values) > 0 {
 				// Use the first value for simplicity; adjust if multiple values per header are expected
-				redactedValue := RedactSensitiveData(client, name, values[0])
+				redactedValue := RedactSensitiveHeaderData(client, name, values[0])
 				redactedHeaders.Set(name, redactedValue)
 			}
 		}

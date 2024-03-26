@@ -10,8 +10,8 @@ func ParseISO8601Date(dateStr string) (time.Time, error) {
 	return time.Parse(time.RFC3339, dateStr)
 }
 
-// RedactSensitiveData redacts sensitive data if the HideSensitiveData flag is set to true.
-func RedactSensitiveData(client *Client, key string, value string) string {
+// RedactSensitiveHeaderData redacts sensitive data if the HideSensitiveData flag is set to true.
+func RedactSensitiveHeaderData(client *Client, key string, value string) string {
 	if client.clientConfig.ClientOptions.HideSensitiveData {
 		// Define sensitive data keys that should be redacted.
 		sensitiveKeys := map[string]bool{

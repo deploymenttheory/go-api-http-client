@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"net/http"
 	"time"
 
 	"go.uber.org/zap"
@@ -113,5 +114,39 @@ func (d *defaultLogger) LogResponse(event string, method string, url string, sta
 			zap.Duration("duration", duration),
 		}
 		d.logger.Info("HTTP response details", fields...)
+	}
+}
+
+// LogCookies logs the cookies associated with an HTTP request or response.
+// `direction` indicates whether the cookies are being sent ("outgoing") or received ("incoming").
+// `obj` can be either *http.Request or *http.Response.
+func (d *defaultLogger) LogCookies(direction string, obj interface{}, method, url string) {
+	var cookies []*http.Cookie
+	var objectType string
+
+	// Determine the type and extract cookies
+	switch v := obj.(type) {
+	case *http.Request:
+		cookies = v.Cookies()
+		objectType = "request"
+	case *http.Response:
+		cookies = v.Cookies()
+		objectType = "response"
+	default:
+		// Log a warning if the object is not a request or response
+		d.logger.Warn("Invalid object type for cookie logging", zap.Any("object", obj))
+		return
+	}
+
+	// Log the cookies if any are present
+	if len(cookies) > 0 {
+		fields := []zap.Field{
+			zap.String("direction", direction),
+			zap.String("object_type", objectType),
+			zap.String("method", method),
+			zap.String("url", url),
+			zap.Any("cookies", cookies),
+		}
+		d.logger.Debug("Cookies logged", fields...)
 	}
 }

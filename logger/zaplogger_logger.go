@@ -39,6 +39,7 @@ type Logger interface {
 	LogRetryAttempt(event string, method string, url string, attempt int, reason string, waitDuration time.Duration, err error)
 	LogRateLimiting(event string, method string, url string, retryAfter string, waitDuration time.Duration)
 	LogResponse(event string, method string, url string, statusCode int, responseBody string, responseHeaders map[string][]string, duration time.Duration)
+	LogCookies(direction string, obj interface{}, method, url string)
 }
 
 // GetLogLevel returns the current logging level of the logger. This allows for checking the logger's

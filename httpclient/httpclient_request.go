@@ -160,7 +160,16 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	var retryCount int
 	for time.Now().Before(totalRetryDeadline) { // Check if the current time is before the total retry deadline
 		req = req.WithContext(ctx)
+
+		// Log outgoing cookies
+		log.LogCookies("outgoing", req, method, endpoint)
+
+		// Execute the HTTP request
 		resp, err = c.do(req, log, method, endpoint)
+
+		// Log outgoing cookies
+		log.LogCookies("incoming", req, method, endpoint)
+
 		// Check for successful status code
 		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 400 {
 			if resp.StatusCode >= 300 {
@@ -301,11 +310,17 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 
 	req = req.WithContext(ctx)
 
+	// Log outgoing cookies
+	log.LogCookies("outgoing", req, method, endpoint)
+
 	// Execute the HTTP request
 	resp, err := c.do(req, log, method, endpoint)
 	if err != nil {
 		return nil, err
 	}
+
+	// Log incoming cookies
+	log.LogCookies("incoming", req, method, endpoint)
 
 	// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 	CheckDeprecationHeader(resp, log)
@@ -341,7 +356,9 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 // This function should be used whenever the client needs to send an HTTP request. It abstracts away the common logic of
 // request execution and error handling, providing detailed logs for debugging and monitoring.
 func (c *Client) do(req *http.Request, log logger.Logger, method, endpoint string) (*http.Response, error) {
+
 	resp, err := c.httpClient.Do(req)
+
 	if err != nil {
 		// Log the error with structured logging, including method, endpoint, and the error itself
 		log.Error("Failed to send request",
