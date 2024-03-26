@@ -4,7 +4,7 @@ package httpclient
 import "fmt"
 
 const (
-	SDKVersion    = "0.0.8"
+	SDKVersion    = "0.0.90"
 	UserAgentBase = "go-api-http-client"
 )
 

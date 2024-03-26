@@ -1,3 +1,4 @@
+// httpclient_cookies.go
 package httpclient
 
 import (
