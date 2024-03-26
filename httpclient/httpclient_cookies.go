@@ -1,3 +1,4 @@
+// httpclient_cookies.go
 package httpclient
 
 import (
@@ -11,7 +12,7 @@ func RedactSensitiveCookies(cookies []*http.Cookie) []*http.Cookie {
 	// Define sensitive cookie names that should be redacted.
 	sensitiveCookieNames := map[string]bool{
 		"SessionID": true, // Example sensitive cookie name
-		// Add more sensitive cookie names as needed.
+		// More sensitive cookie names will be added as needed.
 	}
 
 	// Iterate over the cookies and redact sensitive ones.

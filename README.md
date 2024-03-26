@@ -18,6 +18,8 @@ This client leverages API-specific SDKs to provide a comprehensive and consisten
 - **API Handler Interface**: Provides a flexible and extensible way to interact with different APIs, including encoding and decoding requests and responses, managing authentication endpoints, and handling API-specific logic.
 - **Configuration via JSON or Environment Variables**: The Go API HTTP Client supports configuration via JSON files or environment variables, providing flexibility in defining authentication credentials, API endpoints, logging settings, and other parameters.
 
+- **Cookie Jar Support**: Incorporates an optional cookie jar to manage cookies effortlessly across requests, enhancing session management and statefulness with APIs that require cookie-based authentication or tracking. This feature allows for automatic storage and sending of cookies with subsequent requests, mirroring browser-like interaction with web services. It can be enabled or disabled based on configuration, providing flexibility in how stateful interactions are handled with the target API.
+
 ## API Handler
 
 The `APIHandler` interface abstracts the functionality needed to interact with various APIs, making the HTTP client adaptable to different API implementations. It includes methods for constructing resource and authentication endpoints, marshaling requests, handling responses, and managing API-specific headers.
@@ -86,6 +88,10 @@ Example configuration file (clientconfig.json):
     "LogOutputFormat": "console", // "console" / "json"
     "LogConsoleSeparator": " ", // " " / "\t" / "," / etc.
     "HideSensitiveData": true,  // true / false
+    "EnableDynamicRateLimiting": true, // true / false
+    "MaxRetryAttempts": 5,
+    "MaxConcurrentRequests": 3,
+    "EnableCookieJar": true // true / false
   }
 }
 ```
