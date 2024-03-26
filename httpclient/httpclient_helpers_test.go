@@ -70,7 +70,7 @@ func TestRedactSensitiveData(t *testing.T) {
 				},
 			}
 
-			result := RedactSensitiveData(client, tt.key, tt.value)
+			result := RedactSensitiveHeaderData(client, tt.key, tt.value)
 			assert.Equal(t, tt.expectedOutcome, result, "Redaction outcome should match expected")
 		})
 	}

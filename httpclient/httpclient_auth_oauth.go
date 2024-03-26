@@ -101,7 +101,7 @@ func (c *Client) ObtainOAuthToken(credentials AuthConfig) error {
 	expirationTime := time.Now().Add(expiresIn)
 
 	// Modified log call using the helper function
-	redactedAccessToken := RedactSensitiveData(c, "AccessToken", oauthResp.AccessToken)
+	redactedAccessToken := RedactSensitiveHeaderData(c, "AccessToken", oauthResp.AccessToken)
 	log.Info("OAuth token obtained successfully", zap.String("AccessToken", redactedAccessToken), zap.Duration("ExpiresIn", expiresIn), zap.Time("ExpirationTime", expirationTime))
 
 	c.Token = oauthResp.AccessToken
