@@ -26,18 +26,18 @@ type OAuthResponse struct {
 	Error        string `json:"error,omitempty"`
 }
 
-// OAuthCredentials contains the client ID and client secret required for OAuth authentication.
-type OAuthCredentials struct {
-	ClientID     string
-	ClientSecret string
-}
+// // OAuthCredentials contains the client ID and client secret required for OAuth authentication.
+// type OAuthCredentials struct {
+// 	ClientID     string
+// 	ClientSecret string
+// }
 
-// SetOAuthCredentials sets the OAuth credentials (Client ID and Client Secret)
-// for the client instance. These credentials are used for obtaining and refreshing
-// OAuth tokens for authentication.
-func (c *Client) SetOAuthCredentials(credentials OAuthCredentials) {
-	c.OAuthCredentials = credentials
-}
+// // SetOAuthCredentials sets the OAuth credentials (Client ID and Client Secret)
+// // for the client instance. These credentials are used for obtaining and refreshing
+// // OAuth tokens for authentication.
+// func (c *Client) SetOAuthCredentials(credentials OAuthCredentials) {
+// 	c.OAuthCredentials = credentials
+// }
 
 // ObtainOAuthToken fetches an OAuth access token using the provided OAuthCredentials (Client ID and Client Secret).
 // It updates the client's Token and Expiry fields with the obtained values.
