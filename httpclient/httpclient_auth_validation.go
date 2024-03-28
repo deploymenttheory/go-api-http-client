@@ -40,13 +40,15 @@ func IsValidClientSecret(clientSecret string) (bool, string) {
 	return true, ""
 }
 
-// IsValidUsername checks if the provided username meets your application's validation criteria.
+// IsValidUsername checks if the provided username meets password safe validation criteria.
 // Returns true if valid, along with an empty error message; otherwise, returns false with an error message.
 func IsValidUsername(username string) (bool, string) {
-	if regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString(username) {
+	// Extended regex to include a common set of password safe special characters
+	usernameRegex := `^[a-zA-Z0-9!@#$%^&*()_\-\+=\[\]{\}\\|;:'",<.>/?]+$`
+	if regexp.MustCompile(usernameRegex).MatchString(username) {
 		return true, ""
 	}
-	return false, "Username must contain only alphanumeric characters."
+	return false, "Username must contain only alphanumeric characters and password safe special characters (!@#$%^&*()_-+=[{]}\\|;:'\",<.>/?)."
 }
 
 // IsValidPassword checks if the provided password meets your application's validation criteria.
