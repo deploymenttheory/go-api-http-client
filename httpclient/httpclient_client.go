@@ -19,20 +19,20 @@ import (
 
 // Client represents an HTTP client to interact with a specific API.
 type Client struct {
-	APIHandler                 APIHandler                 // APIHandler interface used to define which API handler to use
-	InstanceName               string                     // Website Instance name without the root domain
-	AuthMethod                 string                     // Specifies the authentication method: "bearer" or "oauth"
-	Token                      string                     // Authentication Token
-	OverrideBaseDomain         string                     // Base domain override used when the default in the api handler isn't suitable
-	OAuthCredentials           OAuthCredentials           // ClientID / Client Secret
-	BearerTokenAuthCredentials BearerTokenAuthCredentials // Username and Password for Basic Authentication
-	Expiry                     time.Time                  // Expiry time set for the auth token
-	httpClient                 *http.Client
-	tokenLock                  sync.Mutex
-	clientConfig               ClientConfig
-	Logger                     logger.Logger
-	ConcurrencyMgr             *ConcurrencyManager
-	PerfMetrics                PerformanceMetrics
+	APIHandler         APIHandler // APIHandler interface used to define which API handler to use
+	InstanceName       string     // Website Instance name without the root domain
+	AuthMethod         string     // Specifies the authentication method: "bearer" or "oauth"
+	Token              string     // Authentication Token
+	OverrideBaseDomain string     // Base domain override used when the default in the api handler isn't suitable
+	//OAuthCredentials           OAuthCredentials           // ClientID / Client Secret
+	//BearerTokenAuthCredentials BearerTokenAuthCredentials // Username and Password for Basic Authentication
+	Expiry         time.Time // Expiry time set for the auth token
+	httpClient     *http.Client
+	tokenLock      sync.Mutex
+	clientConfig   ClientConfig
+	Logger         logger.Logger
+	ConcurrencyMgr *ConcurrencyManager
+	PerfMetrics    PerformanceMetrics
 }
 
 // Config holds configuration options for the HTTP Client.

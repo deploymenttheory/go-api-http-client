@@ -14,18 +14,18 @@ import (
 	"go.uber.org/zap"
 )
 
-// BearerTokenAuthCredentials represents the username and password for basic authentication.
-type BearerTokenAuthCredentials struct {
-	Username string
-	Password string
-}
+// // BearerTokenAuthCredentials represents the username and password for basic authentication.
+// type BearerTokenAuthCredentials struct {
+// 	Username string
+// 	Password string
+// }
 
-// SetBearerTokenAuthCredentials sets the BearerTokenAuthCredentials (Username and Password)
-// for the client instance. These credentials are used for obtaining and refreshing
-// bearer tokens for authentication.
-func (c *Client) SetBearerTokenAuthCredentials(credentials BearerTokenAuthCredentials) {
-	c.BearerTokenAuthCredentials = credentials
-}
+// // SetBearerTokenAuthCredentials sets the BearerTokenAuthCredentials (Username and Password)
+// // for the client instance. These credentials are used for obtaining and refreshing
+// // bearer tokens for authentication.
+// func (c *Client) SetBearerTokenAuthCredentials(credentials BearerTokenAuthCredentials) {
+// 	c.BearerTokenAuthCredentials = credentials
+// }
 
 // ObtainToken fetches and sets an authentication token using the stored basic authentication credentials.
 func (c *Client) ObtainToken(log logger.Logger) error {
@@ -36,14 +36,14 @@ func (c *Client) ObtainToken(log logger.Logger) error {
 	// Construct the full authentication endpoint URL
 	authenticationEndpoint := c.APIHandler.ConstructAPIAuthEndpoint(c.InstanceName, bearerTokenEndpoint, c.Logger)
 
-	log.Debug("Attempting to obtain token for user", zap.String("Username", c.BearerTokenAuthCredentials.Username))
+	log.Debug("Attempting to obtain token for user", zap.String("Username", c.clientConfig.Auth.Username))
 
 	req, err := http.NewRequest("POST", authenticationEndpoint, nil)
 	if err != nil {
 		log.LogError("authentication_request_creation_error", "POST", authenticationEndpoint, 0, "", err, "Failed to create new request for token")
 		return err
 	}
-	req.SetBasicAuth(c.BearerTokenAuthCredentials.Username, c.BearerTokenAuthCredentials.Password)
+	req.SetBasicAuth(c.clientConfig.Auth.Username, c.clientConfig.Auth.Password)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

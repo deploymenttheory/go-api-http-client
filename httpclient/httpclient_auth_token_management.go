@@ -39,9 +39,9 @@ func (c *Client) ValidAuthTokenCheck() (bool, error) {
 
 	if time.Until(c.Expiry) < c.clientConfig.ClientOptions.TokenRefreshBufferPeriod {
 		var err error
-		if c.BearerTokenAuthCredentials.Username != "" && c.BearerTokenAuthCredentials.Password != "" {
+		if c.clientConfig.Auth.Username != "" && c.clientConfig.Auth.Password != "" {
 			err = c.RefreshToken(log)
-		} else if c.OAuthCredentials.ClientID != "" && c.OAuthCredentials.ClientSecret != "" {
+		} else if c.clientConfig.Auth.ClientID != "" && c.clientConfig.Auth.ClientSecret != "" {
 			err = c.ObtainOAuthToken(c.clientConfig.Auth)
 		} else {
 			return false, log.Error("Unknown auth method", zap.String("authMethod", c.AuthMethod))
