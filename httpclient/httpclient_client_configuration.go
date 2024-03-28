@@ -210,12 +210,12 @@ func validateMandatoryConfiguration(config *ClientConfig) error {
 		if config.Auth.Password == "" {
 			missingFields = append(missingFields, "Auth.Password")
 		}
-		return fmt.Errorf("either OAuth credentials (ClientID and ClientSecret) or Basic Auth credentials (Username and Password) must be provided")
 	}
 
-	// If there are missing fields, return an error detailing what is missing
+	// If there are missing fields, construct and return an error message detailing what is missing
 	if len(missingFields) > 0 {
-		return fmt.Errorf("mandatory configuration missing: %s", strings.Join(missingFields, ", "))
+		errorMessage := fmt.Sprintf("Mandatory configuration missing: %s. Ensure that either OAuth credentials (ClientID and ClientSecret) or Basic Auth credentials (Username and Password) are fully provided.", strings.Join(missingFields, ", "))
+		return fmt.Errorf(errorMessage)
 	}
 
 	// If no fields are missing, return nil indicating the configuration is complete
