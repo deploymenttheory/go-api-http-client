@@ -62,31 +62,42 @@ func IsValidPassword(password string) (bool, string) {
 // It prefers strong authentication methods (e.g., OAuth) over weaker ones (e.g., bearer tokens).
 // It logs an error and returns "unknown" if no valid credentials are provided.
 func DetermineAuthMethod(authConfig AuthConfig) (string, error) {
-	validClientID, clientIDErrMsg := IsValidClientID(authConfig.ClientID)
-	validClientSecret, clientSecretErrMsg := IsValidClientSecret(authConfig.ClientSecret)
-	validUsername, usernameErrMsg := IsValidUsername(authConfig.Username)
-	validPassword, passwordErrMsg := IsValidPassword(authConfig.Password)
+	// Initialize validation flags as true
+	validClientID, validClientSecret, validUsername, validPassword := true, true, true, true
+	clientIDErrMsg, clientSecretErrMsg, usernameErrMsg, passwordErrMsg := "", "", "", ""
 
-	if validClientID && validClientSecret {
-		return "oauth", nil
+	// Validate ClientID and ClientSecret for OAuth if provided
+	if authConfig.ClientID != "" || authConfig.ClientSecret != "" {
+		validClientID, clientIDErrMsg = IsValidClientID(authConfig.ClientID)
+		validClientSecret, clientSecretErrMsg = IsValidClientSecret(authConfig.ClientSecret)
+		// If both ClientID and ClientSecret are valid, use OAuth
+		if validClientID && validClientSecret {
+			return "oauth", nil
+		}
 	}
 
-	if validUsername && validPassword {
-		return "bearer", nil
+	// Validate Username and Password for Bearer if OAuth is not valid or not provided
+	if authConfig.Username != "" || authConfig.Password != "" {
+		validUsername, usernameErrMsg = IsValidUsername(authConfig.Username)
+		validPassword, passwordErrMsg = IsValidPassword(authConfig.Password)
+		// If both Username and Password are valid, use Bearer
+		if validUsername && validPassword {
+			return "bearer", nil
+		}
 	}
 
-	// Construct error message
+	// Construct an error message if any of the provided fields are invalid
 	errorMsg := "No valid credentials provided."
-	if !validClientID {
+	if !validClientID && authConfig.ClientID != "" {
 		errorMsg += " " + clientIDErrMsg
 	}
-	if !validClientSecret {
+	if !validClientSecret && authConfig.ClientSecret != "" {
 		errorMsg += " " + clientSecretErrMsg
 	}
-	if !validUsername {
+	if !validUsername && authConfig.Username != "" {
 		errorMsg += " " + usernameErrMsg
 	}
-	if !validPassword {
+	if !validPassword && authConfig.Password != "" {
 		errorMsg += " " + passwordErrMsg
 	}
 
