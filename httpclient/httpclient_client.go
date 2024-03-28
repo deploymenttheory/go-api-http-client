@@ -24,15 +24,13 @@ type Client struct {
 	AuthMethod         string     // Specifies the authentication method: "bearer" or "oauth"
 	Token              string     // Authentication Token
 	OverrideBaseDomain string     // Base domain override used when the default in the api handler isn't suitable
-	//OAuthCredentials           OAuthCredentials           // ClientID / Client Secret
-	//BearerTokenAuthCredentials BearerTokenAuthCredentials // Username and Password for Basic Authentication
-	Expiry         time.Time // Expiry time set for the auth token
-	httpClient     *http.Client
-	tokenLock      sync.Mutex
-	clientConfig   ClientConfig
-	Logger         logger.Logger
-	ConcurrencyMgr *ConcurrencyManager
-	PerfMetrics    PerformanceMetrics
+	Expiry             time.Time  // Expiry time set for the auth token
+	httpClient         *http.Client
+	tokenLock          sync.Mutex
+	clientConfig       ClientConfig
+	Logger             logger.Logger
+	ConcurrencyMgr     *ConcurrencyManager
+	PerfMetrics        PerformanceMetrics
 }
 
 // Config holds configuration options for the HTTP Client.

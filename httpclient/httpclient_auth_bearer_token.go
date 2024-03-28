@@ -14,19 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// // BearerTokenAuthCredentials represents the username and password for basic authentication.
-// type BearerTokenAuthCredentials struct {
-// 	Username string
-// 	Password string
-// }
-
-// // SetBearerTokenAuthCredentials sets the BearerTokenAuthCredentials (Username and Password)
-// // for the client instance. These credentials are used for obtaining and refreshing
-// // bearer tokens for authentication.
-// func (c *Client) SetBearerTokenAuthCredentials(credentials BearerTokenAuthCredentials) {
-// 	c.BearerTokenAuthCredentials = credentials
-// }
-
 // ObtainToken fetches and sets an authentication token using the stored basic authentication credentials.
 func (c *Client) ObtainToken(log logger.Logger) error {
 
