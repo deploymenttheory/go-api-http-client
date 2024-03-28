@@ -68,6 +68,12 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 	}
 
 	// AuthConfig
+	config.Auth.Username = getEnvOrDefault("USERNAME", config.Auth.Username)
+	log.Printf("Username env value found and set to: %s", config.Auth.Username)
+
+	config.Auth.Password = getEnvOrDefault("PASSWORD", config.Auth.Password)
+	log.Printf("Password env value found and set")
+
 	config.Auth.ClientID = getEnvOrDefault("CLIENT_ID", config.Auth.ClientID)
 	log.Printf("ClientID env value found and set to: %s", config.Auth.ClientID)
 
@@ -168,19 +174,15 @@ func parseDuration(value string, defaultVal time.Duration) time.Duration {
 func validateMandatoryConfiguration(config *ClientConfig) error {
 	var missingFields []string
 
-	// Check for missing mandatory fields and add them to the missingFields slice if necessary.
-	if config.Auth.ClientID == "" {
-		missingFields = append(missingFields, "Auth.ClientID")
-	}
-	if config.Auth.ClientSecret == "" {
-		missingFields = append(missingFields, "Auth.ClientSecret")
-	}
+	// Check for mandatory fields related to the environment
 	if config.Environment.InstanceName == "" {
 		missingFields = append(missingFields, "Environment.InstanceName")
 	}
 	if config.Environment.APIType == "" {
 		missingFields = append(missingFields, "Environment.APIType")
 	}
+
+	// Check for mandatory fields related to the client options
 	if config.ClientOptions.LogLevel == "" {
 		missingFields = append(missingFields, "ClientOptions.LogLevel")
 	}
@@ -191,12 +193,32 @@ func validateMandatoryConfiguration(config *ClientConfig) error {
 		missingFields = append(missingFields, "ClientOptions.LogConsoleSeparator")
 	}
 
-	// If there are missing fields, return an error detailing what is missing.
-	if len(missingFields) > 0 {
-		return fmt.Errorf("mandatory configuration missing: %s", strings.Join(missingFields, ", "))
+	// Check for either OAuth credentials pair or Username and Password pair
+	usingOAuth := config.Auth.ClientID != "" && config.Auth.ClientSecret != ""
+	usingBasicAuth := config.Auth.Username != "" && config.Auth.Password != ""
+
+	if !(usingOAuth || usingBasicAuth) {
+		if config.Auth.ClientID == "" {
+			missingFields = append(missingFields, "Auth.ClientID")
+		}
+		if config.Auth.ClientSecret == "" {
+			missingFields = append(missingFields, "Auth.ClientSecret")
+		}
+		if config.Auth.Username == "" {
+			missingFields = append(missingFields, "Auth.Username")
+		}
+		if config.Auth.Password == "" {
+			missingFields = append(missingFields, "Auth.Password")
+		}
 	}
 
-	// If no fields are missing, return nil indicating the configuration is complete.
+	// If there are missing fields, construct and return an error message detailing what is missing
+	if len(missingFields) > 0 {
+		errorMessage := fmt.Sprintf("Mandatory configuration missing: %s. Ensure that either OAuth credentials (ClientID and ClientSecret) or Basic Auth credentials (Username and Password) are fully provided.", strings.Join(missingFields, ", "))
+		return fmt.Errorf(errorMessage)
+	}
+
+	// If no fields are missing, return nil indicating the configuration is complete
 	return nil
 }
 
