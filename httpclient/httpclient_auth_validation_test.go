@@ -1,3 +1,4 @@
+// httpclient_auth_validation_test.go
 package httpclient
 
 import (
@@ -7,6 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestIsValidClientID tests the IsValidClientID function with various client ID inputs.
+// It verifies that valid UUIDs are correctly identified as such, and invalid formats
+// are appropriately flagged with an error message. Additionally, it checks that empty
+// client IDs are considered valid according to the updated logic.
 func TestIsValidClientID(t *testing.T) {
 	tests := []struct {
 		clientID    string
@@ -25,6 +30,10 @@ func TestIsValidClientID(t *testing.T) {
 	}
 }
 
+// TestIsValidClientSecret tests the IsValidClientSecret function with various client secret inputs.
+// It ensures that client secrets that meet the minimum length requirement and contain the necessary
+// character types are validated correctly. It also checks that short or invalid client secrets are
+// flagged appropriately, and that empty client secrets are considered valid as per the updated logic.
 func TestIsValidClientSecret(t *testing.T) {
 	tests := []struct {
 		clientSecret string
@@ -43,6 +52,10 @@ func TestIsValidClientSecret(t *testing.T) {
 	}
 }
 
+// TestIsValidUsername tests the IsValidUsername function with various username inputs.
+// This function verifies that usernames consisting of alphanumeric characters and password safe
+// special characters are considered valid. It also checks that usernames with unsafe characters
+// are correctly identified as invalid.
 func TestIsValidUsername(t *testing.T) {
 	tests := []struct {
 		username    string
@@ -61,6 +74,9 @@ func TestIsValidUsername(t *testing.T) {
 	}
 }
 
+// TestIsValidPassword tests the IsValidPassword function with various password inputs.
+// It ensures that passwords meeting the minimum length requirement are validated correctly,
+// and that short passwords are appropriately flagged as invalid.
 func TestIsValidPassword(t *testing.T) {
 	tests := []struct {
 		password    string
@@ -78,6 +94,11 @@ func TestIsValidPassword(t *testing.T) {
 	}
 }
 
+// TestDetermineAuthMethod tests the DetermineAuthMethod function with various authentication configurations.
+// It checks that the function correctly identifies the authentication method to be used based on the provided
+// credentials. Scenarios include valid OAuth credentials, valid bearer token credentials, and various combinations
+// of invalid or missing credentials. The function should return "oauth" for valid OAuth credentials, "bearer" for
+// valid bearer token credentials, and "unknown" with an error message for invalid or incomplete credentials.
 func TestDetermineAuthMethod(t *testing.T) {
 	tests := []struct {
 		authConfig  AuthConfig
