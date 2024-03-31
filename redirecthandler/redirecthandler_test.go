@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/mocklogger"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,7 +14,7 @@ func TestRedirectHandler_CheckRedirect(t *testing.T) {
 	mockLogger := mocklogger.NewMockLogger()
 
 	// Set the mock logger to capture logs at all levels
-	mockLogger.SetLevel(mocklogger.LogLevelDebug)
+	mockLogger.SetLevel(logger.LogLevelDebug)
 
 	redirectHandler := NewRedirectHandler(mockLogger, 10)
 
@@ -106,7 +107,7 @@ func TestRedirectHandler_ResolveRedirectURL(t *testing.T) {
 
 func TestRedirectHandler_SecureRequest(t *testing.T) {
 	mockLogger := mocklogger.NewMockLogger()
-	mockLogger.SetLevel(mocklogger.LogLevelDebug)
+	mockLogger.SetLevel(logger.LogLevelDebug)
 
 	redirectHandler := RedirectHandler{Logger: mockLogger}
 	req := &http.Request{Header: http.Header{"Authorization": []string{"token"}, "Cookie": []string{"session"}}}
