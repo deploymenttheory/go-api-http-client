@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
+	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 	"github.com/deploymenttheory/go-api-http-client/status"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -17,8 +18,10 @@ import (
 // This function serves as a dispatcher, deciding whether to execute the request with or without retry logic based on the
 // idempotency of the HTTP method. Idempotent methods (GET, PUT, DELETE) are executed with retries to handle transient errors
 // and rate limits, while non-idempotent methods (POST, PATCH) are executed without retries to avoid potential side effects
-// of duplicating non-idempotent operations. function uses an instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings, and
-// errors encountered during the execution of the request.
+// of duplicating non-idempotent operations. The function uses an instance of a logger implementing the logger.Logger interface,
+// used to log informational messages, warnings, and errors encountered during the execution of the request.
+// It also applies redirect handling to the client if configured, allowing the client to follow redirects up to a maximum
+// number of times.
 
 // Parameters:
 // - method: A string representing the HTTP method to be used for the request. This method determines the execution path
@@ -59,8 +62,11 @@ import (
 //   including maximum retry attempts and total retry duration.
 
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
-
 	log := c.Logger
+
+	// Apply redirect handling to the client with MaxRedirects set to 10
+	redirectHandler := redirecthandler.NewRedirectHandler(log, 10)
+	redirectHandler.WithRedirectHandling(c.httpClient)
 
 	if IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out)
