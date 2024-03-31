@@ -8,7 +8,6 @@ import (
 )
 
 // TranslateStatusCode provides a human-readable message for HTTP status codes.
-// TranslateStatusCode provides a human-readable message for HTTP status codes.
 func TranslateStatusCode(resp *http.Response) string {
 
 	if resp == nil {

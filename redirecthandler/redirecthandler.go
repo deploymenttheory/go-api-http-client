@@ -88,8 +88,22 @@ func (r *RedirectHandler) checkRedirect(req *http.Request, via []*http.Request) 
 			r.Logger.Info("Changed request method to GET for 303 See Other response")
 		}
 
+		// Logging enhancements
+		r.Logger.Info("Redirecting request",
+			zap.String("originalURL", req.URL.String()),
+			zap.String("newURL", newReqURL.String()),
+			zap.String("method", req.Method),
+			zap.Int("redirectCount", len(via)),
+		)
+
+		// Log removed sensitive headers
+		for _, header := range r.SensitiveHeaders {
+			r.Logger.Info("Removed sensitive header due to domain change",
+				zap.String("header", header),
+			)
+		}
+
 		req.URL = newReqURL
-		r.Logger.Info("Redirecting request", zap.String("newURL", newReqURL.String()))
 		return nil
 	}
 
