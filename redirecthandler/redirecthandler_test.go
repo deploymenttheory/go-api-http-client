@@ -10,6 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestRedirectHandler_CheckRedirect tests the checkRedirect method of the RedirectHandler.
+// It covers various scenarios including redirect loop detection, maximum redirects limit,
+// resolving relative redirects, cross-domain security measures, and handling of 303 See Other response.
 func TestRedirectHandler_CheckRedirect(t *testing.T) {
 	mockLogger := mocklogger.NewMockLogger()
 
@@ -77,6 +80,8 @@ func TestRedirectHandler_CheckRedirect(t *testing.T) {
 	})
 }
 
+// TestRedirectHandler_ResolveRedirectURL tests the resolveRedirectURL method of the RedirectHandler.
+// It checks the correct resolution of absolute and relative URLs including those with query parameters and fragments.
 func TestRedirectHandler_ResolveRedirectURL(t *testing.T) {
 	redirectHandler := RedirectHandler{}
 
@@ -105,6 +110,8 @@ func TestRedirectHandler_ResolveRedirectURL(t *testing.T) {
 	})
 }
 
+// TestRedirectHandler_SecureRequest tests the secureRequest method of the RedirectHandler.
+// It verifies that sensitive headers are correctly removed when a request is redirected to a different domain.
 func TestRedirectHandler_SecureRequest(t *testing.T) {
 	mockLogger := mocklogger.NewMockLogger()
 	mockLogger.SetLevel(logger.LogLevelDebug)
