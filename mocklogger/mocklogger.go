@@ -37,14 +37,18 @@ func (m *MockLogger) GetLogLevel() logger.LogLevel {
 	return logger.LogLevelNone // Return LogLevelNone if no specific log level is set
 }
 
+// SetLevel sets the logging level of the MockLogger.
+// This controls the verbosity of the logger, allowing it to filter out logs below the set level.
 func (m *MockLogger) SetLevel(level logger.LogLevel) {
 	m.logLevel = level
 	m.Called(level)
 }
 
+// With adds contextual key-value pairs to the MockLogger and returns a new logger instance with this context.
+// This is useful for adding common fields to all subsequent logs produced by the logger.
 func (m *MockLogger) With(fields ...zapcore.Field) logger.Logger {
 	m.Called(fields)
-	// This is a mock implementation; adjust as necessary for your tests
+
 	return m
 }
 
