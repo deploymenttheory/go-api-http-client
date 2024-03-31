@@ -1,5 +1,5 @@
-// graph_api_exceptions.go
-package graph
+// msgraph_api_exceptions.go
+package msgraph
 
 import (
 	_ "embed"
@@ -25,7 +25,7 @@ var configMap ConfigMap
 
 // Embedded Resources
 //
-//go:embed graph_api_exceptions_configuration.json
+//go:embed msgraph_api_exceptions_configuration.json
 var graph_api_exceptions_configuration []byte
 
 // init is invoked automatically on package initialization and is responsible for

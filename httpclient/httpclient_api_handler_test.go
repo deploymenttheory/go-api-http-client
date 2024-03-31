@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/deploymenttheory/go-api-http-client/apihandlers/graph"
 	"github.com/deploymenttheory/go-api-http-client/apihandlers/jamfpro"
+	"github.com/deploymenttheory/go-api-http-client/apihandlers/msgraph"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -115,7 +115,7 @@ func TestLoadAPIHandler(t *testing.T) {
 		wantErr  bool
 	}{
 		{"Load JamfPro Handler", "jamfpro", &jamfpro.JamfAPIHandler{}, false},
-		{"Load Graph Handler", "graph", &graph.GraphAPIHandler{}, false},
+		{"Load Graph Handler", "msgraph", &msgraph.GraphAPIHandler{}, false},
 		{"Unsupported API Type", "unknown", nil, true},
 	}
 

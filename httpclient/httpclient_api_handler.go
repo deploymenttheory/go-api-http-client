@@ -4,8 +4,8 @@ package httpclient
 import (
 	"net/http"
 
-	"github.com/deploymenttheory/go-api-http-client/apihandlers/graph"
 	"github.com/deploymenttheory/go-api-http-client/apihandlers/jamfpro"
+	"github.com/deploymenttheory/go-api-http-client/apihandlers/msgraph"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
@@ -44,8 +44,8 @@ func LoadAPIHandler(apiType string, log logger.Logger) (APIHandler, error) {
 		}
 		log.Info("API handler loaded successfully", zap.String("APIType", apiType))
 
-	case "graph":
-		apiHandler = &graph.GraphAPIHandler{
+	case "msgraph":
+		apiHandler = &msgraph.GraphAPIHandler{
 			// Initialize with necessary parameters
 		}
 		log.Info("API handler loaded successfully", zap.String("APIType", apiType))

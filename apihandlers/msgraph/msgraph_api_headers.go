@@ -1,5 +1,5 @@
-// graph_api_headers.go
-package graph
+// msgraph_api_headers.go
+package msgraph
 
 import (
 	"strings"

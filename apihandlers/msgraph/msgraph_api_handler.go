@@ -1,5 +1,5 @@
-// graph_api_handler.go
-package graph
+// msgraph_api_handler.go
+package msgraph
 
 import "github.com/deploymenttheory/go-api-http-client/logger"
 

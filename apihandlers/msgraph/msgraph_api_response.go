@@ -1,5 +1,5 @@
-// graph_api_response.go
-package graph
+// msgraph_api_response.go
+package msgraph
 
 import (
 	"encoding/json"
