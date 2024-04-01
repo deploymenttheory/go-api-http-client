@@ -47,7 +47,9 @@ func (r *RedirectHandler) WithRedirectHandling(client *http.Client) {
 
 // checkRedirect implements the redirect handling logic.
 func (r *RedirectHandler) checkRedirect(req *http.Request, via []*http.Request) error {
-	defer r.clearRedirectHistory(req) // Ensure redirect history is always cleared to prevent memory leaks
+
+	// Ensure redirect history is always cleared to prevent memory leaks
+	defer r.clearRedirectHistory(req)
 
 	// Non-idempotent methods handling
 	if req.Method == http.MethodPost || req.Method == http.MethodPatch {
