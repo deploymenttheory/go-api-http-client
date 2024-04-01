@@ -9,11 +9,11 @@ package httpclient
 
 import (
 	"net/http"
-	"net/http/cookiejar"
 	"sync"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
+	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 	"go.uber.org/zap"
 )
 
@@ -65,6 +65,8 @@ type ClientOptions struct {
 	MaxRetryAttempts          int    // Config item defines the max number of retry request attempts for retryable HTTP methods.
 	EnableDynamicRateLimiting bool   // Field for defining whether dynamic rate limiting should be enabled.
 	MaxConcurrentRequests     int    // Field for defining the maximum number of concurrent requests allowed in the semaphore
+	FollowRedirects           bool   // Flag to enable/disable following redirects
+	MaxRedirects              int    // Maximum number of redirects to follow
 	TokenRefreshBufferPeriod  time.Duration
 	TotalRetryDuration        time.Duration
 	CustomTimeout             time.Duration
@@ -99,6 +101,13 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		return nil, log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
 	}
 
+	// Determine the authentication method using the helper function
+	authMethod, err := DetermineAuthMethod(config.Auth)
+	if err != nil {
+		log.Error("Failed to determine authentication method", zap.Error(err))
+		return nil, err
+	}
+
 	log.Info("Initializing new HTTP client with the provided configuration")
 
 	// Initialize the internal HTTP client
@@ -106,21 +115,14 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		Timeout: config.ClientOptions.CustomTimeout,
 	}
 
-	// Conditionally create and set a cookie jar if the option is enabled
-	if config.ClientOptions.EnableCookieJar {
-		jar, err := cookiejar.New(nil) // nil means no options, which uses default options
-		if err != nil {
-			return nil, log.Error("Failed to create cookie jar", zap.Error(err))
-		}
-		httpClient.Jar = jar
-	}
-
-	// Determine the authentication method using the helper function
-	authMethod, err := DetermineAuthMethod(config.Auth)
-	if err != nil {
-		log.Error("Failed to determine authentication method", zap.Error(err))
+	// Conditionally setup cookie jar
+	if err := setupCookieJar(httpClient, config.ClientOptions.EnableCookieJar, log); err != nil {
+		log.Error("Error setting up cookie jar", zap.Error(err))
 		return nil, err
 	}
+
+	// Conditionally setup redirect handling
+	redirecthandler.SetupRedirectHandler(httpClient, config.ClientOptions.FollowRedirects, config.ClientOptions.MaxRedirects, log)
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
@@ -148,6 +150,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.Bool("Cookie Jar Enabled", config.ClientOptions.EnableCookieJar),
 		zap.Int("Max Retry Attempts", config.ClientOptions.MaxRetryAttempts),
 		zap.Int("Max Concurrent Requests", config.ClientOptions.MaxConcurrentRequests),
+		zap.Bool("Follow Redirects", config.ClientOptions.FollowRedirects),
+		zap.Int("Max Redirects", config.ClientOptions.MaxRedirects),
 		zap.Bool("Enable Dynamic Rate Limiting", config.ClientOptions.EnableDynamicRateLimiting),
 		zap.Duration("Token Refresh Buffer Period", config.ClientOptions.TokenRefreshBufferPeriod),
 		zap.Duration("Total Retry Duration", config.ClientOptions.TotalRetryDuration),

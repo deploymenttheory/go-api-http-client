@@ -215,3 +215,12 @@ func (r *RedirectHandler) GetRedirectHistory(req *http.Request) []*url.URL {
 
 	return r.RedirectHistories[req]
 }
+
+// SetupRedirectHandler configures the HTTP client for redirect handling based on the client configuration.
+func SetupRedirectHandler(client *http.Client, followRedirects bool, maxRedirects int, log logger.Logger) {
+	if followRedirects {
+		redirectHandler := NewRedirectHandler(log, maxRedirects)
+		redirectHandler.WithRedirectHandling(client)
+		log.Info("Redirect handling enabled", zap.Int("MaxRedirects", maxRedirects))
+	}
+}

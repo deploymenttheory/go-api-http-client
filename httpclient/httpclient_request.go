@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
-	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 	"github.com/deploymenttheory/go-api-http-client/status"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -63,10 +62,6 @@ import (
 
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
-
-	// Apply redirect handling to the client with MaxRedirects set to 10
-	redirectHandler := redirecthandler.NewRedirectHandler(log, 10)
-	redirectHandler.WithRedirectHandling(c.httpClient)
 
 	if IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out)
