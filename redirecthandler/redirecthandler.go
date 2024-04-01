@@ -49,6 +49,13 @@ func (r *RedirectHandler) WithRedirectHandling(client *http.Client) {
 func (r *RedirectHandler) checkRedirect(req *http.Request, via []*http.Request) error {
 	defer r.clearRedirectHistory(req) // Ensure redirect history is always cleared to prevent memory leaks
 
+	// Non-idempotent methods handling
+	if req.Method == http.MethodPost || req.Method == http.MethodPatch {
+		r.Logger.Warn("Redirect attempted on non-idempotent method, not following", zap.String("method", req.Method))
+		// Stop redirection and return the response as is
+		return http.ErrUseLastResponse
+	}
+
 	// Check for cached permanent redirect
 	if urlString, ok := r.checkPermanentRedirect(req.URL.String()); ok && (req.Method == http.MethodGet || req.Method == http.MethodHead) {
 		parsedURL, err := url.Parse(urlString)
@@ -109,6 +116,13 @@ func (r *RedirectHandler) checkRedirect(req *http.Request, via []*http.Request) 
 		r.Logger.Info("Redirecting request", zap.String("originalURL", req.URL.String()), zap.String("newURL", newReqURL.String()), zap.Int("redirectCount", len(via)))
 		req.URL = newReqURL // Update request URL to follow the redirect
 		return nil
+	}
+
+	// Clear redirect history if redirect is successful
+	if len(via) > 0 && lastResponse.StatusCode >= 200 && lastResponse.StatusCode < 400 {
+		// Clear history for the redirected request
+		redirectedReq := via[len(via)-1]
+		r.clearRedirectHistory(redirectedReq)
 	}
 
 	return http.ErrUseLastResponse // No further action required if not a redirect status code
@@ -192,4 +206,12 @@ func (r *RedirectHandler) clearRedirectHistory(req *http.Request) {
 	r.VisitedURLsMutex.Lock() // Use the appropriate mutex to synchronize access to RedirectHistories
 	delete(r.RedirectHistories, req)
 	r.VisitedURLsMutex.Unlock()
+}
+
+// GetRedirectHistory returns the redirect history for a given request.
+func (r *RedirectHandler) GetRedirectHistory(req *http.Request) []*url.URL {
+	r.VisitedURLsMutex.RLock()
+	defer r.VisitedURLsMutex.RUnlock()
+
+	return r.RedirectHistories[req]
 }
