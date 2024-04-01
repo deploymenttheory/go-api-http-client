@@ -47,7 +47,9 @@ func (r *RedirectHandler) WithRedirectHandling(client *http.Client) {
 
 // checkRedirect implements the redirect handling logic.
 func (r *RedirectHandler) checkRedirect(req *http.Request, via []*http.Request) error {
-	defer r.clearRedirectHistory(req) // Ensure redirect history is always cleared to prevent memory leaks
+
+	// Ensure redirect history is always cleared to prevent memory leaks
+	defer r.clearRedirectHistory(req)
 
 	// Non-idempotent methods handling
 	if req.Method == http.MethodPost || req.Method == http.MethodPatch {
@@ -214,4 +216,19 @@ func (r *RedirectHandler) GetRedirectHistory(req *http.Request) []*url.URL {
 	defer r.VisitedURLsMutex.RUnlock()
 
 	return r.RedirectHistories[req]
+}
+
+// SetupRedirectHandler configures the HTTP client for redirect handling based on the client configuration.
+func SetupRedirectHandler(client *http.Client, followRedirects bool, maxRedirects int, log logger.Logger) error {
+	if followRedirects {
+		if maxRedirects < 0 {
+			log.Error("Invalid maxRedirects value", zap.Int("maxRedirects", maxRedirects))
+			return fmt.Errorf("invalid maxRedirects value: %d", maxRedirects)
+		}
+
+		redirectHandler := NewRedirectHandler(log, maxRedirects)
+		redirectHandler.WithRedirectHandling(client)
+		log.Info("Redirect handling enabled", zap.Int("MaxRedirects", maxRedirects))
+	}
+	return nil
 }

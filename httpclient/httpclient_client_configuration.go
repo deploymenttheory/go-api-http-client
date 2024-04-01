@@ -20,6 +20,8 @@ const (
 	DefaultTokenBufferPeriod         = 5 * time.Minute
 	DefaultTotalRetryDuration        = 5 * time.Minute
 	DefaultTimeout                   = 10 * time.Second
+	FollowRedirects                  = true
+	MaxRedirects                     = 10
 )
 
 // LoadConfigFromFile loads configuration values from a JSON file into the ClientConfig struct.
@@ -121,6 +123,13 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 	config.ClientOptions.CustomTimeout = parseDuration(getEnvOrDefault("CUSTOM_TIMEOUT", config.ClientOptions.CustomTimeout.String()), DefaultTimeout)
 	log.Printf("CustomTimeout env value found and set to: %s", config.ClientOptions.CustomTimeout)
 
+	// Redirects
+	config.ClientOptions.FollowRedirects = parseBool(getEnvOrDefault("FOLLOW_REDIRECTS", strconv.FormatBool(config.ClientOptions.FollowRedirects)))
+	log.Printf("FollowRedirects env value set to: %t", config.ClientOptions.FollowRedirects)
+
+	config.ClientOptions.MaxRedirects = parseInt(getEnvOrDefault("MAX_REDIRECTS", strconv.Itoa(config.ClientOptions.MaxRedirects)), MaxRedirects)
+	log.Printf("MaxRedirects env value set to: %d", config.ClientOptions.MaxRedirects)
+
 	// Set default values if necessary
 	setLoggerDefaultValues(config)
 	setClientDefaultValues(config)
@@ -131,41 +140,6 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 	}
 
 	return config, nil
-}
-
-// Helper function to get environment variable or default value
-func getEnvOrDefault(envKey string, defaultValue string) string {
-	if value, exists := os.LookupEnv(envKey); exists {
-		return value
-	}
-	return defaultValue
-}
-
-// Helper function to parse boolean from environment variable
-func parseBool(value string) bool {
-	result, err := strconv.ParseBool(value)
-	if err != nil {
-		return false
-	}
-	return result
-}
-
-// Helper function to parse int from environment variable
-func parseInt(value string, defaultVal int) int {
-	result, err := strconv.Atoi(value)
-	if err != nil {
-		return defaultVal
-	}
-	return result
-}
-
-// Helper function to parse duration from environment variable
-func parseDuration(value string, defaultVal time.Duration) time.Duration {
-	result, err := time.ParseDuration(value)
-	if err != nil {
-		return defaultVal
-	}
-	return result
 }
 
 // validateMandatoryConfiguration checks if any essential configuration fields are missing,
@@ -210,6 +184,12 @@ func validateMandatoryConfiguration(config *ClientConfig) error {
 		if config.Auth.Password == "" {
 			missingFields = append(missingFields, "Auth.Password")
 		}
+	}
+
+	// Default setting for MaxRedirects
+	if config.ClientOptions.MaxRedirects <= 0 {
+		config.ClientOptions.MaxRedirects = MaxRedirects
+		log.Printf("MaxRedirects not set or invalid, set to default value: %d", MaxRedirects)
 	}
 
 	// If there are missing fields, construct and return an error message detailing what is missing
@@ -263,8 +243,53 @@ func setClientDefaultValues(config *ClientConfig) {
 		log.Printf("CustomTimeout not set, set to default value: %s", DefaultTimeout)
 	}
 
+	if !config.ClientOptions.FollowRedirects {
+		config.ClientOptions.FollowRedirects = FollowRedirects
+		log.Printf("FollowRedirects not set, set to default value: %t", FollowRedirects)
+	}
+
+	if config.ClientOptions.MaxRedirects <= 0 {
+		config.ClientOptions.MaxRedirects = MaxRedirects
+		log.Printf("MaxRedirects not set or invalid, set to default value: %d", MaxRedirects)
+	}
+
 	// Log completion of setting default values
 	log.Println("Default values set for client configuration")
+}
+
+// Helper function to get environment variable or default value
+func getEnvOrDefault(envKey string, defaultValue string) string {
+	if value, exists := os.LookupEnv(envKey); exists {
+		return value
+	}
+	return defaultValue
+}
+
+// Helper function to parse boolean from environment variable
+func parseBool(value string) bool {
+	result, err := strconv.ParseBool(value)
+	if err != nil {
+		return false
+	}
+	return result
+}
+
+// Helper function to parse int from environment variable
+func parseInt(value string, defaultVal int) int {
+	result, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultVal
+	}
+	return result
+}
+
+// Helper function to parse duration from environment variable
+func parseDuration(value string, defaultVal time.Duration) time.Duration {
+	result, err := time.ParseDuration(value)
+	if err != nil {
+		return defaultVal
+	}
+	return result
 }
 
 // setLoggerDefaultValues sets default values for the client logger configuration options if none are provided.
