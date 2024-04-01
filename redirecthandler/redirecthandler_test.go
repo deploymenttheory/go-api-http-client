@@ -127,3 +127,62 @@ func TestRedirectHandler_SecureRequest(t *testing.T) {
 		assert.Contains(t, mockLogger.Calls[0].Arguments.String(0), "Removed sensitive header")
 	})
 }
+
+// Test for Redirect Loop Detection - This test ensures that the redirect handler correctly identifies and stops redirect loops.
+func TestRedirectLoopDetection(t *testing.T) {
+	// Setup
+	mockLogger := mocklogger.NewMockLogger()
+	handler := NewRedirectHandler(mockLogger, 5)
+	loopURL, _ := url.Parse("http://example.com/loop")
+	req := &http.Request{URL: loopURL}
+
+	// Simulate a redirect loop by adding the same URL to the history multiple times
+	handler.RedirectHistories[req] = []*url.URL{loopURL, loopURL}
+
+	// Test
+	err := handler.checkRedirect(req, []*http.Request{req, req})
+
+	// Assertions
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "redirect loop detected")
+	// Verify log message for loop detection
+	assert.Contains(t, mockLogger.Calls[0].Arguments.String(0), "Redirect loop detected")
+}
+
+// TestRedirectHistoryCleanup - This test ensures that the redirect history for each request is properly cleaned up to prevent memory leaks.
+func TestRedirectHistoryCleanup(t *testing.T) {
+	// Setup
+	mockLogger := mocklogger.NewMockLogger()
+	handler := NewRedirectHandler(mockLogger, 5)
+	req := &http.Request{URL: &url.URL{Path: "/test"}}
+
+	// Simulate adding some history
+	handler.RedirectHistories[req] = []*url.URL{{Path: "/redirect1"}, {Path: "/redirect2"}}
+
+	// Perform a redirect that will trigger the cleanup
+	handler.checkRedirect(req, []*http.Request{req})
+
+	// Assertions
+	_, exists := handler.RedirectHistories[req]
+	assert.False(t, exists)
+}
+
+// TestMaxRedirectsReached - This test checks that the handler stops redirects after reaching the maximum limit.
+func TestMaxRedirectsReached(t *testing.T) {
+	// Setup
+	mockLogger := mocklogger.NewMockLogger()
+	handler := NewRedirectHandler(mockLogger, 1) // Set max redirects to 1
+	req := &http.Request{URL: &url.URL{Path: "/start"}}
+	via := []*http.Request{{}, {}} // Simulate one redirect has already occurred
+
+	// Test
+	err := handler.checkRedirect(req, via)
+
+	// Assertions
+	assert.NotNil(t, err)
+	assert.IsType(t, &MaxRedirectsError{}, err)
+	maxRedirectsError := err.(*MaxRedirectsError)
+	assert.Equal(t, 1, maxRedirectsError.MaxRedirects)
+	// Verify log message for max redirects reached
+	assert.Contains(t, mockLogger.Calls[0].Arguments.String(0), "Maximum redirects reached")
+}

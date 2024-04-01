@@ -96,6 +96,17 @@ func IsRedirectStatusCode(statusCode int) bool {
 	}
 }
 
+// IsPermanentRedirect checks if the provided HTTP status code is one of the permanent redirect codes.
+func IsPermanentRedirect(statusCode int) bool {
+	switch statusCode {
+	case http.StatusMovedPermanently, // 301
+		http.StatusPermanentRedirect: // 308
+		return true
+	default:
+		return false
+	}
+}
+
 // IsNonRetryableStatusCode checks if the provided response indicates a non-retryable error.
 func IsNonRetryableStatusCode(resp *http.Response) bool {
 	// Expanded list of non-retryable HTTP status codes

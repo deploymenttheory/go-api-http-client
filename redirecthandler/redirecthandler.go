@@ -1,6 +1,7 @@
 package redirecthandler
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"sync"
@@ -10,52 +11,70 @@ import (
 	"go.uber.org/zap"
 )
 
-// RedirectHandler handles HTTP redirects within an http.Client.
-// It provides features such as redirect loop detection, security enhancements,
-// and integration with client settings for fine-grained control over redirect behavior.
+// RedirectHandler contains configurations for handling HTTP redirects.
 type RedirectHandler struct {
-	Logger           logger.Logger
-	MaxRedirects     int
-	VisitedURLs      map[string]int
-	VisitedURLsMutex sync.Mutex
-	SensitiveHeaders []string
+	Logger             logger.Logger                // Logger instance for logging.
+	MaxRedirects       int                          // Maximum allowed redirects to prevent infinite loops.
+	VisitedURLs        map[string]int               // Tracks visited URLs to detect loops.
+	VisitedURLsMutex   sync.RWMutex                 // Mutex for safe concurrent access to VisitedURLs.
+	SensitiveHeaders   []string                     // Headers to be removed on cross-domain redirects.
+	PermanentRedirects map[string]string            // Cache for permanent redirects
+	PermRedirectsMutex sync.RWMutex                 // Mutex for safe concurrent access to PermanentRedirects
+	RedirectHistories  map[*http.Request][]*url.URL // Map to track redirect history for each request
 }
 
-// NewRedirectHandler creates a new instance of RedirectHandler with the provided logger
-// and maximum number of redirects. It initializes internal structures and is ready to use.
+// NewRedirectHandler creates a new instance of RedirectHandler.
 func NewRedirectHandler(logger logger.Logger, maxRedirects int) *RedirectHandler {
 	return &RedirectHandler{
-		Logger:           logger,
-		MaxRedirects:     maxRedirects,
-		VisitedURLs:      make(map[string]int),
-		SensitiveHeaders: []string{"Authorization", "Cookie"}, // Add other sensitive headers if needed
+		Logger:             logger,
+		MaxRedirects:       maxRedirects,
+		VisitedURLs:        make(map[string]int),
+		SensitiveHeaders:   []string{"Authorization", "Cookie"},
+		PermanentRedirects: make(map[string]string),
+		RedirectHistories:  make(map[*http.Request][]*url.URL),
 	}
 }
 
+// AddSensitiveHeader allows adding configurable sensitive headers.
+func (r *RedirectHandler) AddSensitiveHeader(header string) {
+	r.SensitiveHeaders = append(r.SensitiveHeaders, header)
+}
+
 // WithRedirectHandling applies the redirect handling policy to an http.Client.
-// It sets the CheckRedirect function on the client to use the handler's logic.
 func (r *RedirectHandler) WithRedirectHandling(client *http.Client) {
 	client.CheckRedirect = r.checkRedirect
 }
 
-// checkRedirect is the core function that implements the redirect handling logic.
-// It is set as the CheckRedirect function on an http.Client and is called whenever
-// the client encounters a 3XX response. It enforces the max redirects limit,
-// detects redirect loops, applies security measures for cross-domain redirects,
-// resolves relative redirects, and optimizes performance.
+// checkRedirect implements the redirect handling logic.
 func (r *RedirectHandler) checkRedirect(req *http.Request, via []*http.Request) error {
-	// Redirect Loop Detection
-	r.VisitedURLsMutex.Lock()
-	defer r.VisitedURLsMutex.Unlock()
-	if _, exists := r.VisitedURLs[req.URL.String()]; exists {
-		r.Logger.Warn("Detected redirect loop", zap.String("url", req.URL.String()))
-		return http.ErrUseLastResponse
-	}
-	r.VisitedURLs[req.URL.String()]++
+	defer r.clearRedirectHistory(req) // Ensure redirect history is always cleared to prevent memory leaks
 
+	// Check for cached permanent redirect
+	if urlString, ok := r.checkPermanentRedirect(req.URL.String()); ok && (req.Method == http.MethodGet || req.Method == http.MethodHead) {
+		parsedURL, err := url.Parse(urlString)
+		if err != nil {
+			r.Logger.Error("Failed to parse URL from cache", zap.String("url", urlString), zap.Error(err))
+			// Continue with the original URL since the cached URL is invalid
+		} else {
+			req.URL = parsedURL // Use cached redirect location
+			r.Logger.Info("Using cached permanent redirect", zap.String("originalURL", urlString), zap.String("redirectURL", parsedURL.String()))
+			return nil
+		}
+	}
+
+	// Track redirect history for the current request
+	r.RedirectHistories[req] = append(r.RedirectHistories[req], req.URL)
+
+	// Check for redirect loops by analyzing the history
+	if hasLoop(r.RedirectHistories[req]) {
+		r.Logger.Error("Redirect loop detected", zap.Any("redirectHistory", r.RedirectHistories[req]))
+		return fmt.Errorf("redirect loop detected: %v", r.RedirectHistories[req])
+	}
+
+	// Enforce max redirects
 	if len(via) >= r.MaxRedirects {
-		r.Logger.Warn("Stopped after maximum redirects", zap.Int("maxRedirects", r.MaxRedirects))
-		return http.ErrUseLastResponse
+		r.Logger.Warn("Maximum redirects reached", zap.Int("maxRedirects", r.MaxRedirects))
+		return &MaxRedirectsError{MaxRedirects: r.MaxRedirects}
 	}
 
 	lastResponse := via[len(via)-1].Response
@@ -66,69 +85,111 @@ func (r *RedirectHandler) checkRedirect(req *http.Request, via []*http.Request) 
 			return err
 		}
 
-		// Resolve relative redirects against the current request URL
 		newReqURL, err := r.resolveRedirectURL(req.URL, location)
 		if err != nil {
 			r.Logger.Error("Failed to resolve redirect URL", zap.Error(err))
 			return err
 		}
 
-		// Security Measures
+		// Apply security measures for cross-domain redirects
 		if newReqURL.Host != req.URL.Host {
 			r.secureRequest(req)
 		}
 
-		// Handling 303 See Other
+		// Cache permanent redirects
+		if status.IsPermanentRedirect(lastResponse.StatusCode) {
+			r.cachePermanentRedirect(req.URL.String(), newReqURL.String())
+		}
+
+		// Special handling for 303 See Other
 		if lastResponse.StatusCode == http.StatusSeeOther {
-			req.Method = http.MethodGet
-			req.Body = nil
-			req.GetBody = nil
-			req.ContentLength = 0
-			req.Header.Del("Content-Type")
-			r.Logger.Info("Changed request method to GET for 303 See Other response")
+			r.adjustForSeeOther(req)
 		}
 
-		// Logging enhancements
-		r.Logger.Info("Redirecting request",
-			zap.String("originalURL", req.URL.String()),
-			zap.String("newURL", newReqURL.String()),
-			zap.String("method", req.Method),
-			zap.Int("redirectCount", len(via)),
-		)
-
-		// Log removed sensitive headers
-		for _, header := range r.SensitiveHeaders {
-			r.Logger.Info("Removed sensitive header due to domain change",
-				zap.String("header", header),
-			)
-		}
-
-		req.URL = newReqURL
+		r.Logger.Info("Redirecting request", zap.String("originalURL", req.URL.String()), zap.String("newURL", newReqURL.String()), zap.Int("redirectCount", len(via)))
+		req.URL = newReqURL // Update request URL to follow the redirect
 		return nil
 	}
 
-	return http.ErrUseLastResponse
+	return http.ErrUseLastResponse // No further action required if not a redirect status code
 }
 
-// resolveRedirectURL resolves the redirect location URL against the current request URL
-// to handle relative redirects accurately.
+// resolveRedirectURL resolves the redirect location URL against the current request URL.
 func (r *RedirectHandler) resolveRedirectURL(reqURL *url.URL, redirectURL *url.URL) (*url.URL, error) {
-	if redirectURL.IsAbs() {
-		return redirectURL, nil // Absolute URL, no need to resolve
+	if !redirectURL.IsAbs() {
+		redirectURL.Scheme = reqURL.Scheme // Preserve the scheme
 	}
-
-	// Relative URL, resolve against the current request URL
-	absoluteURL := *reqURL
-	absoluteURL.Path = redirectURL.Path
-	absoluteURL.RawQuery = redirectURL.RawQuery
-	absoluteURL.Fragment = redirectURL.Fragment
-	return &absoluteURL, nil
+	return redirectURL, nil
 }
 
 // secureRequest removes sensitive headers from the request if the new destination is a different domain.
 func (r *RedirectHandler) secureRequest(req *http.Request) {
 	for _, header := range r.SensitiveHeaders {
 		req.Header.Del(header)
-		r.Logger.Info("Removed sensitive header due to domain change", zap.String("header", header))
 	}
+}
+
+// adjustForSeeOther adjusts the request for "303 See Other" responses.
+func (r *RedirectHandler) adjustForSeeOther(req *http.Request) {
+	req.Method = http.MethodGet
+	req.Body = nil
+	req.GetBody = nil
+	req.ContentLength = 0
+	req.Header.Del("Content-Type")
+}
+
+// RedirectLoopError represents an error when a redirect loop is detected.
+type RedirectLoopError struct {
+	URL string
+}
+
+// RedirectLoopError defines an error for when a redirect loop is detected.
+func (e *RedirectLoopError) Error() string {
+	return fmt.Sprintf("redirect loop detected at %s", e.URL)
+}
+
+// MaxRedirectsError represents an error when the maximum number of redirects is reached.
+type MaxRedirectsError struct {
+	MaxRedirects int
+}
+
+// MaxRedirectsError defines an error for when the maximum number of redirects is reached.
+func (e *MaxRedirectsError) Error() string {
+	return fmt.Sprintf("maximum redirects reached: %d", e.MaxRedirects)
+}
+
+// cachePermanentRedirect caches the permanent redirect location.
+func (r *RedirectHandler) cachePermanentRedirect(originalURL, redirectURL string) {
+	r.PermRedirectsMutex.Lock()
+	defer r.PermRedirectsMutex.Unlock()
+
+	r.PermanentRedirects[originalURL] = redirectURL
+}
+
+// checkPermanentRedirect checks if there's a cached redirect for the given URL.
+func (r *RedirectHandler) checkPermanentRedirect(originalURL string) (string, bool) {
+	r.PermRedirectsMutex.RLock()
+	defer r.PermRedirectsMutex.RUnlock()
+
+	url, exists := r.PermanentRedirects[originalURL]
+	return url, exists
+}
+
+// hasLoop checks if there's a loop in the redirect history.
+func hasLoop(history []*url.URL) bool {
+	urlSet := make(map[string]struct{})
+	for _, url := range history {
+		if _, exists := urlSet[url.String()]; exists {
+			return true // Loop detected
+		}
+		urlSet[url.String()] = struct{}{}
+	}
+	return false
+}
+
+// clearRedirectHistory clears the redirect history for a given request to prevent memory leaks.
+func (r *RedirectHandler) clearRedirectHistory(req *http.Request) {
+	r.VisitedURLsMutex.Lock() // Use the appropriate mutex to synchronize access to RedirectHistories
+	delete(r.RedirectHistories, req)
+	r.VisitedURLsMutex.Unlock()
 }
