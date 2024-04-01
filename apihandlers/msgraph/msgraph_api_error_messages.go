@@ -1,5 +1,5 @@
-// graph_api_error_messages.go
-package graph
+// msgraph_api_error_messages.go
+package msgraph
 
 import (
 	"bytes"

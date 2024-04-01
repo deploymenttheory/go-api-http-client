@@ -1,5 +1,5 @@
-// graph_api_url.go
-package graph
+// msgraph_api_url.go
+package msgraph
 
 import (
 	"fmt"

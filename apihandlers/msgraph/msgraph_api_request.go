@@ -1,5 +1,5 @@
-// graph_api_request.go
-package graph
+// msgraph_api_request.go
+package msgraph
 
 import (
 	"bytes"
