@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
-	"github.com/deploymenttheory/go-api-http-client/headers"
+	"github.com/deploymenttheory/go-api-http-client/headers/redact"
 	"go.uber.org/zap"
 )
 
@@ -90,7 +90,7 @@ func (h *AuthTokenHandler) ObtainOAuthToken(apiHandler apihandler.APIHandler, ht
 	expirationTime := time.Now().Add(expiresIn)
 
 	// Modified log call using the helper function
-	redactedAccessToken := headers.RedactSensitiveHeaderData(h.HideSensitiveData, "AccessToken", oauthResp.AccessToken)
+	redactedAccessToken := redact.RedactSensitiveHeaderData(h.HideSensitiveData, "AccessToken", oauthResp.AccessToken)
 	h.Logger.Info("OAuth token obtained successfully", zap.String("AccessToken", redactedAccessToken), zap.Duration("ExpiresIn", expiresIn), zap.Time("ExpirationTime", expirationTime))
 
 	h.Token = oauthResp.AccessToken

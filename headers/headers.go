@@ -7,31 +7,43 @@ import (
 	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
+	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
+	"github.com/deploymenttheory/go-api-http-client/headers/redact"
+
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
 // HeaderHandler is responsible for managing and setting headers on HTTP requests.
 type HeaderHandler struct {
-	req        *http.Request         // The http.Request for which headers are being managed
-	log        logger.Logger         // The logger to use for logging headers
-	apiHandler apihandler.APIHandler // The APIHandler to use for retrieving standard headers
-	token      string                // The token to use for setting the Authorization header
+	req              *http.Request         // The http.Request for which headers are being managed
+	log              logger.Logger         // The logger to use for logging headers
+	apiHandler       apihandler.APIHandler // The APIHandler to use for retrieving standard headers
+	token            string                // The token to use for setting the Authorization header
+	authTokenHandler *authenticationhandler.AuthTokenHandler
 }
 
 // NewHeaderHandler creates a new instance of HeaderHandler for a given http.Request, logger, and APIHandler.
-func NewHeaderHandler(req *http.Request, log logger.Logger, apiHandler apihandler.APIHandler, token string) *HeaderHandler {
+func NewHeaderHandler(req *http.Request, log logger.Logger, apiHandler apihandler.APIHandler, authTokenHandler *authenticationhandler.AuthTokenHandler) *HeaderHandler {
 	return &HeaderHandler{
-		req:        req,
-		log:        log,
-		apiHandler: apiHandler,
-		token:      token,
+		req:              req,
+		log:              log,
+		apiHandler:       apiHandler,
+		authTokenHandler: authTokenHandler,
 	}
 }
 
 // SetAuthorization sets the Authorization header for the request.
-func (h *HeaderHandler) SetAuthorization(token string) {
-	// Ensure the token is prefixed with "Bearer " only once
+// func (h *HeaderHandler) SetAuthorization(token string) {
+// 	// Ensure the token is prefixed with "Bearer " only once
+// 	if !strings.HasPrefix(token, "Bearer ") {
+// 		token = "Bearer " + token
+// 	}
+// 	h.req.Header.Set("Authorization", token)
+// }
+
+func (h *HeaderHandler) SetAuthorization() {
+	token := h.authTokenHandler.Token
 	if !strings.HasPrefix(token, "Bearer ") {
 		token = "Bearer " + token
 	}
@@ -103,7 +115,7 @@ func (h *HeaderHandler) SetRequestHeaders(endpoint string) {
 	for header, value := range standardHeaders {
 		if header == "Authorization" {
 			// Set the Authorization header using the token
-			h.SetAuthorization(h.token) // Ensure the token is correctly prefixed with "Bearer "
+			h.SetAuthorization() // Ensure the token is correctly prefixed with "Bearer "
 		} else if value != "" {
 			h.req.Header.Set(header, value)
 		}
@@ -121,7 +133,7 @@ func (h *HeaderHandler) LogHeaders(hideSensitiveData bool) {
 			// Redact sensitive values
 			if len(values) > 0 {
 				// Use the first value for simplicity; adjust if multiple values per header are expected
-				redactedValue := RedactSensitiveHeaderData(hideSensitiveData, name, values[0])
+				redactedValue := redact.RedactSensitiveHeaderData(hideSensitiveData, name, values[0])
 				redactedHeaders.Set(name, redactedValue)
 			}
 		}
@@ -156,20 +168,4 @@ func CheckDeprecationHeader(resp *http.Response, log logger.Logger) {
 			zap.String("Endpoint", resp.Request.URL.String()),
 		)
 	}
-}
-
-// RedactSensitiveHeaderData redacts sensitive data based on the hideSensitiveData flag.
-func RedactSensitiveHeaderData(hideSensitiveData bool, key, value string) string {
-	if hideSensitiveData {
-		// Define sensitive data keys that should be redacted.
-		sensitiveKeys := map[string]bool{
-			"AccessToken":   true,
-			"Authorization": true,
-		}
-
-		if _, found := sensitiveKeys[key]; found {
-			return "REDACTED"
-		}
-	}
-	return value
 }
