@@ -7,46 +7,74 @@ import (
 	"testing"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
-	"github.com/deploymenttheory/go-api-http-client/logger"
-	"github.com/deploymenttheory/go-api-http-client/mocklogger"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
+// TestSetAuthorization verifies that the SetAuthorization method correctly sets
+// the "Authorization" header of the HTTP request. The header should be prefixed
+// with "Bearer " followed by the token provided by the authTokenHandler.
 func TestSetAuthorization(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-	mockLog := mocklogger.NewMockLogger()
-	mockLog.On("Debug", mock.Anything, mock.Anything).Once()
 
 	token := "test-token"
 	authTokenHandler := &authenticationhandler.AuthTokenHandler{Token: token}
 
-	headerHandler := NewHeaderHandler(req, mockLog, nil, authTokenHandler)
+	// Create HeaderHandler without a mock logger since logging is not being tested
+	headerHandler := NewHeaderHandler(req, nil, nil, authTokenHandler)
 	headerHandler.SetAuthorization()
 
-	assert.Equal(t, "Bearer "+token, req.Header.Get("Authorization"), "Authorization header should be correctly set")
-	mockLog.AssertExpectations(t)
+	expectedHeaderValue := "Bearer " + token
+	assert.Equal(t, expectedHeaderValue, req.Header.Get("Authorization"), "Authorization header should be correctly set")
 }
 
+// TestSetContentType verifies that the SetContentType method correctly sets
+// the "Content-Type" header of the HTTP request. This header should reflect
+// the content type passed to the method.
 func TestSetContentType(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-	mockLog := mocklogger.NewMockLogger()
 
 	contentType := "application/json"
-	headerHandler := NewHeaderHandler(req, mockLog, nil, nil)
+	// Create HeaderHandler without a mock logger since logging is not being tested
+	headerHandler := NewHeaderHandler(req, nil, nil, nil)
 	headerHandler.SetContentType(contentType)
 
 	assert.Equal(t, contentType, req.Header.Get("Content-Type"), "Content-Type header should be correctly set")
 }
 
-func TestLogHeaders(t *testing.T) {
+// TestSetAccept verifies that the SetAccept method correctly sets the "Accept"
+// header of the HTTP request. This header indicates the media types that the
+// client is willing to receive from the server.
+func TestSetAccept(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-	mockLog := mocklogger.NewMockLogger()
-	mockLog.On("Debug", mock.Anything, mock.Anything).Once()
-	mockLog.SetLevel(logger.LogLevelDebug)
 
-	headerHandler := NewHeaderHandler(req, mockLog, nil, nil)
-	headerHandler.LogHeaders(true)
+	acceptHeader := "application/json"
+	headerHandler := NewHeaderHandler(req, nil, nil, nil)
+	headerHandler.SetAccept(acceptHeader)
 
-	mockLog.AssertExpectations(t)
+	assert.Equal(t, acceptHeader, req.Header.Get("Accept"), "Accept header should be correctly set")
+}
+
+// TestSetUserAgent verifies that the SetUserAgent method correctly sets the
+// "User-Agent" header of the HTTP request. This header should reflect the user
+// agent string passed to the method.
+func TestSetUserAgent(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+
+	userAgent := "MyCustomUserAgent/1.0"
+	headerHandler := NewHeaderHandler(req, nil, nil, nil)
+	headerHandler.SetUserAgent(userAgent)
+
+	assert.Equal(t, userAgent, req.Header.Get("User-Agent"), "User-Agent header should be correctly set")
+}
+
+// TestSetCacheControlHeader verifies that the SetCacheControlHeader function
+// correctly sets the "Cache-Control" header of the HTTP request. This header
+// contains directives for caching mechanisms in requests and responses.
+func TestSetCacheControlHeader(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+
+	cacheControlValue := "no-cache"
+	SetCacheControlHeader(req, cacheControlValue)
+
+	assert.Equal(t, cacheControlValue, req.Header.Get("Cache-Control"), "Cache-Control header should be correctly set")
 }

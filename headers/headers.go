@@ -16,11 +16,10 @@ import (
 
 // HeaderHandler is responsible for managing and setting headers on HTTP requests.
 type HeaderHandler struct {
-	req              *http.Request         // The http.Request for which headers are being managed
-	log              logger.Logger         // The logger to use for logging headers
-	apiHandler       apihandler.APIHandler // The APIHandler to use for retrieving standard headers
-	token            string                // The token to use for setting the Authorization header
-	authTokenHandler *authenticationhandler.AuthTokenHandler
+	req              *http.Request                           // The http.Request for which headers are being managed
+	log              logger.Logger                           // The logger to use for logging headers
+	apiHandler       apihandler.APIHandler                   // The APIHandler to use for retrieving standard headers
+	authTokenHandler *authenticationhandler.AuthTokenHandler // The token to use for setting the Authorization header
 }
 
 // NewHeaderHandler creates a new instance of HeaderHandler for a given http.Request, logger, and APIHandler.
@@ -33,7 +32,6 @@ func NewHeaderHandler(req *http.Request, log logger.Logger, apiHandler apihandle
 	}
 }
 
-// SetAuthorization sets the Authorization header for the request.
 // func (h *HeaderHandler) SetAuthorization(token string) {
 // 	// Ensure the token is prefixed with "Bearer " only once
 // 	if !strings.HasPrefix(token, "Bearer ") {
@@ -42,6 +40,7 @@ func NewHeaderHandler(req *http.Request, log logger.Logger, apiHandler apihandle
 // 	h.req.Header.Set("Authorization", token)
 // }
 
+// SetAuthorization sets the Authorization header for the request.
 func (h *HeaderHandler) SetAuthorization() {
 	token := h.authTokenHandler.Token
 	if !strings.HasPrefix(token, "Bearer ") {
