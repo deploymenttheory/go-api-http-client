@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
-	"github.com/deploymenttheory/go-api-http-client/proxy"
 	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 	"go.uber.org/zap"
 )
@@ -39,7 +38,6 @@ type ClientConfig struct {
 	Auth          AuthConfig        // User can either supply these values manually or pass from LoadAuthConfig/Env vars
 	Environment   EnvironmentConfig // User can either supply these values manually or pass from LoadAuthConfig/Env vars
 	ClientOptions ClientOptions     // Optional configuration options for the HTTP Client
-	Proxy         ProxyConfig       // Proxy configuration options for the HTTP Client
 }
 
 // AuthConfig represents the structure to read authentication details from a JSON configuration file.
@@ -72,13 +70,6 @@ type ClientOptions struct {
 	TokenRefreshBufferPeriod  time.Duration
 	TotalRetryDuration        time.Duration
 	CustomTimeout             time.Duration
-}
-
-type ProxyConfig struct {
-	ProxyURL       string `json:"ProxyURL,omitempty"`
-	ProxyUsername  string `json:"ProxyUsername,omitempty"`
-	ProxyPassword  string `json:"ProxyPassword,omitempty"`
-	ProxyAuthToken string `json:"ProxyAuthToken,omitempty"`
 }
 
 // ClientPerformanceMetrics captures various metrics related to the client's
@@ -133,11 +124,6 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	// Conditionally setup redirect handling
 	if err := redirecthandler.SetupRedirectHandler(httpClient, config.ClientOptions.FollowRedirects, config.ClientOptions.MaxRedirects, log); err != nil {
 		log.Error("Failed to set up redirect handler", zap.Error(err))
-		return nil, err
-	}
-
-	// Conditionally Initialize the proxy if provided in the configuration
-	if err := proxy.InitializeProxy(httpClient, config.Proxy.ProxyURL, config.Proxy.ProxyUsername, config.Proxy.ProxyPassword, config.Proxy.ProxyAuthToken, log); err != nil {
 		return nil, err
 	}
 
