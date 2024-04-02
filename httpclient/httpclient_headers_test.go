@@ -142,3 +142,34 @@ func TestSetCustomHeader(t *testing.T) {
 	SetCustomHeader(req, "X-Custom-Header", "CustomValue")
 	assert.Equal(t, "CustomValue", req.Header.Get("X-Custom-Header"))
 }
+
+// TestRedactSensitiveData tests the RedactSensitiveData function with various scenarios
+func TestRedactSensitiveData(t *testing.T) {
+	tests := []struct {
+		name            string
+		hideSensitive   bool
+		key             string
+		value           string
+		expectedOutcome string
+	}{
+		{"RedactSensitiveKey", true, "AccessToken", "secret-token", "REDACTED"},
+		{"RedactSensitiveKeyAuthorization", true, "Authorization", "Bearer secret-token", "REDACTED"},
+		{"DoNotRedactNonSensitiveKey", true, "NonSensitiveKey", "non-sensitive-value", "non-sensitive-value"},
+		{"DoNotRedactWhenDisabled", false, "AccessToken", "secret-token", "secret-token"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &Client{
+				clientConfig: ClientConfig{
+					ClientOptions: ClientOptions{
+						HideSensitiveData: tt.hideSensitive,
+					},
+				},
+			}
+
+			result := RedactSensitiveHeaderData(client, tt.key, tt.value)
+			assert.Equal(t, tt.expectedOutcome, result, "Redaction outcome should match expected")
+		})
+	}
+}

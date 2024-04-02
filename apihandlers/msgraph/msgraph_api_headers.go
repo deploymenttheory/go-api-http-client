@@ -64,7 +64,7 @@ func (g *GraphAPIHandler) GetAPIRequestHeaders(endpoint string) map[string]strin
 		"Accept":        g.GetAcceptHeader(),                        // Dynamically set based on API requirements.
 		"Content-Type":  g.GetContentTypeHeader(endpoint, g.Logger), // Dynamically set based on the endpoint.
 		"Authorization": "",                                         // To be set by the client with the actual token.
-		"User-Agent":    "go-api-http-client-graph-handler",         // To be set by the client, usually with application info.
+		"User-Agent":    "go-api-http-client-msgraph-handler",       // To be set by the client, usually with application info.
 	}
 	return headers
 }

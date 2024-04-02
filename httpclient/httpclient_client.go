@@ -126,6 +126,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		log.Error("Failed to set up redirect handler", zap.Error(err))
 		return nil, err
 	}
+
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
 		APIHandler:         apiHandler,
