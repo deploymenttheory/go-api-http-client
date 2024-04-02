@@ -128,11 +128,6 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		config.ClientOptions.HideSensitiveData,
 	)
 
-	if err != nil {
-		log.Error("Failed to initialize AuthTokenHandler", zap.Error(err))
-		return nil, err
-	}
-
 	log.Info("Initializing new HTTP client with the provided configuration")
 
 	// Initialize the internal HTTP client

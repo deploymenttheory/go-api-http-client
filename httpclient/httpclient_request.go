@@ -164,6 +164,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	}
 
 	// Set request headers
+	log.Debug("Setting Authorization header with token", zap.String("Token", c.Token))
 	headerHandler := headers.NewHeaderHandler(req, log, c.APIHandler, c.Token)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.HideSensitiveData)
@@ -332,6 +333,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	}
 
 	// Set request headers
+	log.Debug("Setting Authorization header with token", zap.String("Token", c.Token))
 	headerHandler := headers.NewHeaderHandler(req, log, c.APIHandler, c.Token)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.HideSensitiveData)
@@ -533,6 +535,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Initialize HeaderManager
+	log.Debug("Setting Authorization header with token", zap.String("Token", c.Token))
 	headerHandler := headers.NewHeaderHandler(req, log, c.APIHandler, c.Token)
 
 	// Use HeaderManager to set headers
