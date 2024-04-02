@@ -1,7 +1,6 @@
 // authenticationhandler/auth_bearer_token.go
 /* The http_client_auth package focuses on authentication mechanisms for an HTTP client.
-It provides structures and methods for handling both basic and bearer token based authentication
-*/
+It provides structures and methods for handling both basic and bearer token based authentication */
 
 package authenticationhandler
 

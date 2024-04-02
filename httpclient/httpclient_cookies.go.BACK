@@ -1,4 +1,4 @@
-// httpclient_cookies.go
+// cookiejar/cookiejar_test.go
 package httpclient
 
 import (
