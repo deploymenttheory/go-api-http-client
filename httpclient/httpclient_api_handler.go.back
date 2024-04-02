@@ -4,8 +4,8 @@ package httpclient
 import (
 	"net/http"
 
-	"github.com/deploymenttheory/go-api-http-client/apihandlers/jamfpro"
-	"github.com/deploymenttheory/go-api-http-client/apihandlers/msgraph"
+	"github.com/deploymenttheory/go-api-http-client/apiintegrations/jamfpro"
+	"github.com/deploymenttheory/go-api-http-client/apiintegrations/msgraph"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )

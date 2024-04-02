@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
+	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/status"
 	"github.com/google/uuid"
@@ -111,8 +113,20 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	// Include the core logic for handling non-idempotent requests with retries here.
 	log.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
+	// // Auth Token validation check
+	// valid, err := c.ValidAuthTokenCheck()
+	// if err != nil || !valid {
+	// 	return nil, err
+	// }
 	// Auth Token validation check
-	valid, err := c.ValidAuthTokenCheck()
+	clientCredentials := authenticationhandler.ClientCredentials{
+		Username:     c.clientConfig.Auth.Username,
+		Password:     c.clientConfig.Auth.Password,
+		ClientID:     c.clientConfig.Auth.ClientID,
+		ClientSecret: c.clientConfig.Auth.ClientSecret,
+	}
+
+	valid, err := c.AuthTokenHandler.ValidAuthTokenCheck(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
@@ -150,9 +164,9 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	}
 
 	// Set request headers
-	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
-	headerManager.SetRequestHeaders(endpoint)
-	headerManager.LogHeaders(c)
+	headerHandler := headers.NewHeaderHandler(req, log, c.APIHandler, c.Token)
+	headerHandler.SetRequestHeaders(endpoint)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.HideSensitiveData)
 
 	// Define a retry deadline based on the client's total retry duration configuration
 	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.TotalRetryDuration)
@@ -268,8 +282,21 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	// Include the core logic for handling idempotent requests here.
 	log.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
+	// // Auth Token validation check
+	// valid, err := c.ValidAuthTokenCheck()
+	// if err != nil || !valid {
+	// 	return nil, err
+	// }
+
 	// Auth Token validation check
-	valid, err := c.ValidAuthTokenCheck()
+	clientCredentials := authenticationhandler.ClientCredentials{
+		Username:     c.clientConfig.Auth.Username,
+		Password:     c.clientConfig.Auth.Password,
+		ClientID:     c.clientConfig.Auth.ClientID,
+		ClientSecret: c.clientConfig.Auth.ClientSecret,
+	}
+
+	valid, err := c.AuthTokenHandler.ValidAuthTokenCheck(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
@@ -305,9 +332,9 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	}
 
 	// Set request headers
-	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
-	headerManager.SetRequestHeaders(endpoint)
-	headerManager.LogHeaders(c)
+	headerHandler := headers.NewHeaderHandler(req, log, c.APIHandler, c.Token)
+	headerHandler.SetRequestHeaders(endpoint)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.HideSensitiveData)
 
 	req = req.WithContext(ctx)
 
@@ -324,7 +351,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	log.LogCookies("incoming", req, method, endpoint)
 
 	// Checks for the presence of a deprecation header in the HTTP response and logs if found.
-	CheckDeprecationHeader(resp, log)
+	headers.CheckDeprecationHeader(resp, log)
 
 	// Check for successful status code, including redirects
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
@@ -469,7 +496,20 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	log := c.Logger
 
 	// Auth Token validation check
-	valid, err := c.ValidAuthTokenCheck()
+	// valid, err := c.ValidAuthTokenCheck()
+	// if err != nil || !valid {
+	// 	return nil, err
+	//}
+
+	// Auth Token validation check
+	clientCredentials := authenticationhandler.ClientCredentials{
+		Username:     c.clientConfig.Auth.Username,
+		Password:     c.clientConfig.Auth.Password,
+		ClientID:     c.clientConfig.Auth.ClientID,
+		ClientSecret: c.clientConfig.Auth.ClientSecret,
+	}
+
+	valid, err := c.AuthTokenHandler.ValidAuthTokenCheck(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
@@ -493,12 +533,12 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Initialize HeaderManager
-	headerManager := NewHeaderManager(req, log, c.APIHandler, c.Token)
+	headerHandler := headers.NewHeaderHandler(req, log, c.APIHandler, c.Token)
 
 	// Use HeaderManager to set headers
-	headerManager.SetContentType(contentType)
-	headerManager.SetRequestHeaders(endpoint)
-	headerManager.LogHeaders(c)
+	headerHandler.SetContentType(contentType)
+	headerHandler.SetRequestHeaders(endpoint)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.HideSensitiveData)
 
 	// Execute the request
 	resp, err := c.do(req, log, method, endpoint)

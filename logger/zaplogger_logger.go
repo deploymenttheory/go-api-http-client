@@ -1,4 +1,4 @@
-// zaplogger_logger.go
+// logger/zaplogger_logger.go
 // Ref: https://betterstack.com/community/guides/logging/go/zap/#logging-errors-with-zap
 package logger
 

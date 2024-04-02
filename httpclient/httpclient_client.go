@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
+	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 	"go.uber.org/zap"
@@ -19,18 +21,19 @@ import (
 
 // Client represents an HTTP client to interact with a specific API.
 type Client struct {
-	APIHandler         APIHandler // APIHandler interface used to define which API handler to use
-	InstanceName       string     // Website Instance name without the root domain
-	AuthMethod         string     // Specifies the authentication method: "bearer" or "oauth"
-	Token              string     // Authentication Token
-	OverrideBaseDomain string     // Base domain override used when the default in the api handler isn't suitable
-	Expiry             time.Time  // Expiry time set for the auth token
+	InstanceName       string    // Website Instance name without the root domain
+	AuthMethod         string    // Specifies the authentication method: "bearer" or "oauth"
+	Token              string    // Authentication Token
+	OverrideBaseDomain string    // Base domain override used when the default in the api handler isn't suitable
+	Expiry             time.Time // Expiry time set for the auth token
 	httpClient         *http.Client
 	tokenLock          sync.Mutex
 	clientConfig       ClientConfig
 	Logger             logger.Logger
 	ConcurrencyMgr     *ConcurrencyManager
 	PerfMetrics        PerformanceMetrics
+	APIHandler         apihandler.APIHandler // APIHandler interface used to define which API handler to use
+	AuthTokenHandler   *authenticationhandler.AuthTokenHandler
 }
 
 // Config holds configuration options for the HTTP Client.
@@ -96,15 +99,37 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	log.SetLevel(parsedLogLevel)
 
 	// Use the APIType from the config to determine which API handler to load
-	apiHandler, err := LoadAPIHandler(config.Environment.APIType, log)
+	apiHandler, err := apihandler.LoadAPIHandler(config.Environment.APIType, log)
 	if err != nil {
-		return nil, log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
+		log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
+		return nil, err
 	}
 
 	// Determine the authentication method using the helper function
 	authMethod, err := DetermineAuthMethod(config.Auth)
 	if err != nil {
 		log.Error("Failed to determine authentication method", zap.Error(err))
+		return nil, err
+	}
+
+	// Initialize AuthTokenHandler
+	clientCredentials := authenticationhandler.ClientCredentials{
+		Username:     config.Auth.Username,
+		Password:     config.Auth.Password,
+		ClientID:     config.Auth.ClientID,
+		ClientSecret: config.Auth.ClientSecret,
+	}
+
+	authTokenHandler := authenticationhandler.NewAuthTokenHandler(
+		log,
+		authMethod,
+		clientCredentials,
+		config.Environment.InstanceName,
+		config.ClientOptions.HideSensitiveData,
+	)
+
+	if err != nil {
+		log.Error("Failed to initialize AuthTokenHandler", zap.Error(err))
 		return nil, err
 	}
 
@@ -138,6 +163,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		Logger:             log,
 		ConcurrencyMgr:     NewConcurrencyManager(config.ClientOptions.MaxConcurrentRequests, log, true),
 		PerfMetrics:        PerformanceMetrics{},
+		AuthTokenHandler:   authTokenHandler,
 	}
 
 	// Log the client's configuration.

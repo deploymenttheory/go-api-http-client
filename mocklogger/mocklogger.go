@@ -1,3 +1,4 @@
+// mocklogger/mocklogger.go
 package mocklogger
 
 import (
