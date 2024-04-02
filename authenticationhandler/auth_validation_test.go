@@ -1,5 +1,6 @@
-// httpclient_auth_validation_test.go
-package httpclient
+// authenticationhandler/auth_validation_test.go
+
+package authenticationhandler
 
 import (
 	"testing"
