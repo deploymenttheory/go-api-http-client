@@ -14,6 +14,7 @@ import (
 
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
+	"github.com/deploymenttheory/go-api-http-client/cookiejar"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 	"go.uber.org/zap"
@@ -27,13 +28,13 @@ type Client struct {
 	OverrideBaseDomain string    // Base domain override used when the default in the api handler isn't suitable
 	Expiry             time.Time // Expiry time set for the auth token
 	httpClient         *http.Client
-	tokenLock          sync.Mutex
-	clientConfig       ClientConfig
-	Logger             logger.Logger
-	ConcurrencyMgr     *ConcurrencyManager
-	PerfMetrics        PerformanceMetrics
-	APIHandler         apihandler.APIHandler // APIHandler interface used to define which API handler to use
-	AuthTokenHandler   *authenticationhandler.AuthTokenHandler
+	//tokenLock          sync.Mutex
+	clientConfig     ClientConfig
+	Logger           logger.Logger
+	ConcurrencyMgr   *ConcurrencyManager
+	PerfMetrics      PerformanceMetrics
+	APIHandler       apihandler.APIHandler // APIHandler interface used to define which API handler to use
+	AuthTokenHandler *authenticationhandler.AuthTokenHandler
 }
 
 // Config holds configuration options for the HTTP Client.
@@ -136,7 +137,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	}
 
 	// Conditionally setup cookie jar
-	if err := setupCookieJar(httpClient, config.ClientOptions.EnableCookieJar, log); err != nil {
+	if err := cookiejar.SetupCookieJar(httpClient, config.ClientOptions.EnableCookieJar, log); err != nil {
 		log.Error("Error setting up cookie jar", zap.Error(err))
 		return nil, err
 	}
