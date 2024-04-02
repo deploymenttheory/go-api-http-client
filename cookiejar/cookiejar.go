@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
@@ -72,4 +73,29 @@ func ParseCookieHeader(header string) *http.Cookie {
 		}
 	}
 	return nil
+}
+
+// PrintCookies prints the cookies stored in the HTTP client's cookie jar for a given URL.
+func PrintCookies(client *http.Client, urlString string, log logger.Logger) {
+	if client.Jar == nil {
+		log.Error("Cookie jar is not initialized.")
+		return
+	}
+
+	// Correctly use url.Parse for parsing the URL string
+	parsedURL, err := url.Parse(urlString)
+	if err != nil {
+		log.Error("Failed to parse URL for cookie jar", zap.Error(err))
+		return
+	}
+
+	cookies := client.Jar.Cookies(parsedURL)
+	if len(cookies) == 0 {
+		log.Info("No cookies found for URL", zap.String("url", urlString))
+		return
+	}
+
+	for _, cookie := range cookies {
+		log.Info("Cookie", zap.String("Name", cookie.Name), zap.String("Value", cookie.Value))
+	}
 }
