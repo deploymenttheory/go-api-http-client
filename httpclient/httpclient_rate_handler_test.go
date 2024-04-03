@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/mocklogger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -76,7 +77,8 @@ func TestParseRateLimitHeaders(t *testing.T) {
 				resp.Header.Add(k, v)
 			}
 
-			wait := parseRateLimitHeaders(resp, NewMockLogger())
+			mockLog := mocklogger.NewMockLogger()
+			wait := parseRateLimitHeaders(resp, mockLog)
 
 			// Adjust the delta based on the expected wait duration
 			delta := time.Duration(1) * time.Second
