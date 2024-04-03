@@ -46,8 +46,6 @@ func TestLoadAPIHandler(t *testing.T) {
 			// Setup expectations for the mock logger based on whether an error is expected.
 			if tt.wantErr {
 				mockLog.On("Error", mock.Anything, mock.Anything, mock.Anything).Return().Once()
-			} else {
-				mockLog.On("Info", mock.Anything, mock.Anything, mock.Anything).Return().Once()
 			}
 
 			// Attempt to load the API handler.
