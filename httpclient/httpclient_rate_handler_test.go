@@ -35,6 +35,14 @@ func TestCalculateBackoff(t *testing.T) {
 	}
 }
 
+// TestParseRateLimitHeaders evaluates the functionality of the parseRateLimitHeaders function,
+// ensuring it correctly interprets various rate-limiting headers from an HTTP response and calculates
+// the appropriate wait duration. The function tests different scenarios including 'Retry-After' headers
+// with both date and delay values, 'X-RateLimit-Reset' headers indicating the reset time for rate limiting,
+// and situations where no relevant headers are present. Each test case mimics an HTTP response with specific
+// headers set, and asserts that the calculated wait duration falls within an acceptable range of the expected
+// value, allowing for slight variances due to execution time and rounding. The use of a mock logger ensures
+// that the function's logging behavior can also be verified without affecting the output of the test runner.
 func TestParseRateLimitHeaders(t *testing.T) {
 	tests := []struct {
 		name         string
