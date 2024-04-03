@@ -1,5 +1,5 @@
-// httpclient_methods_test.go
-package httpclient
+// method/httpmethod_test.go
+package method
 
 import (
 	"net/http"

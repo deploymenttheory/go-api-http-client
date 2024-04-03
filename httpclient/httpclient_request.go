@@ -65,9 +65,9 @@ import (
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
-	if IsIdempotentHTTPMethod(method) {
+	if method.IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out)
-	} else if IsNonIdempotentHTTPMethod(method) {
+	} else if method.IsNonIdempotentHTTPMethod(method) {
 		return c.executeRequest(method, endpoint, body, out)
 	} else {
 		return nil, log.Error("HTTP method not supported", zap.String("method", method))

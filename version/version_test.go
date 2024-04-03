@@ -1,5 +1,5 @@
-// httpclient_version_test.go
-package httpclient
+// version_test.go
+package version
 
 import (
 	"fmt"
