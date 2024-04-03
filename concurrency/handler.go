@@ -1,5 +1,5 @@
-// concurrencyhandler/handler.go
-package concurrencyhandler
+// concurrency/handler.go
+package concurrency
 
 import (
 	"sync"
@@ -22,38 +22,37 @@ type ConcurrencyHandler struct {
 	AcquisitionTimes         []time.Duration
 	lock                     sync.Mutex
 	lastTokenAcquisitionTime time.Time
-	PerfMetrics              *PerformanceMetrics
+	Metrics                  *ConcurrencyMetrics
 }
 
-// PerformanceMetrics captures various metrics related to the client's
-// interactions with the API.
-type PerformanceMetrics struct {
+// ConcurrencyMetrics captures various metrics related to managing concurrency for the client's interactions with the API.
+type ConcurrencyMetrics struct {
 	TotalRequests        int64
 	TotalRetries         int64
 	TotalRateLimitErrors int64
 	TotalResponseTime    time.Duration
 	TokenWaitTime        time.Duration
-	lock                 sync.Mutex // Protects performance metrics fields
+	Lock                 sync.Mutex // Protects performance metrics fields
 }
 
-// NewConcurrencyManager initializes a new ConcurrencyManager with the given
-// concurrency limit, logger, and perf metrics. The ConcurrencyManager ensures
+// NewConcurrencyHandler initializes a new ConcurrencyHandler with the given
+// concurrency limit, logger, and concurrency metrics. The ConcurrencyHandler ensures
 // no more than a certain number of concurrent requests are made.
 // It uses a semaphore to control concurrency.
-func NewConcurrencyHandler(limit int, logger logger.Logger, perfMetrics *PerformanceMetrics) *ConcurrencyHandler {
+func NewConcurrencyHandler(limit int, logger logger.Logger, metrics *ConcurrencyMetrics) *ConcurrencyHandler {
 	return &ConcurrencyHandler{
 		sem:              make(chan struct{}, limit),
 		logger:           logger,
 		AcquisitionTimes: []time.Duration{},
-		PerfMetrics:      perfMetrics,
+		Metrics:          metrics,
 	}
 }
 
-// requestIDKey is type used as a key for storing and retrieving
+// RequestIDKey is type used as a key for storing and retrieving
 // request-specific identifiers from a context.Context object. This private
 // type ensures that the key is distinct and prevents accidental value
 // retrieval or conflicts with other context keys. The value associated
 // with this key in a context is typically a UUID that uniquely identifies
 // a request being processed by the ConcurrencyManager, allowing for
 // fine-grained control and tracking of concurrent HTTP requests.
-type requestIDKey struct{}
+type RequestIDKey struct{}
