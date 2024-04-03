@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
+	"github.com/deploymenttheory/go-api-http-client/cookiejar"
 	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/httpmethod"
 	"github.com/deploymenttheory/go-api-http-client/logger"
@@ -336,8 +337,11 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 		return nil, err
 	}
 
-	// Log incoming cookies
-	log.LogCookies("incoming", req, method, endpoint)
+	// Get Cookies
+	cookiejar.GetCookies(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Log outgoing cookies
+		log.LogCookies("incoming", r, method, endpoint)
+	}), c.Logger).ServeHTTP(nil, req)
 
 	// Checks for the presence of a deprecation header in the HTTP response and logs if found.
 	headers.CheckDeprecationHeader(resp, log)
