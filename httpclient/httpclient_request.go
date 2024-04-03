@@ -9,6 +9,7 @@ import (
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/headers"
+	"github.com/deploymenttheory/go-api-http-client/httpmethod"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/ratehandler"
 	"github.com/deploymenttheory/go-api-http-client/status"
@@ -65,9 +66,9 @@ import (
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
-	if method.IsIdempotentHTTPMethod(method) {
+	if httpmethod.IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out)
-	} else if method.IsNonIdempotentHTTPMethod(method) {
+	} else if httpmethod.IsNonIdempotentHTTPMethod(method) {
 		return c.executeRequest(method, endpoint, body, out)
 	} else {
 		return nil, log.Error("HTTP method not supported", zap.String("method", method))

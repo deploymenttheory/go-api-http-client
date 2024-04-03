@@ -1,5 +1,5 @@
-// method/httpmethod_test.go
-package method
+// httpmethod/httpmethod_test.go
+package httpmethod
 
 import (
 	"net/http"
