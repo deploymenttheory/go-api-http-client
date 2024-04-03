@@ -1,4 +1,4 @@
-// http_rate_handler.go
+// ratehandler/ratehandler.go
 
 /*
 Components:
@@ -16,7 +16,7 @@ behavior accordingly.
 
 */
 
-package httpclient
+package ratehandler
 
 import (
 	"math"
@@ -36,11 +36,11 @@ const (
 	jitterFactor = 0.5                    // Random jitter factor
 )
 
-// calculateBackoff calculates the next delay for retry with exponential backoff and jitter.
+// CalculateBackoff calculates the next delay for retry with exponential backoff and jitter.
 // The baseDelay is the initial delay duration, which is exponentially increased on each retry.
 // The jitterFactor adds randomness to the delay to avoid simultaneous retries (thundering herd problem).
 // The delay is capped at maxDelay to prevent excessive wait times.
-func calculateBackoff(retry int) time.Duration {
+func CalculateBackoff(retry int) time.Duration {
 	if retry < 0 {
 		retry = 0 // Ensure non-negative retry count
 	}
@@ -55,9 +55,9 @@ func calculateBackoff(retry int) time.Duration {
 	return time.Duration(delayWithJitter)
 }
 
-// parseRateLimitHeaders parses common rate limit headers and adjusts behavior accordingly.
+// ParseRateLimitHeaders parses common rate limit headers and adjusts behavior accordingly.
 // It handles both Retry-After (in seconds or HTTP-date format) and X-RateLimit-Reset headers.
-func parseRateLimitHeaders(resp *http.Response, log logger.Logger) time.Duration {
+func ParseRateLimitHeaders(resp *http.Response, log logger.Logger) time.Duration {
 	// Check for the Retry-After header in seconds
 	if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
 		if waitSeconds, err := strconv.Atoi(retryAfter); err == nil {

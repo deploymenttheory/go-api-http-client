@@ -1,5 +1,5 @@
-// http_helpers.go
-package httpclient
+// helpers/helpers.go
+package helpers
 
 import (
 	"testing"

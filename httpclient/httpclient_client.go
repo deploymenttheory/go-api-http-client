@@ -29,9 +29,10 @@ type Client struct {
 	Expiry             time.Time // Expiry time set for the auth token
 	httpClient         *http.Client
 	//tokenLock          sync.Mutex
-	clientConfig     ClientConfig
-	Logger           logger.Logger
-	ConcurrencyMgr   *ConcurrencyManager
+	clientConfig   ClientConfig
+	Logger         logger.Logger
+	ConcurrencyMgr *ConcurrencyManager
+	//ConcurrencyHandler *concurrencyhandler.ConcurrencyHandler
 	PerfMetrics      PerformanceMetrics
 	APIHandler       apihandler.APIHandler // APIHandler interface used to define which API handler to use
 	AuthTokenHandler *authenticationhandler.AuthTokenHandler
