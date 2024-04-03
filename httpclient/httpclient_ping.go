@@ -15,7 +15,7 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
-// DoPing performs an HTTP "ping" to the specified endpoint using the given HTTP method, body,
+// DoPole performs an HTTP "ping" to the specified endpoint using the given HTTP method, body,
 // and output variable. It attempts the request until a 200 OK response is received or the
 // maximum number of retry attempts is reached. The function uses a backoff strategy for retries
 // to manage load on the server and network. This function is useful for checking the availability
@@ -52,9 +52,9 @@ import (
 //	}
 //
 // // Process response
-func (c *Client) DoPing(method, endpoint string, body, out interface{}) (*http.Response, error) {
+func (c *Client) DoPole(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
-	log.Debug("Starting Ping", zap.String("method", method), zap.String("endpoint", endpoint))
+	log.Debug("Starting HTTP Ping", zap.String("method", method), zap.String("endpoint", endpoint))
 
 	// Initialize retry count and define maximum retries
 	var retryCount int
@@ -106,7 +106,7 @@ func (c *Client) DoPing(method, endpoint string, body, out interface{}) (*http.R
 //     // Handle error
 // }
 
-func (c *Client) DoPingV2(host string, timeout time.Duration) error {
+func (c *Client) DoPing(host string, timeout time.Duration) error {
 	log := c.Logger
 
 	// Listen for ICMP replies
