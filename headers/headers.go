@@ -32,14 +32,6 @@ func NewHeaderHandler(req *http.Request, log logger.Logger, apiHandler apihandle
 	}
 }
 
-// func (h *HeaderHandler) SetAuthorization(token string) {
-// 	// Ensure the token is prefixed with "Bearer " only once
-// 	if !strings.HasPrefix(token, "Bearer ") {
-// 		token = "Bearer " + token
-// 	}
-// 	h.req.Header.Set("Authorization", token)
-// }
-
 // SetAuthorization sets the Authorization header for the request.
 func (h *HeaderHandler) SetAuthorization() {
 	token := h.authTokenHandler.Token
