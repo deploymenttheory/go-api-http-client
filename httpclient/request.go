@@ -9,8 +9,10 @@ import (
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/headers"
+	"github.com/deploymenttheory/go-api-http-client/httpmethod"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/ratehandler"
+	"github.com/deploymenttheory/go-api-http-client/response"
 	"github.com/deploymenttheory/go-api-http-client/status"
 	"go.uber.org/zap"
 )
@@ -65,9 +67,9 @@ import (
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
-	if IsIdempotentHTTPMethod(method) {
+	if httpmethod.IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out)
-	} else if IsNonIdempotentHTTPMethod(method) {
+	} else if httpmethod.IsNonIdempotentHTTPMethod(method) {
 		return c.executeRequest(method, endpoint, body, out)
 	} else {
 		return nil, log.Error("HTTP method not supported", zap.String("method", method))
@@ -194,7 +196,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		// Check for non-retryable errors
 		if resp != nil && status.IsNonRetryableStatusCode(resp) {
 			log.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
-			return resp, handleAPIErrorResponse(resp, log)
+			return resp, response.HandleAPIErrorResponse(resp, log)
 		}
 
 		// Parsing rate limit headers if a rate-limit error is detected
@@ -222,7 +224,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 
 		// Handle error responses
 		if err != nil || !status.IsRetryableStatusCode(resp.StatusCode) {
-			if apiErr := handleAPIErrorResponse(resp, log); apiErr != nil {
+			if apiErr := response.HandleAPIErrorResponse(resp, log); apiErr != nil {
 				err = apiErr
 			}
 			log.LogError("request_error", method, endpoint, resp.StatusCode, resp.Status, err, status.TranslateStatusCode(resp))
@@ -235,7 +237,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		return nil, err
 	}
 
-	return resp, handleAPIErrorResponse(resp, log)
+	return resp, response.HandleAPIErrorResponse(resp, log)
 }
 
 // executeRequest executes an HTTP request using the specified method, endpoint, and request body without implementing

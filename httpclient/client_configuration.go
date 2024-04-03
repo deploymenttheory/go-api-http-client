@@ -1,3 +1,5 @@
+// httpclient/client_configuration.go
+// Description: This file contains functions to load and validate configuration values from a JSON file or environment variables.
 package httpclient
 
 import (

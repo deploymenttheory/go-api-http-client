@@ -1,6 +1,6 @@
-// httpclient_error_response.go
+// response/error.go
 // This package provides utility functions and structures for handling and categorizing HTTP error responses.
-package httpclient
+package response
 
 import (
 	"encoding/json"
@@ -39,8 +39,8 @@ func (e *APIError) Error() string {
 	return string(data)
 }
 
-// handleAPIErrorResponse attempts to parse the error response from the API and logs using the zap logger.
-func handleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
+// HandleAPIErrorResponse attempts to parse the error response from the API and logs using the zap logger.
+func HandleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 	apiError := &APIError{
 		StatusCode: resp.StatusCode,
 		Type:       "APIError",          // Default error type

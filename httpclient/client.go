@@ -1,4 +1,4 @@
-// http_client.go
+// httpclient/client.go
 /* The `http_client` package provides a configurable HTTP client tailored for interacting with specific APIs.
 It supports different authentication methods, including "bearer" and "oauth". The client is designed with a
 focus on concurrency management, structured error handling, and flexible configuration options.

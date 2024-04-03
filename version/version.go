@@ -1,18 +1,13 @@
 // version.go
 package version
 
-// AppName holds the name of the application
-var AppName = "go-api-http-client"
+import "fmt"
 
-// Version holds the current version of the application
-var Version = "0.0.91"
+const (
+	SDKVersion    = "0.0.90"
+	UserAgentBase = "go-api-http-client"
+)
 
-// GetAppName returns the name of the application
-func GetAppName() string {
-	return AppName
-}
-
-// GetVersion returns the current version of the application
-func GetVersion() string {
-	return Version
+func GetUserAgentHeader() string {
+	return fmt.Sprintf("%s/%s", UserAgentBase, SDKVersion)
 }
