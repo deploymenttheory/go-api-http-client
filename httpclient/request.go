@@ -12,6 +12,7 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/httpmethod"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/ratehandler"
+	"github.com/deploymenttheory/go-api-http-client/response"
 	"github.com/deploymenttheory/go-api-http-client/status"
 	"go.uber.org/zap"
 )
@@ -195,7 +196,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		// Check for non-retryable errors
 		if resp != nil && status.IsNonRetryableStatusCode(resp) {
 			log.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
-			return resp, handleAPIErrorResponse(resp, log)
+			return resp, response.HandleAPIErrorResponse(resp, log)
 		}
 
 		// Parsing rate limit headers if a rate-limit error is detected
@@ -223,7 +224,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 
 		// Handle error responses
 		if err != nil || !status.IsRetryableStatusCode(resp.StatusCode) {
-			if apiErr := handleAPIErrorResponse(resp, log); apiErr != nil {
+			if apiErr := response.HandleAPIErrorResponse(resp, log); apiErr != nil {
 				err = apiErr
 			}
 			log.LogError("request_error", method, endpoint, resp.StatusCode, resp.Status, err, status.TranslateStatusCode(resp))
@@ -236,7 +237,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		return nil, err
 	}
 
-	return resp, handleAPIErrorResponse(resp, log)
+	return resp, response.HandleAPIErrorResponse(resp, log)
 }
 
 // executeRequest executes an HTTP request using the specified method, endpoint, and request body without implementing
