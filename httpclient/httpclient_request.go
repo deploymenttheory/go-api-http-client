@@ -10,6 +10,7 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/logger"
+	"github.com/deploymenttheory/go-api-http-client/ratehandler"
 	"github.com/deploymenttheory/go-api-http-client/status"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -207,7 +208,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 
 		// Parsing rate limit headers if a rate-limit error is detected
 		if status.IsRateLimitError(resp) {
-			waitDuration := parseRateLimitHeaders(resp, log)
+			waitDuration := ratehandler.ParseRateLimitHeaders(resp, log)
 			if waitDuration > 0 {
 				log.Warn("Rate limit encountered, waiting before retrying", zap.Duration("waitDuration", waitDuration))
 				time.Sleep(waitDuration)
@@ -222,7 +223,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
 				break // Stop retrying if max attempts are reached
 			}
-			waitDuration := calculateBackoff(retryCount)
+			waitDuration := ratehandler.CalculateBackoff(retryCount)
 			log.Warn("Retrying request due to transient error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err))
 			time.Sleep(waitDuration) // Wait before retrying
 			continue                 // Continue to next iteration after waiting

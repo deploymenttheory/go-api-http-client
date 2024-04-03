@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/ratehandler"
+
 	"go.uber.org/zap"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
@@ -74,7 +76,7 @@ func (c *Client) DoPing(method, endpoint string, body, out interface{}) (*http.R
 		log.Warn("Ping failed, retrying...", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount))
 
 		// Calculate backoff duration and wait before retrying
-		backoffDuration := calculateBackoff(retryCount)
+		backoffDuration := ratehandler.CalculateBackoff(retryCount)
 		time.Sleep(backoffDuration)
 	}
 

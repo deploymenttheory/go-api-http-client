@@ -1,5 +1,5 @@
-// http_rate_handler_test.go
-package httpclient
+// ratehandler/ratehandler.go
+package ratehandler
 
 import (
 	"net/http"
@@ -26,7 +26,7 @@ func TestCalculateBackoff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("RetryCount"+strconv.Itoa(tt.retry), func(t *testing.T) {
-			delay := calculateBackoff(tt.retry)
+			delay := CalculateBackoff(tt.retry)
 
 			// The delay should be within the expected range
 			assert.GreaterOrEqual(t, delay, tt.expectedMin, "Delay should be greater than or equal to expected minimum after jitter adjustment")
@@ -86,7 +86,7 @@ func TestParseRateLimitHeaders(t *testing.T) {
 			}
 
 			mockLog := mocklogger.NewMockLogger()
-			wait := parseRateLimitHeaders(resp, mockLog)
+			wait := ParseRateLimitHeaders(resp, mockLog)
 
 			// Adjust the delta based on the expected wait duration
 			delta := time.Duration(1) * time.Second

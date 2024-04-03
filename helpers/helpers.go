@@ -1,5 +1,5 @@
-// http_helpers.go
-package httpclient
+// helpers/helpers_test.go
+package helpers
 
 import (
 	"time"
