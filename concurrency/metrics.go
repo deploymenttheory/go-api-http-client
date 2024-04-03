@@ -1,5 +1,5 @@
-// concurrencyhandler/metrics.go
-package concurrencyhandler
+// concurrency/metrics.go
+package concurrency
 
 import "time"
 
@@ -54,10 +54,10 @@ func (ch *ConcurrencyHandler) HistoricalAverageAcquisitionTime() time.Duration {
 // This function should be called after each HTTP request to keep track of the
 // ConcurrencyHandler's performance over time.
 func (ch *ConcurrencyHandler) UpdatePerformanceMetrics(duration time.Duration) {
-	ch.PerfMetrics.lock.Lock()
-	defer ch.PerfMetrics.lock.Unlock()
-	ch.PerfMetrics.TotalResponseTime += duration
-	ch.PerfMetrics.TotalRequests++
+	ch.Metrics.Lock.Lock()
+	defer ch.Metrics.Lock.Unlock()
+	ch.Metrics.TotalResponseTime += duration
+	ch.Metrics.TotalRequests++
 }
 
 // Min returns the smaller of the two integers.

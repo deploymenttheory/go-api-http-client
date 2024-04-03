@@ -9,11 +9,11 @@ package httpclient
 
 import (
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
+	"github.com/deploymenttheory/go-api-http-client/concurrency"
 	"github.com/deploymenttheory/go-api-http-client/cookiejar"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
@@ -28,14 +28,11 @@ type Client struct {
 	OverrideBaseDomain string    // Base domain override used when the default in the api handler isn't suitable
 	Expiry             time.Time // Expiry time set for the auth token
 	httpClient         *http.Client
-	//tokenLock          sync.Mutex
-	clientConfig   ClientConfig
-	Logger         logger.Logger
-	ConcurrencyMgr *ConcurrencyManager
-	//ConcurrencyHandler *concurrencyhandler.ConcurrencyHandler
-	PerfMetrics      PerformanceMetrics
-	APIHandler       apihandler.APIHandler // APIHandler interface used to define which API handler to use
-	AuthTokenHandler *authenticationhandler.AuthTokenHandler
+	clientConfig       ClientConfig
+	Logger             logger.Logger
+	ConcurrencyHandler *concurrency.ConcurrencyHandler
+	APIHandler         apihandler.APIHandler // APIHandler interface used to define which API handler to use
+	AuthTokenHandler   *authenticationhandler.AuthTokenHandler
 }
 
 // Config holds configuration options for the HTTP Client.
@@ -75,17 +72,6 @@ type ClientOptions struct {
 	TokenRefreshBufferPeriod  time.Duration
 	TotalRetryDuration        time.Duration
 	CustomTimeout             time.Duration
-}
-
-// ClientPerformanceMetrics captures various metrics related to the client's
-// interactions with the API, providing insights into its performance and behavior.
-type PerformanceMetrics struct {
-	TotalRequests        int64
-	TotalRetries         int64
-	TotalRateLimitErrors int64
-	TotalResponseTime    time.Duration
-	TokenWaitTime        time.Duration
-	lock                 sync.Mutex
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
@@ -149,6 +135,16 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		return nil, err
 	}
 
+	// Initialize ConcurrencyMetrics specifically for ConcurrencyHandler
+	concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
+
+	// Initialize the ConcurrencyHandler with the newly created ConcurrencyMetrics
+	concurrencyHandler := concurrency.NewConcurrencyHandler(
+		config.ClientOptions.MaxConcurrentRequests,
+		log,
+		concurrencyMetrics,
+	)
+
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
 		APIHandler:         apiHandler,
@@ -158,8 +154,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		httpClient:         httpClient,
 		clientConfig:       config,
 		Logger:             log,
-		ConcurrencyMgr:     NewConcurrencyManager(config.ClientOptions.MaxConcurrentRequests, log, true),
-		PerfMetrics:        PerformanceMetrics{},
+		ConcurrencyHandler: concurrencyHandler,
 		AuthTokenHandler:   authTokenHandler,
 	}
 

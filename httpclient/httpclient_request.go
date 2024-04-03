@@ -12,7 +12,6 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/ratehandler"
 	"github.com/deploymenttheory/go-api-http-client/status"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -114,11 +113,6 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	// Include the core logic for handling non-idempotent requests with retries here.
 	log.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	// // Auth Token validation check
-	// valid, err := c.ValidAuthTokenCheck()
-	// if err != nil || !valid {
-	// 	return nil, err
-	// }
 	// Auth Token validation check
 	clientCredentials := authenticationhandler.ClientCredentials{
 		Username:     c.clientConfig.Auth.Username,
@@ -132,16 +126,15 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		return nil, err
 	}
 
-	// Acquire a token for concurrency management
-	ctx, err := c.AcquireConcurrencyToken(context.Background())
+	// Acquire a concurrency token along with a unique request ID
+	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyToken(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, c.Logger.Error("Failed to acquire concurrency token", zap.Error(err))
 	}
+
+	// Ensure the token is released after the function exits
 	defer func() {
-		// Extract the requestID from the context and release the concurrency token
-		if requestID, ok := ctx.Value(requestIDKey{}).(uuid.UUID); ok {
-			c.ConcurrencyMgr.Release(requestID)
-		}
+		c.ConcurrencyHandler.ReleaseConcurrencyToken(requestID)
 	}()
 
 	// Marshal Request with correct encoding defined in api handler
@@ -153,10 +146,10 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	// Construct URL with correct structure defined in api handler
 	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
 
-	// Initialize total request counter
-	c.PerfMetrics.lock.Lock()
-	c.PerfMetrics.TotalRequests++
-	c.PerfMetrics.lock.Unlock()
+	// Increment total request counter within ConcurrencyHandler's metrics
+	c.ConcurrencyHandler.Metrics.Lock.Lock()
+	c.ConcurrencyHandler.Metrics.TotalRequests++
+	c.ConcurrencyHandler.Metrics.Lock.Unlock()
 
 	// Perform Request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
@@ -165,8 +158,6 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	}
 
 	// Set request headers
-	//log.Debug("Setting Authorization header with token", zap.String("Token", c.Token))
-	//headerHandler := headers.NewHeaderHandler(req, log, c.APIHandler, c.Token)
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.HideSensitiveData)
@@ -285,12 +276,6 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	// Include the core logic for handling idempotent requests here.
 	log.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	// // Auth Token validation check
-	// valid, err := c.ValidAuthTokenCheck()
-	// if err != nil || !valid {
-	// 	return nil, err
-	// }
-
 	// Auth Token validation check
 	clientCredentials := authenticationhandler.ClientCredentials{
 		Username:     c.clientConfig.Auth.Username,
@@ -304,16 +289,15 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 		return nil, err
 	}
 
-	// Acquire a token for concurrency management
-	ctx, err := c.AcquireConcurrencyToken(context.Background())
+	// Acquire a concurrency token along with a unique request ID
+	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyToken(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, c.Logger.Error("Failed to acquire concurrency token", zap.Error(err))
 	}
+
+	// Ensure the token is released after the function exits
 	defer func() {
-		// Extract the requestID from the context and release the concurrency token
-		if requestID, ok := ctx.Value(requestIDKey{}).(uuid.UUID); ok {
-			c.ConcurrencyMgr.Release(requestID)
-		}
+		c.ConcurrencyHandler.ReleaseConcurrencyToken(requestID)
 	}()
 
 	// Determine which set of encoding and content-type request rules to use
@@ -335,8 +319,6 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	}
 
 	// Set request headers
-	//log.Debug("Setting Authorization header with token", zap.String("Token", c.Token))
-	//headerHandler := headers.NewHeaderHandler(req, log, c.APIHandler, c.Token)
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.HideSensitiveData)

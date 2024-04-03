@@ -1,6 +1,6 @@
-// concurrencyhandler/dynamic_token_adjustment.go
+// concurrency/dynamic_token_adjustment.go
 
-package concurrencyhandler
+package concurrency
 
 import (
 	"time"
@@ -87,9 +87,9 @@ func (ch *ConcurrencyHandler) AdjustConcurrencyBasedOnMetrics() {
 // the concurrency limit is decreased, and vice versa. The method ensures that the concurrency
 // limit remains within the bounds defined by the system's best practices.
 func (ch *ConcurrencyHandler) EvaluateMetricsAndAdjustConcurrency() {
-	ch.PerfMetrics.lock.Lock()
-	averageResponseTime := ch.PerfMetrics.TotalResponseTime / time.Duration(ch.PerfMetrics.TotalRequests)
-	ch.PerfMetrics.lock.Unlock()
+	ch.Metrics.Lock.Lock()
+	averageResponseTime := ch.Metrics.TotalResponseTime / time.Duration(ch.Metrics.TotalRequests)
+	ch.Metrics.Lock.Unlock()
 
 	historicalAverageAcquisitionTime := ch.HistoricalAverageAcquisitionTime()
 
@@ -194,6 +194,6 @@ func (ch *ConcurrencyHandler) GetHistoricalAverageAcquisitionTime() time.Duratio
 // GetPerformanceMetrics returns the current performance metrics of the ConcurrencyHandler.
 // This includes counts of total requests, retries, rate limit errors, total response time,
 // and token wait time.
-func (ch *ConcurrencyHandler) GetPerformanceMetrics() *PerformanceMetrics {
-	return ch.PerfMetrics
+func (ch *ConcurrencyHandler) GetPerformanceMetrics() *ConcurrencyMetrics {
+	return ch.Metrics
 }
