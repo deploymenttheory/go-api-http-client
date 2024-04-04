@@ -17,12 +17,12 @@ import (
 
 // APIError represents an api error response.
 type APIError struct {
-	StatusCode int                    `json:"status_code" xml:"StatusCode"`            // HTTP status code
-	Type       string                 `json:"type" xml:"Type"`                         // Type of error
-	Message    string                 `json:"message" xml:"Message"`                   // Human-readable message
-	Detail     string                 `json:"detail,omitempty" xml:"Detail,omitempty"` // Detailed error message
-	Errors     map[string]interface{} `json:"errors,omitempty" xml:"Errors,omitempty"` // Additional error details
-	Raw        string                 `json:"raw" xml:"Raw"`                           // Raw response body for debugging
+	StatusCode int                    `json:"status_code"`      // HTTP status code
+	Type       string                 `json:"type"`             // Type of error
+	Message    string                 `json:"message"`          // Human-readable message
+	Detail     string                 `json:"detail,omitempty"` // Detailed error message
+	Errors     map[string]interface{} `json:"errors,omitempty"` // Additional error details
+	Raw        string                 `json:"raw"`              // Raw response body for debugging
 }
 
 // Error returns a string representation of the APIError, making it compatible with the error interface.
@@ -46,14 +46,14 @@ func (e *APIError) Error() string {
 func HandleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 	apiError := &APIError{
 		StatusCode: resp.StatusCode,
-		Type:       "APIError",
+		Type:       "API Error Response",
 		Message:    "An error occurred",
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		apiError.Raw = "Failed to read response body"
-		logError(log, apiError, "error_reading_response_body", resp)
+		log.LogError("error_reading_response_body", resp.Request.Method, resp.Request.URL.String(), apiError.StatusCode, resp.Status, err, apiError.Raw)
 		return apiError
 	}
 
@@ -70,7 +70,7 @@ func HandleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 	default:
 		apiError.Raw = string(bodyBytes)
 		apiError.Message = "Unknown content type error"
-		logError(log, apiError, "unknown_content_type_error", resp)
+		log.LogError("unknown_content_type_error", resp.Request.Method, resp.Request.URL.String(), apiError.StatusCode, "Unknown content type", nil, apiError.Raw)
 	}
 
 	return apiError
@@ -94,29 +94,27 @@ func ParseContentTypeHeader(header string) (string, map[string]string) {
 func parseJSONResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
 	if err := json.Unmarshal(bodyBytes, apiError); err != nil {
 		apiError.Raw = string(bodyBytes)
-		log.LogError("json_parsing_error",
-			resp.Request.Method,
-			resp.Request.URL.String(),
-			resp.StatusCode,
-			"JSON parsing failed",
-			err,
-			apiError.Raw,
-		)
+		logError(log, apiError, "json_parsing_error", resp.Request.Method, resp.Request.URL.String(), resp.Status, err)
 	} else {
-		// Successfully parsed JSON error, so log the error details.
-		logError(log, apiError, "json_error_detected", resp)
+		if apiError.Message == "" {
+			apiError.Message = "An unknown error occurred"
+		}
+
+		// Log the detected JSON error with all the context information.
+		logError(log, apiError, "json_error_detected", resp.Request.Method, resp.Request.URL.String(), resp.Status, nil)
 	}
 }
 
 // parseXMLResponse dynamically parses XML error responses and accumulates potential error messages.
 func parseXMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
-	// Always set the Raw field to the entire XML content for debugging purposes
+	// Always set the Raw field to the entire XML content for debugging purposes.
 	apiError.Raw = string(bodyBytes)
 
-	// Parse the XML document
+	// Parse the XML document.
 	doc, err := xmlquery.Parse(bytes.NewReader(bodyBytes))
 	if err != nil {
-		logError(log, apiError, "xml_parsing_error", resp)
+		// Log the XML parsing error with all the context information.
+		logError(log, apiError, "xml_parsing_error", resp.Request.Method, resp.Request.URL.String(), resp.Status, err)
 		return
 	}
 
@@ -133,93 +131,121 @@ func parseXMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, r
 
 	traverse(doc)
 
-	// Concatenate all messages found in the XML for the 'Message' field of APIError
+	// Concatenate all messages found in the XML for the 'Message' field of APIError.
 	if len(messages) > 0 {
 		apiError.Message = strings.Join(messages, "; ")
 	} else {
-		// Fallback error message if no specific messages were extracted
 		apiError.Message = "Failed to extract error details from XML response"
 	}
 
-	// Log the error using the centralized logger
-	logError(log, apiError, "xml_error_detected", resp)
+	// Determine the error to log based on whether a message was found.
+	var logErr error
+	if apiError.Message == "" {
+		logErr = fmt.Errorf("No error message extracted from XML")
+	}
+
+	// Log the error or the lack of extracted messages using the centralized logger.
+	logError(log, apiError, "xml_error_detected", resp.Request.Method, resp.Request.URL.String(), resp.Status, logErr)
 }
 
 // parseTextResponse updates the APIError structure based on a plain text error response and logs it.
 func parseTextResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
 	bodyText := string(bodyBytes)
-	apiError.Message = bodyText
 	apiError.Raw = bodyText
-	// Log the plain text error using the centralized logger.
-	logError(log, apiError, "text_error_detected", resp)
+
+	// Check if the 'Message' field of APIError is empty and use the body text as the message.
+	if apiError.Message == "" {
+		apiError.Message = bodyText
+	}
+
+	// Use the updated logError function with the additional parameters.
+	logError(log, apiError, "text_error_detected", resp.Request.Method, resp.Request.URL.String(), resp.Status, nil)
 }
 
 // parseHTMLResponse extracts meaningful information from an HTML error response and concatenates all text within <p> tags.
 func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
-	// Always set the Raw field to the entire HTML content for debugging purposes
+	// Always set the Raw field to the entire HTML content for debugging purposes.
 	apiError.Raw = string(bodyBytes)
 
 	reader := bytes.NewReader(bodyBytes)
 	doc, err := html.Parse(reader)
 	if err != nil {
-		logError(log, apiError, "html_parsing_error", resp)
+		// Log HTML parsing error using centralized logger with context.
+		logError(log, apiError, "html_parsing_error", resp.Request.Method, resp.Request.URL.String(), resp.Status, err)
 		return
 	}
 
-	var messages []string // To accumulate messages from all <p> tags
+	var messages []string // To accumulate messages from all <p> tags.
 	var parse func(*html.Node)
 	parse = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "p" {
 			var pText strings.Builder
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
 				if c.Type == html.TextNode && strings.TrimSpace(c.Data) != "" {
-					// Build text content of <p> tag
+					// Build text content of <p> tag.
 					if pText.Len() > 0 {
-						pText.WriteString(" ") // Add a space between text nodes within the same <p> tag
+						pText.WriteString(" ") // Add a space between text nodes within the same <p> tag.
 					}
 					pText.WriteString(strings.TrimSpace(c.Data))
 				}
 			}
 			if pText.Len() > 0 {
-				// Add the built text content of the <p> tag to messages
+				// Add the built text content of the <p> tag to messages.
 				messages = append(messages, pText.String())
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			parse(c) // Recursively parse the document
+			parse(c) // Recursively parse the document.
 		}
 	}
 
 	parse(doc)
 
-	// Concatenate all accumulated messages with a separator
+	// Concatenate all accumulated messages with a separator.
 	if len(messages) > 0 {
 		apiError.Message = strings.Join(messages, "; ")
 	} else {
-		// Fallback error message if no specific messages were extracted
+		// Fallback error message if no specific messages were extracted.
 		apiError.Message = "HTML Error: See 'Raw' field for details."
 	}
 
-	// Log the extracted error message or the fallback message
-	logError(log, apiError, "html_error_detected", resp)
+	// Determine the error to log based on whether a message was found.
+	var logErr error
+	if apiError.Message == "" {
+		logErr = fmt.Errorf("No error message extracted from HTML")
+	}
+
+	// Log the extracted error message or the fallback message using the centralized logger.
+	logError(log, apiError, "html_error_detected", resp.Request.Method, resp.Request.URL.String(), resp.Status, logErr)
 }
 
 // logError logs the error details using the provided logger instance.
-func logError(log logger.Logger, apiError *APIError, event string, resp *http.Response) {
+// func logError(log logger.Logger, apiError *APIError, event string, resp *http.Response) {
+// 	// Prepare the error message. If apiError.Message is empty, use a default message.
+// 	errorMessage := apiError.Message
+// 	if errorMessage == "" {
+// 		errorMessage = "An unspecified error occurred"
+// 	}
+
+// 	// Use LogError method from the logger package for error logging.
+// 	log.LogError(
+// 		event,
+// 		resp.Request.Method,
+// 		resp.Request.URL.String(),
+// 		apiError.StatusCode,
+// 		resp.Status,
+// 		fmt.Errorf(errorMessage),
+// 		apiError.Raw,
+// 	)
+// }
+
+func logError(log logger.Logger, apiError *APIError, event, method, url, statusMessage string, err error) {
 	// Prepare the error message. If apiError.Message is empty, use a default message.
 	errorMessage := apiError.Message
 	if errorMessage == "" {
 		errorMessage = "An unspecified error occurred"
 	}
 
-	// Use LogError method from the logger package for error logging.
-	log.LogError(
-		event,
-		resp.Request.Method,
-		resp.Request.URL.String(),
-		apiError.StatusCode,
-		resp.Status,
-		fmt.Errorf(errorMessage),
-		apiError.Raw,
-	)
+	// Call the LogError method from the logger package for error logging.
+	log.LogError(event, method, url, apiError.StatusCode, statusMessage, err, apiError.Raw)
 }
