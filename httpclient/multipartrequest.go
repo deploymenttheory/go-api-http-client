@@ -7,6 +7,7 @@ import (
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/headers"
+	"github.com/deploymenttheory/go-api-http-client/response"
 )
 
 // DoMultipartRequest creates and executes a multipart HTTP request. It is used for sending files
@@ -86,7 +87,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Handle error responses
 		//return nil, c.handleErrorResponse(resp, log, "Failed to process the HTTP request", method, endpoint)
-		return nil, c.handleErrorResponse(resp, out, log, method, endpoint)
+		return nil, response.HandleAPIErrorResponse(resp, log)
 	} else {
 		// Handle successful responses
 		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)

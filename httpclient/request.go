@@ -400,22 +400,22 @@ func (c *Client) do(req *http.Request, log logger.Logger, method, endpoint strin
 //
 // Returns:
 // - An error object parsed from the HTTP response, indicating the nature of the failure.
-func (c *Client) handleErrorResponse(resp *http.Response, out interface{}, log logger.Logger, method, endpoint string) error {
-	if err := c.APIHandler.HandleAPIErrorResponse(resp, out, log); err != nil {
-		log.Error("Failed to unmarshal HTTP response",
-			zap.String("method", method),
-			zap.String("endpoint", endpoint),
-			zap.Error(err),
-		)
-		return err
-	}
-	log.Info("HTTP request succeeded",
-		zap.String("method", method),
-		zap.String("endpoint", endpoint),
-		zap.Int("status_code", resp.StatusCode),
-	)
-	return nil
-}
+// func (c *Client) handleErrorResponse(resp *http.Response, out interface{}, log logger.Logger, method, endpoint string) error {
+// 	if err := c.APIHandler.HandleAPIErrorResponse(resp, out, log); err != nil {
+// 		log.Error("Failed to unmarshal HTTP response",
+// 			zap.String("method", method),
+// 			zap.String("endpoint", endpoint),
+// 			zap.Error(err),
+// 		)
+// 		return err
+// 	}
+// 	log.Info("HTTP request succeeded",
+// 		zap.String("method", method),
+// 		zap.String("endpoint", endpoint),
+// 		zap.Int("status_code", resp.StatusCode),
+// 	)
+// 	return nil
+// }
 
 // handleSuccessResponse unmarshals a successful HTTP response into the provided output parameter and logs the
 // success details. It's designed for use when the response indicates success (status code within 200-299).

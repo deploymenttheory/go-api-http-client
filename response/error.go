@@ -170,11 +170,19 @@ func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 	var parse func(*html.Node)
 	parse = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "p" {
+			var pText strings.Builder
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				if c.Type == html.TextNode {
-					// Accumulate text content of <p> tag
-					messages = append(messages, c.Data)
+				if c.Type == html.TextNode && strings.TrimSpace(c.Data) != "" {
+					// Build text content of <p> tag
+					if pText.Len() > 0 {
+						pText.WriteString(" ") // Add a space between text nodes within the same <p> tag
+					}
+					pText.WriteString(strings.TrimSpace(c.Data))
 				}
+			}
+			if pText.Len() > 0 {
+				// Add the built text content of the <p> tag to messages
+				messages = append(messages, pText.String())
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
