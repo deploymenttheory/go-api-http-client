@@ -154,7 +154,7 @@ func parseTextResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 	logError(log, apiError, "text_error_detected", resp)
 }
 
-// parseHTMLResponse extracts meaningful information from an HTML error response.
+// parseHTMLResponse extracts meaningful information from an HTML error response and concatenates all text within <p> tags.
 func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
 	// Always set the Raw field to the entire HTML content for debugging purposes
 	apiError.Raw = string(bodyBytes)
@@ -166,26 +166,32 @@ func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 		return
 	}
 
+	var messages []string // To accumulate messages from all <p> tags
 	var parse func(*html.Node)
 	parse = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "p" {
-			if n.FirstChild != nil {
-				apiError.Message = n.FirstChild.Data
-				// Optionally, you might break or return after finding the first relevant message
+			for c := n.FirstChild; c != nil; c = c.NextSibling {
+				if c.Type == html.TextNode {
+					// Accumulate text content of <p> tag
+					messages = append(messages, c.Data)
+				}
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			parse(c)
+			parse(c) // Recursively parse the document
 		}
 	}
 
 	parse(doc)
 
-	// If no <p> tag was found or it was empty, fallback to using the raw HTML
-	if apiError.Message == "" {
+	// Concatenate all accumulated messages with a separator
+	if len(messages) > 0 {
+		apiError.Message = strings.Join(messages, "; ")
+	} else {
+		// Fallback error message if no specific messages were extracted
 		apiError.Message = "HTML Error: See 'Raw' field for details."
-		apiError.Raw = string(bodyBytes)
 	}
+
 	// Log the extracted error message or the fallback message
 	logError(log, apiError, "html_error_detected", resp)
 }
