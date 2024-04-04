@@ -61,16 +61,12 @@ func HandleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 	switch mimeType {
 	case "application/json":
 		parseJSONResponse(bodyBytes, apiError, log, resp)
-		logError(log, apiError, "json_error_detected", resp)
 	case "application/xml", "text/xml":
 		parseXMLResponse(bodyBytes, apiError, log, resp)
-		logError(log, apiError, "xml_error_detected", resp)
 	case "text/html":
 		parseHTMLResponse(bodyBytes, apiError, log, resp)
-		logError(log, apiError, "html_error_detected", resp)
 	case "text/plain":
 		parseTextResponse(bodyBytes, apiError, log, resp)
-		logError(log, apiError, "text_error_detected", resp)
 	default:
 		apiError.Raw = string(bodyBytes)
 		apiError.Message = "Unknown content type error"
