@@ -186,8 +186,8 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			if resp.StatusCode >= 300 {
 				log.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 			}
-			// Handle the response as successful, even if it's a redirect.
-			return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
+			// Handle the response as successful.
+			return resp, response.HandleAPISuccessResponse(resp, out, log)
 		}
 
 		// Leverage TranslateStatusCode for more descriptive error logging
@@ -348,11 +348,11 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 		if resp.StatusCode >= 300 {
 			log.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 		}
-		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
+		return resp, response.HandleAPISuccessResponse(resp, out, log)
+
 	}
 
 	// Handle error responses for status codes outside the successful range
-	//return nil, c.handleErrorResponse(resp, out, log, method, endpoint)
 	return nil, response.HandleAPIErrorResponse(resp, log)
 }
 
@@ -430,19 +430,19 @@ func (c *Client) do(req *http.Request, log logger.Logger, method, endpoint strin
 //
 // Returns:
 // - nil if the response was successfully unmarshalled into the 'out' parameter, or an error if unmarshalling failed.
-func (c *Client) handleSuccessResponse(resp *http.Response, out interface{}, log logger.Logger, method, endpoint string) error {
-	if err := c.APIHandler.HandleAPISuccessResponse(resp, out, log); err != nil {
-		log.Error("Failed to unmarshal HTTP response",
-			zap.String("method", method),
-			zap.String("endpoint", endpoint),
-			zap.Error(err),
-		)
-		return err
-	}
-	log.Info("HTTP request succeeded",
-		zap.String("method", method),
-		zap.String("endpoint", endpoint),
-		zap.Int("status_code", resp.StatusCode),
-	)
-	return nil
-}
+// func (c *Client) handleSuccessResponse(resp *http.Response, out interface{}, log logger.Logger, method, endpoint string) error {
+// 	if err := c.APIHandler.HandleAPISuccessResponse(resp, out, log); err != nil {
+// 		log.Error("Failed to unmarshal HTTP response",
+// 			zap.String("method", method),
+// 			zap.String("endpoint", endpoint),
+// 			zap.Error(err),
+// 		)
+// 		return err
+// 	}
+// 	log.Info("HTTP request succeeded",
+// 		zap.String("method", method),
+// 		zap.String("endpoint", endpoint),
+// 		zap.Int("status_code", resp.StatusCode),
+// 	)
+// 	return nil
+// }
