@@ -5,12 +5,12 @@ package response
 import (
 	"bytes"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/antchfx/xmlquery"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"golang.org/x/net/html"
 )
@@ -61,16 +61,12 @@ func HandleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 	switch mimeType {
 	case "application/json":
 		parseJSONResponse(bodyBytes, apiError, log, resp)
-		logError(log, apiError, "json_error_detected", resp)
 	case "application/xml", "text/xml":
 		parseXMLResponse(bodyBytes, apiError, log, resp)
-		logError(log, apiError, "xml_error_detected", resp)
 	case "text/html":
 		parseHTMLResponse(bodyBytes, apiError, log, resp)
-		logError(log, apiError, "html_error_detected", resp)
 	case "text/plain":
 		parseTextResponse(bodyBytes, apiError, log, resp)
-		logError(log, apiError, "text_error_detected", resp)
 	default:
 		apiError.Raw = string(bodyBytes)
 		apiError.Message = "Unknown content type error"
@@ -112,38 +108,41 @@ func parseJSONResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 	}
 }
 
-// parseXMLResponse should be implemented to parse XML responses and log errors using the centralized logger.
+// parseXMLResponse dynamically parses XML error responses and accumulates potential error messages.
 func parseXMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
-	var xmlErr APIError
+	// Always set the Raw field to the entire XML content for debugging purposes
+	apiError.Raw = string(bodyBytes)
 
-	// Attempt to unmarshal the XML body into the XMLErrorResponse struct
-	if err := xml.Unmarshal(bodyBytes, &xmlErr); err != nil {
-		// If parsing fails, log the error and keep the raw response
-		apiError.Raw = string(bodyBytes)
-		log.LogError("xml_parsing_error",
-			resp.Request.Method,
-			resp.Request.URL.String(),
-			apiError.StatusCode,
-			fmt.Sprintf("Failed to parse XML: %s", err),
-			err,
-			apiError.Raw,
-		)
-	} else {
-		// Update the APIError with information from the parsed XML
-		apiError.Message = xmlErr.Message
-		// Assuming you might want to add a 'Code' field to APIError to store xmlErr.Code
-		// apiError.Code = xmlErr.Code
-
-		// Log the parsed error details
-		log.LogError("xml_error_detected",
-			resp.Request.Method,
-			resp.Request.URL.String(),
-			apiError.StatusCode,
-			"Parsed XML error successfully",
-			nil, // No error during parsing
-			apiError.Raw,
-		)
+	// Parse the XML document
+	doc, err := xmlquery.Parse(bytes.NewReader(bodyBytes))
+	if err != nil {
+		logError(log, apiError, "xml_parsing_error", resp)
+		return
 	}
+
+	var messages []string
+	var traverse func(*xmlquery.Node)
+	traverse = func(n *xmlquery.Node) {
+		if n.Type == xmlquery.TextNode && strings.TrimSpace(n.Data) != "" {
+			messages = append(messages, strings.TrimSpace(n.Data))
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			traverse(c)
+		}
+	}
+
+	traverse(doc)
+
+	// Concatenate all messages found in the XML for the 'Message' field of APIError
+	if len(messages) > 0 {
+		apiError.Message = strings.Join(messages, "; ")
+	} else {
+		// Fallback error message if no specific messages were extracted
+		apiError.Message = "Failed to extract error details from XML response"
+	}
+
+	// Log the error using the centralized logger
+	logError(log, apiError, "xml_error_detected", resp)
 }
 
 // parseTextResponse updates the APIError structure based on a plain text error response and logs it.
@@ -157,31 +156,30 @@ func parseTextResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 
 // parseHTMLResponse extracts meaningful information from an HTML error response.
 func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
-	// Convert the response body to a reader for the HTML parser
+	// Always set the Raw field to the entire HTML content for debugging purposes
+	apiError.Raw = string(bodyBytes)
+
 	reader := bytes.NewReader(bodyBytes)
 	doc, err := html.Parse(reader)
 	if err != nil {
-		apiError.Raw = string(bodyBytes)
 		logError(log, apiError, "html_parsing_error", resp)
 		return
 	}
 
 	var parse func(*html.Node)
 	parse = func(n *html.Node) {
-		// Look for <p> tags that might contain error messages
 		if n.Type == html.ElementNode && n.Data == "p" {
 			if n.FirstChild != nil {
-				// Assuming the error message is in the text content of a <p> tag
 				apiError.Message = n.FirstChild.Data
-				return // Stop after finding the first <p> tag with content
+				// Optionally, you might break or return after finding the first relevant message
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			parse(c) // Recursively search for <p> tags in child nodes
+			parse(c)
 		}
 	}
 
-	parse(doc) // Start parsing from the document node
+	parse(doc)
 
 	// If no <p> tag was found or it was empty, fallback to using the raw HTML
 	if apiError.Message == "" {
