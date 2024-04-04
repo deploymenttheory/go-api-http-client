@@ -17,12 +17,12 @@ import (
 
 // APIError represents an api error response.
 type APIError struct {
-	StatusCode  int      `json:"status_code"`  // HTTP status code
-	Method      string   `json:"method"`       // HTTP method used for the request
-	URL         string   `json:"url"`          // The URL of the HTTP request
-	Message     string   `json:"message"`      // Summary of the error
-	Details     []string `json:"details"`      // Detailed error messages, if any
-	RawResponse string   `json:"raw_response"` // Raw response body for debugging
+	StatusCode  int      `json:"status_code"`       // HTTP status code
+	Method      string   `json:"method"`            // HTTP method used for the request
+	URL         string   `json:"url"`               // The URL of the HTTP request
+	Message     string   `json:"message"`           // Summary of the error
+	Details     []string `json:"details,omitempty"` // Detailed error messages, if any
+	RawResponse string   `json:"raw_response"`      // Raw response body for debugging
 }
 
 // Error returns a string representation of the APIError, making it compatible with the error interface.
@@ -166,11 +166,13 @@ func parseTextResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 	)
 }
 
-// parseHTMLResponse extracts meaningful information from an HTML error response and concatenates all text within <p> tags.
+// parseHTMLResponse extracts meaningful information from an HTML error response,
+// concatenating all text within <p> tags and links found within them.
 func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
-	// Always set the Raw field to the entire HTML content for debugging purposes.
+	// Set the entire HTML content as the RawResponse for debugging purposes.
 	apiError.RawResponse = string(bodyBytes)
 
+	// Parse the HTML document.
 	reader := bytes.NewReader(bodyBytes)
 	doc, err := html.Parse(reader)
 	if err != nil {
@@ -178,47 +180,57 @@ func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 		return
 	}
 
-	var messages []string // To accumulate messages from all <p> tags.
+	var messages []string // To accumulate messages and links.
 	var parse func(*html.Node)
 	parse = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "p" {
-			var pText strings.Builder
+			var pContent strings.Builder
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				if c.Type == html.TextNode && strings.TrimSpace(c.Data) != "" {
-					// Build text content of <p> tag.
-					if pText.Len() > 0 {
-						pText.WriteString(" ") // Add a space between text nodes within the same <p> tag.
+				if c.Type == html.TextNode {
+					// Append text content directly.
+					pContent.WriteString(strings.TrimSpace(c.Data) + " ")
+				} else if c.Type == html.ElementNode && c.Data == "a" {
+					// Extract href attribute value for links.
+					var href string
+					for _, attr := range c.Attr {
+						if attr.Key == "href" {
+							href = attr.Val
+							break
+						}
 					}
-					pText.WriteString(strings.TrimSpace(c.Data))
+					if href != "" {
+						// Append the link to the pContent builder.
+						pContent.WriteString(fmt.Sprintf("[Link: %s] ", href))
+					}
 				}
 			}
-			if pText.Len() > 0 {
-				// Add the built text content of the <p> tag to messages.
-				messages = append(messages, pText.String())
+			finalContent := strings.TrimSpace(pContent.String())
+			if finalContent != "" {
+				// Add the content of the <p> tag to messages.
+				messages = append(messages, finalContent)
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			parse(c) // Recursively parse the document.
+			parse(c) // Continue traversing the document.
 		}
 	}
 
-	parse(doc)
+	parse(doc) // Start parsing the document.
 
-	// Concatenate all accumulated messages with a separator.
+	// Concatenate all accumulated messages and links with a separator.
 	if len(messages) > 0 {
 		apiError.Message = strings.Join(messages, "; ")
 	} else {
-		// Fallback error message if no specific messages were extracted.
+		// Fallback error message if no specific content was extracted.
 		apiError.Message = "HTML Error: See 'Raw' field for details."
 	}
 
-	// Determine the error to log based on whether a message was found.
+	// Determine the error to log based on whether content was found.
 	var logErr error
 	if apiError.Message == "" {
 		logErr = fmt.Errorf("no error message extracted from HTML")
 	}
 
-	// Log the extracted error message or the fallback message using the centralized logger.
+	// Log the extracted content or the fallback message using the centralized logger.
 	log.LogError("html_error_detected", resp.Request.Method, resp.Request.URL.String(), apiError.StatusCode, resp.Status, logErr, apiError.RawResponse)
-
 }
