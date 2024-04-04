@@ -3,145 +3,211 @@
 package response
 
 import (
+	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
+	"golang.org/x/net/html"
 )
 
-// APIError represents a more flexible structure for API error responses.
+// APIError represents an api error response.
 type APIError struct {
-	StatusCode int                    // HTTP status code
-	Type       string                 // A brief identifier for the type of error
-	Message    string                 // Human-readable message
-	Detail     string                 // Detailed error message
-	Errors     map[string]interface{} // A map to hold various error fields
-	Raw        string                 // Raw response body for unstructured errors
+	StatusCode int                    `json:"status_code" xml:"StatusCode"`            // HTTP status code
+	Type       string                 `json:"type" xml:"Type"`                         // Type of error
+	Message    string                 `json:"message" xml:"Message"`                   // Human-readable message
+	Detail     string                 `json:"detail,omitempty" xml:"Detail,omitempty"` // Detailed error message
+	Errors     map[string]interface{} `json:"errors,omitempty" xml:"Errors,omitempty"` // Additional error details
+	Raw        string                 `json:"raw" xml:"Raw"`                           // Raw response body for debugging
 }
 
-// StructuredError represents a structured error response from the API.
-type StructuredError struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	} `json:"error"`
-}
-
-// Error returns a JSON representation of the APIError.
+// Error returns a string representation of the APIError, making it compatible with the error interface.
 func (e *APIError) Error() string {
+	// Attempt to marshal the APIError instance into a JSON string.
 	data, err := json.Marshal(e)
-	if err != nil {
-		return fmt.Sprintf("Error encoding APIError to JSON: %s", err)
+	if err == nil {
+		return string(data)
 	}
-	return string(data)
+
+	// Use the standard HTTP status text as the error message if 'Message' field is empty.
+	if e.Message == "" {
+		e.Message = http.StatusText(e.StatusCode)
+	}
+
+	// Fallback to a simpler error message format if JSON marshaling fails.
+	return fmt.Sprintf("API Error: StatusCode=%d, Type=%s, Message=%s", e.StatusCode, e.Type, e.Message)
 }
 
-// HandleAPIErrorResponse attempts to parse the error response from the API and logs using the zap logger.
+// HandleAPIErrorResponse handles the HTTP error response from an API and logs the error.
 func HandleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 	apiError := &APIError{
 		StatusCode: resp.StatusCode,
-		Type:       "APIError",          // Default error type
-		Message:    "An error occurred", // Default error message
+		Type:       "APIError",
+		Message:    "An error occurred",
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
+		apiError.Raw = "Failed to read response body"
+		logError(log, apiError, "error_reading_response_body", resp)
 		return apiError
 	}
 
-	// Check if the response is JSON
-	if isJSONResponse(resp) {
-		// Attempt to parse the response into a StructuredError
-		if err := json.Unmarshal(bodyBytes, &apiError); err == nil && apiError.Message != "" {
-			log.LogError(
-				"json_structured_error_detected", // event
-				resp.Request.Method,              // method
-				resp.Request.URL.String(),        // url
-				resp.StatusCode,                  // statusCode
-				resp.Status,                      // status
-				fmt.Errorf(apiError.Message),     // err
-				apiError.Raw,                     // raw resp
-			)
-			return apiError
-		}
-
-		// If structured parsing fails, attempt to parse into a generic error map
-		var genericErr map[string]interface{}
-		if err := json.Unmarshal(bodyBytes, &genericErr); err == nil {
-			apiError.updateFromGenericError(genericErr)
-			log.LogError(
-				"json_generic_error_detected", // event
-				resp.Request.Method,           // method
-				resp.Request.URL.String(),     // url
-				resp.StatusCode,               // statusCode
-				resp.Status,                   // status
-				fmt.Errorf(apiError.Message),  // err
-				apiError.Raw,                  // raw resp
-			)
-			return apiError
-		}
-	} else if isHTMLResponse(resp) {
-		// Handle HTML response
+	mimeType, _ := ParseContentTypeHeader(resp.Header.Get("Content-Type"))
+	switch mimeType {
+	case "application/json":
+		parseJSONResponse(bodyBytes, apiError, log, resp)
+		logError(log, apiError, "json_error_detected", resp)
+	case "application/xml", "text/xml":
+		parseXMLResponse(bodyBytes, apiError, log, resp)
+		logError(log, apiError, "xml_error_detected", resp)
+	case "text/html":
+		parseHTMLResponse(bodyBytes, apiError, log, resp)
+		logError(log, apiError, "html_error_detected", resp)
+	case "text/plain":
+		parseTextResponse(bodyBytes, apiError, log, resp)
+		logError(log, apiError, "text_error_detected", resp)
+	default:
 		apiError.Raw = string(bodyBytes)
-		log.LogError(
-			"api_html_error",             // event
-			resp.Request.Method,          // method
-			resp.Request.URL.String(),    // url
-			resp.StatusCode,              // statusCode
-			resp.Status,                  // status
-			fmt.Errorf(apiError.Message), // err
-			apiError.Raw,                 // raw resp
-		)
-		return apiError
-	} else {
-		// Handle other non-JSON responses
-		apiError.Raw = string(bodyBytes)
-		log.LogError(
-			"api_non_json_error",      // event
-			resp.Request.Method,       // method
-			resp.Request.URL.String(), // url
-			resp.StatusCode,           // statusCode
-			resp.Status,               // status
-			fmt.Errorf("Non-JSON error response received"), // err
-			apiError.Raw, // raw resp
-		)
-		return apiError
+		apiError.Message = "Unknown content type error"
+		logError(log, apiError, "unknown_content_type_error", resp)
 	}
 
 	return apiError
 }
 
-// isJSONResponse checks if the response Content-Type indicates JSON
-func isJSONResponse(resp *http.Response) bool {
-	contentType := resp.Header.Get("Content-Type")
-	return strings.Contains(contentType, "application/json")
+// ParseContentTypeHeader parses the Content-Type header and extracts the MIME type and parameters.
+func ParseContentTypeHeader(header string) (string, map[string]string) {
+	parts := strings.Split(header, ";")
+	mimeType := strings.TrimSpace(parts[0])
+	params := make(map[string]string)
+	for _, part := range parts[1:] {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) == 2 {
+			params[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+		}
+	}
+	return mimeType, params
 }
 
-// isHTMLResponse checks if the response Content-Type indicates HTML
-func isHTMLResponse(resp *http.Response) bool {
-	contentType := resp.Header.Get("Content-Type")
-	return strings.Contains(contentType, "text/html")
+// parseJSONResponse attempts to parse the JSON error response and update the APIError structure.
+func parseJSONResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
+	if err := json.Unmarshal(bodyBytes, apiError); err != nil {
+		apiError.Raw = string(bodyBytes)
+		log.LogError("json_parsing_error",
+			resp.Request.Method,
+			resp.Request.URL.String(),
+			resp.StatusCode,
+			"JSON parsing failed",
+			err,
+			apiError.Raw,
+		)
+	} else {
+		// Successfully parsed JSON error, so log the error details.
+		logError(log, apiError, "json_error_detected", resp)
+	}
 }
 
-// updateFromGenericError updates the APIError fields based on a generic error map extracted from an API response.
-// This function is useful for cases where the error response does not match the predefined StructuredError format,
-// and instead, a more generic error handling approach is needed. It extracts known fields such as 'message' and 'detail'
-// from the generic error map and updates the corresponding fields in the APIError instance.
-//
-// Parameters:
-// - genericErr: A map[string]interface{} representing the generic error structure extracted from an API response.
-//
-// The function checks for the presence of 'message' and 'detail' keys in the generic error map. If these keys are present,
-// their values are used to update the 'Message' and 'Detail' fields of the APIError instance, respectively.
-func (e *APIError) updateFromGenericError(genericErr map[string]interface{}) {
-	if msg, ok := genericErr["message"].(string); ok {
-		e.Message = msg
+// parseXMLResponse should be implemented to parse XML responses and log errors using the centralized logger.
+func parseXMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
+	var xmlErr APIError
+
+	// Attempt to unmarshal the XML body into the XMLErrorResponse struct
+	if err := xml.Unmarshal(bodyBytes, &xmlErr); err != nil {
+		// If parsing fails, log the error and keep the raw response
+		apiError.Raw = string(bodyBytes)
+		log.LogError("xml_parsing_error",
+			resp.Request.Method,
+			resp.Request.URL.String(),
+			apiError.StatusCode,
+			fmt.Sprintf("Failed to parse XML: %s", err),
+			err,
+			apiError.Raw,
+		)
+	} else {
+		// Update the APIError with information from the parsed XML
+		apiError.Message = xmlErr.Message
+		// Assuming you might want to add a 'Code' field to APIError to store xmlErr.Code
+		// apiError.Code = xmlErr.Code
+
+		// Log the parsed error details
+		log.LogError("xml_error_detected",
+			resp.Request.Method,
+			resp.Request.URL.String(),
+			apiError.StatusCode,
+			"Parsed XML error successfully",
+			nil, // No error during parsing
+			apiError.Raw,
+		)
 	}
-	if detail, ok := genericErr["detail"].(string); ok {
-		e.Detail = detail
+}
+
+// parseTextResponse updates the APIError structure based on a plain text error response and logs it.
+func parseTextResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
+	bodyText := string(bodyBytes)
+	apiError.Message = bodyText
+	apiError.Raw = bodyText
+	// Log the plain text error using the centralized logger.
+	logError(log, apiError, "text_error_detected", resp)
+}
+
+// parseHTMLResponse extracts meaningful information from an HTML error response.
+func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
+	// Convert the response body to a reader for the HTML parser
+	reader := bytes.NewReader(bodyBytes)
+	doc, err := html.Parse(reader)
+	if err != nil {
+		apiError.Raw = string(bodyBytes)
+		logError(log, apiError, "html_parsing_error", resp)
+		return
 	}
-	// Optionally add more fields if necessary
+
+	var parse func(*html.Node)
+	parse = func(n *html.Node) {
+		// Look for <p> tags that might contain error messages
+		if n.Type == html.ElementNode && n.Data == "p" {
+			if n.FirstChild != nil {
+				// Assuming the error message is in the text content of a <p> tag
+				apiError.Message = n.FirstChild.Data
+				return // Stop after finding the first <p> tag with content
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			parse(c) // Recursively search for <p> tags in child nodes
+		}
+	}
+
+	parse(doc) // Start parsing from the document node
+
+	// If no <p> tag was found or it was empty, fallback to using the raw HTML
+	if apiError.Message == "" {
+		apiError.Message = "HTML Error: See 'Raw' field for details."
+		apiError.Raw = string(bodyBytes)
+	}
+	// Log the extracted error message or the fallback message
+	logError(log, apiError, "html_error_detected", resp)
+}
+
+// logError logs the error details using the provided logger instance.
+func logError(log logger.Logger, apiError *APIError, event string, resp *http.Response) {
+	// Prepare the error message. If apiError.Message is empty, use a default message.
+	errorMessage := apiError.Message
+	if errorMessage == "" {
+		errorMessage = "An unspecified error occurred"
+	}
+
+	// Use LogError method from the logger package for error logging.
+	log.LogError(
+		event,
+		resp.Request.Method,
+		resp.Request.URL.String(),
+		apiError.StatusCode,
+		resp.Status,
+		fmt.Errorf(errorMessage),
+		apiError.Raw,
+	)
 }
