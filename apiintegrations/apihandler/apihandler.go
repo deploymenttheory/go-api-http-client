@@ -18,7 +18,7 @@ type APIHandler interface {
 	MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error)
 	MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error)
 	HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.Logger) error
-	HandleAPIErrorResponse(resp *http.Response, out interface{}, log logger.Logger) error
+	//HandleAPIErrorResponse(resp *http.Response, out interface{}, log logger.Logger) error
 	GetContentTypeHeader(method string, log logger.Logger) string
 	GetAcceptHeader() string
 	GetDefaultBaseDomain() string
