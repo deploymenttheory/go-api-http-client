@@ -90,6 +90,6 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 		return nil, response.HandleAPIErrorResponse(resp, log)
 	} else {
 		// Handle successful responses
-		return resp, c.handleSuccessResponse(resp, out, log, method, endpoint)
+		return resp, response.HandleAPISuccessResponse(resp, out, log)
 	}
 }

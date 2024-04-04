@@ -2,8 +2,6 @@
 package apihandler
 
 import (
-	"net/http"
-
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/jamfpro"
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/msgraph"
 	"github.com/deploymenttheory/go-api-http-client/logger"
@@ -17,7 +15,7 @@ type APIHandler interface {
 	ConstructAPIAuthEndpoint(instanceName string, endpointPath string, log logger.Logger) string
 	MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error)
 	MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error)
-	HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.Logger) error
+	//HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.Logger) error
 	GetContentTypeHeader(method string, log logger.Logger) string
 	GetAcceptHeader() string
 	GetDefaultBaseDomain() string

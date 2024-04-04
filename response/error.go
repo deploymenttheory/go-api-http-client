@@ -77,20 +77,6 @@ func HandleAPIErrorResponse(resp *http.Response, log logger.Logger) *APIError {
 	return apiError
 }
 
-// ParseContentTypeHeader parses the Content-Type header and extracts the MIME type and parameters.
-func ParseContentTypeHeader(header string) (string, map[string]string) {
-	parts := strings.Split(header, ";")
-	mimeType := strings.TrimSpace(parts[0])
-	params := make(map[string]string)
-	for _, part := range parts[1:] {
-		kv := strings.SplitN(part, "=", 2)
-		if len(kv) == 2 {
-			params[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
-		}
-	}
-	return mimeType, params
-}
-
 // parseJSONResponse attempts to parse the JSON error response and update the APIError structure.
 func parseJSONResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
 	if err := json.Unmarshal(bodyBytes, apiError); err != nil {
@@ -185,24 +171,30 @@ func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 	parse = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "p" {
 			var pContent strings.Builder
-			for c := n.FirstChild; c != nil; c = c.NextSibling {
+			// Define a function to traverse child nodes of the <p> tag.
+			var traverseChildren func(*html.Node)
+			traverseChildren = func(c *html.Node) {
 				if c.Type == html.TextNode {
 					// Append text content directly.
 					pContent.WriteString(strings.TrimSpace(c.Data) + " ")
 				} else if c.Type == html.ElementNode && c.Data == "a" {
 					// Extract href attribute value for links.
-					var href string
 					for _, attr := range c.Attr {
 						if attr.Key == "href" {
-							href = attr.Val
+							// Append the link to the pContent builder.
+							pContent.WriteString("[Link: " + attr.Val + "] ")
 							break
 						}
 					}
-					if href != "" {
-						// Append the link to the pContent builder.
-						pContent.WriteString(fmt.Sprintf("[Link: %s] ", href))
-					}
 				}
+				// Recursively traverse all children of the current node.
+				for child := c.FirstChild; child != nil; child = child.NextSibling {
+					traverseChildren(child)
+				}
+			}
+			// Start traversing child nodes of the current <p> tag.
+			for child := n.FirstChild; child != nil; child = child.NextSibling {
+				traverseChildren(child)
 			}
 			finalContent := strings.TrimSpace(pContent.String())
 			if finalContent != "" {
@@ -210,8 +202,9 @@ func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 				messages = append(messages, finalContent)
 			}
 		}
+		// Continue traversing the document.
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			parse(c) // Continue traversing the document.
+			parse(c)
 		}
 	}
 
