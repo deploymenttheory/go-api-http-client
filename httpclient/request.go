@@ -352,7 +352,8 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	}
 
 	// Handle error responses for status codes outside the successful range
-	return nil, c.handleErrorResponse(resp, out, log, method, endpoint)
+	//return nil, c.handleErrorResponse(resp, out, log, method, endpoint)
+	return nil, response.HandleAPIErrorResponse(resp, log)
 }
 
 // do sends an HTTP request using the client's HTTP client. It logs the request and error details, if any,
@@ -378,20 +379,12 @@ func (c *Client) do(req *http.Request, log logger.Logger, method, endpoint strin
 
 	if err != nil {
 		// Log the error with structured logging, including method, endpoint, and the error itself
-		log.Error("Failed to send request",
-			zap.String("method", method),
-			zap.String("endpoint", endpoint),
-			zap.Error(err),
-		)
+		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
 	// Log the response status code for successful requests
-	log.Debug("Request sent successfully",
-		zap.String("method", method),
-		zap.String("endpoint", endpoint),
-		zap.Int("status_code", resp.StatusCode),
-	)
+	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
 
 	return resp, nil
 }
