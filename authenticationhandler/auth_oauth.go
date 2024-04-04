@@ -33,15 +33,19 @@ type OAuthResponse struct {
 // ObtainOAuthToken fetches an OAuth access token using the provided client ID and client secret.
 // It updates the AuthTokenHandler's Token and Expires fields with the obtained values.
 func (h *AuthTokenHandler) ObtainOAuthToken(apiHandler apihandler.APIHandler, httpClient *http.Client, clientID, clientSecret string) error {
-	// Use the APIHandler's method to get the OAuth token endpoint
+	// Get the OAuth token endpoint from the APIHandler
 	oauthTokenEndpoint := apiHandler.GetOAuthTokenEndpoint()
 
 	// Construct the full authentication endpoint URL
 	authenticationEndpoint := apiHandler.ConstructAPIAuthEndpoint(h.InstanceName, oauthTokenEndpoint, h.Logger)
 
+	// Get the OAuth token scope from the APIHandler
+	oauthTokenScope := apiHandler.GetOAuthTokenScope()
+
 	data := url.Values{}
 	data.Set("client_id", clientID)
 	data.Set("client_secret", clientSecret)
+	data.Set("scope", oauthTokenScope)
 	data.Set("grant_type", "client_credentials")
 
 	h.Logger.Debug("Attempting to obtain OAuth token", zap.String("ClientID", clientID))
