@@ -3,7 +3,6 @@ module github.com/deploymenttheory/go-api-http-client
 go 1.21
 
 require (
-	github.com/PuerkitoBio/goquery v1.9.1
 	github.com/antchfx/xmlquery v1.3.18
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.9.0
@@ -12,7 +11,6 @@ require (
 )
 
 require (
-	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/antchfx/xpath v1.2.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
