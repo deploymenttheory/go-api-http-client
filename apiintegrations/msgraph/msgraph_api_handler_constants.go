@@ -3,15 +3,16 @@ package msgraph
 
 // Endpoint constants represent the URL suffixes used for graph API token interactions.
 const (
-	APIName                            = "microsoft graph"     // APIName: represents the name of the API.
-	DefaultBaseDomain                  = "graph.microsoft.com" // DefaultBaseDomain: represents the base domain for the graph instance.
-	OAuthTokenEndpoint                 = "/oauth2/v2.0/token"  // OAuthTokenEndpoint: The endpoint to obtain an OAuth token.
-	BearerTokenEndpoint                = ""                    // BearerTokenEndpoint: The endpoint to obtain a bearer token.
-	TokenRefreshEndpoint               = "graph.microsoft.com" // TokenRefreshEndpoint: The endpoint to refresh an existing token.
-	TokenInvalidateEndpoint            = "graph.microsoft.com" // TokenInvalidateEndpoint: The endpoint to invalidate an active token.
-	BearerTokenAuthenticationSupport   = true                  // BearerTokenAuthSuppport: A boolean to indicate if the API supports bearer token authentication.
-	OAuthAuthenticationSupport         = true                  // OAuthAuthSuppport: A boolean to indicate if the API supports OAuth authentication.
-	OAuthWithCertAuthenticationSupport = true                  // OAuthWithCertAuthSuppport: A boolean to indicate if the API supports OAuth with client certificate authentication.
+	APIName                            = "microsoft graph"                      // APIName: represents the name of the API.
+	DefaultBaseDomain                  = "graph.microsoft.com"                  // DefaultBaseDomain: represents the base domain for the graph instance.
+	OAuthTokenEndpoint                 = "/oauth2/v2.0/token"                   // OAuthTokenEndpoint: The endpoint to obtain an OAuth token.
+	OAuthTokenScope                    = "https://graph.microsoft.com/.default" // OAuthTokenScope: The scope for the OAuth token.
+	BearerTokenEndpoint                = "graph.microsoft.com"                  // BearerTokenEndpoint: The endpoint to obtain a bearer token.
+	TokenRefreshEndpoint               = "graph.microsoft.com"                  // TokenRefreshEndpoint: The endpoint to refresh an existing token.
+	TokenInvalidateEndpoint            = "graph.microsoft.com"                  // TokenInvalidateEndpoint: The endpoint to invalidate an active token.
+	BearerTokenAuthenticationSupport   = true                                   // BearerTokenAuthSuppport: A boolean to indicate if the API supports bearer token authentication.
+	OAuthAuthenticationSupport         = true                                   // OAuthAuthSuppport: A boolean to indicate if the API supports OAuth authentication.
+	OAuthWithCertAuthenticationSupport = true                                   // OAuthWithCertAuthSuppport: A boolean to indicate if the API supports OAuth with client certificate authentication.
 )
 
 // GetDefaultBaseDomain returns the default base domain used for constructing API URLs to the http client.
@@ -22,6 +23,11 @@ func (g *GraphAPIHandler) GetDefaultBaseDomain() string {
 // GetOAuthTokenEndpoint returns the endpoint for obtaining an OAuth token. Used for constructing API URLs for the http client.
 func (g *GraphAPIHandler) GetOAuthTokenEndpoint() string {
 	return OAuthTokenEndpoint
+}
+
+// GetOAuthTokenScope returns the scope for the OAuth token scope
+func (g *GraphAPIHandler) GetOAuthTokenScope() string {
+	return OAuthTokenScope
 }
 
 // GetBearerTokenEndpoint returns the endpoint for obtaining a bearer token. Used for constructing API URLs for the http client.

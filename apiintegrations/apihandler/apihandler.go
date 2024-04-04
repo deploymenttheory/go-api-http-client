@@ -19,6 +19,7 @@ type APIHandler interface {
 	GetAcceptHeader() string
 	GetDefaultBaseDomain() string
 	GetOAuthTokenEndpoint() string
+	GetOAuthTokenScope() string
 	GetBearerTokenEndpoint() string
 	GetTokenRefreshEndpoint() string
 	GetTokenInvalidateEndpoint() string

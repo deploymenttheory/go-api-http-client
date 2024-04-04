@@ -5,6 +5,7 @@ const (
 	APIName                            = "jamf pro"                      // APIName: represents the name of the API.
 	DefaultBaseDomain                  = ".jamfcloud.com"                // DefaultBaseDomain: represents the base domain for the jamf instance.
 	OAuthTokenEndpoint                 = "/api/oauth/token"              // OAuthTokenEndpoint: The endpoint to obtain an OAuth token.
+	OAuthTokenScope                    = ""                              // OAuthTokenScope: Not used for Jamf.
 	BearerTokenEndpoint                = "/api/v1/auth/token"            // BearerTokenEndpoint: The endpoint to obtain a bearer token.
 	TokenRefreshEndpoint               = "/api/v1/auth/keep-alive"       // TokenRefreshEndpoint: The endpoint to refresh an existing token.
 	TokenInvalidateEndpoint            = "/api/v1/auth/invalidate-token" // TokenInvalidateEndpoint: The endpoint to invalidate an active token.
@@ -21,6 +22,11 @@ func (j *JamfAPIHandler) GetDefaultBaseDomain() string {
 // GetOAuthTokenEndpoint returns the endpoint for obtaining an OAuth token. Used for constructing API URLs for the http client.
 func (j *JamfAPIHandler) GetOAuthTokenEndpoint() string {
 	return OAuthTokenEndpoint
+}
+
+// GetOAuthTokenScope returns the scope for the OAuth token scope
+func (j *JamfAPIHandler) GetOAuthTokenScope() string {
+	return OAuthTokenScope
 }
 
 // GetBearerTokenEndpoint returns the endpoint for obtaining a bearer token. Used for constructing API URLs for the http client.
