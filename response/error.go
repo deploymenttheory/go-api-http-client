@@ -157,31 +157,30 @@ func parseTextResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 
 // parseHTMLResponse extracts meaningful information from an HTML error response.
 func parseHTMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
-	// Convert the response body to a reader for the HTML parser
+	// Always set the Raw field to the entire HTML content for debugging purposes
+	apiError.Raw = string(bodyBytes)
+
 	reader := bytes.NewReader(bodyBytes)
 	doc, err := html.Parse(reader)
 	if err != nil {
-		apiError.Raw = string(bodyBytes)
 		logError(log, apiError, "html_parsing_error", resp)
 		return
 	}
 
 	var parse func(*html.Node)
 	parse = func(n *html.Node) {
-		// Look for <p> tags that might contain error messages
 		if n.Type == html.ElementNode && n.Data == "p" {
 			if n.FirstChild != nil {
-				// Assuming the error message is in the text content of a <p> tag
 				apiError.Message = n.FirstChild.Data
-				return // Stop after finding the first <p> tag with content
+				// Optionally, you might break or return after finding the first relevant message
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			parse(c) // Recursively search for <p> tags in child nodes
+			parse(c)
 		}
 	}
 
-	parse(doc) // Start parsing from the document node
+	parse(doc)
 
 	// If no <p> tag was found or it was empty, fallback to using the raw HTML
 	if apiError.Message == "" {
