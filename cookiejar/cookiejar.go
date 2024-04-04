@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
-	"net/url"
 	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
@@ -30,6 +29,35 @@ func SetupCookieJar(client *http.Client, enableCookieJar bool, log logger.Logger
 		client.Jar = jar
 	}
 	return nil
+}
+
+// GetCookies is a middleware that extracts cookies from incoming requests and serializes them.
+func GetCookies(next http.Handler, log logger.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// Extract cookies from the request
+		cookies := r.Cookies()
+
+		// Serialize the cookies
+		serializedCookies := SerializeCookies(cookies)
+
+		// Log the serialized cookies
+		log.Info("Serialized Cookies", zap.String("Cookies", serializedCookies))
+
+		// Call the next handler in the chain
+		next.ServeHTTP(w, r)
+	})
+}
+
+// SerializeCookies serializes a slice of *http.Cookie into a string format.
+func SerializeCookies(cookies []*http.Cookie) string {
+	var cookieStrings []string
+
+	for _, cookie := range cookies {
+		cookieStrings = append(cookieStrings, cookie.String())
+	}
+
+	return strings.Join(cookieStrings, "; ")
 }
 
 // RedactSensitiveCookies redacts sensitive information from cookies.
@@ -73,29 +101,4 @@ func ParseCookieHeader(header string) *http.Cookie {
 		}
 	}
 	return nil
-}
-
-// PrintCookies prints the cookies stored in the HTTP client's cookie jar for a given URL.
-func PrintCookies(client *http.Client, urlString string, log logger.Logger) {
-	if client.Jar == nil {
-		log.Error("Cookie jar is not initialized.")
-		return
-	}
-
-	// Correctly use url.Parse for parsing the URL string
-	parsedURL, err := url.Parse(urlString)
-	if err != nil {
-		log.Error("Failed to parse URL for cookie jar", zap.Error(err))
-		return
-	}
-
-	cookies := client.Jar.Cookies(parsedURL)
-	if len(cookies) == 0 {
-		log.Info("No cookies found for URL", zap.String("url", urlString))
-		return
-	}
-
-	for _, cookie := range cookies {
-		log.Info("Cookie", zap.String("Name", cookie.Name), zap.String("Value", cookie.Value))
-	}
 }
