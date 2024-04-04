@@ -1,104 +1,64 @@
 package response
 
 import (
+	"bytes"
+	"io"
 	"net/http"
-	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/deploymenttheory/go-api-http-client/mocklogger"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-// MockLogger is a mock type for the Logger interface, useful for testing without needing a real logger implementation.
-type MockLogger struct {
-	mock.Mock
-}
-
-func (m *MockLogger) Error(msg string, fields ...interface{}) error {
-	args := m.Called(msg, fields)
-	return args.Error(0)
-}
-
-// TestHandleAPIErrorResponse tests the handling of various API error responses.
-func TestHandleAPIErrorResponse(t *testing.T) {
-	tests := []struct {
-		name             string
-		responseStatus   int
-		responseBody     string
-		expectedAPIError *APIError
+func TestParseHTMLResponse(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name     string
+		html     string
+		expected string
 	}{
 		{
-			name:           "structured JSON error",
-			responseStatus: http.StatusBadRequest,
-			responseBody:   `{"error": {"code": "400", "message": "Bad Request"}}`,
-			expectedAPIError: &APIError{
-				StatusCode: http.StatusBadRequest,
-				Type:       "APIError",
-				Message:    "An error occurred",
-				Raw:        `{"error": {"code": "400", "message": "Bad Request"}}`,
-			},
+			name:     "Single paragraph with text",
+			html:     `<html><body><p>Test paragraph</p></body></html>`,
+			expected: "Test paragraph",
 		},
 		{
-			name:           "generic JSON error",
-			responseStatus: http.StatusInternalServerError,
-			responseBody:   `{"message": "Internal Server Error", "detail": "Server crashed"}`,
-			expectedAPIError: &APIError{
-				StatusCode: http.StatusInternalServerError,
-				Type:       "APIError",
-				Message:    "An error occurred",
-				Raw:        `{"message": "Internal Server Error", "detail": "Server crashed"}`,
-			},
+			name:     "Paragraph with link",
+			html:     `<html><body><p>Visit <a href="https://example.com">Example</a></p></body></html>`,
+			expected: `Visit [Link: https://example.com]`,
 		},
-		{
-			name:           "non-JSON error",
-			responseStatus: http.StatusServiceUnavailable,
-			responseBody:   `<html><body>Service Unavailable</body></html>`,
-			expectedAPIError: &APIError{
-				StatusCode: http.StatusServiceUnavailable,
-				Type:       "APIError",
-				Message:    "An error occurred",
-				Raw:        `<html><body>Service Unavailable</body></html>`,
-			},
-		},
+		// Add more test cases as needed...
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Mock HTTP response
-			responseRecorder := httptest.NewRecorder()
-			responseRecorder.WriteHeader(tt.responseStatus)
-			responseRecorder.WriteString(tt.responseBody)
+	// Iterate over test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockLog := mocklogger.NewMockLogger()
 
-			// Create a dummy request and associate it with the response
-			dummyReq := httptest.NewRequest("GET", "http://example.com", nil)
-			response := responseRecorder.Result()
-			response.Request = dummyReq
+			// Simulate an HTTP response
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(tc.html)),
+				Request: &http.Request{
+					Method: "GET",
+					URL:    &url.URL{Path: "https://example.com"},
+				},
+			}
 
-			// Use the centralized MockLogger from the mocklogger package
-			mockLogger := mocklogger.NewMockLogger()
+			// Create a new APIError instance
+			apiError := &APIError{}
 
-			// Set up expectations for LogError
-			mockLogger.On("LogError",
-				mock.AnythingOfType("string"), // event
-				mock.AnythingOfType("string"), // method
-				mock.AnythingOfType("string"), // url
-				mock.AnythingOfType("int"),    // statusCode
-				mock.AnythingOfType("string"), // status
-				mock.Anything,                 // error
-				mock.AnythingOfType("string"), // raw response
-			).Return()
+			// Read the response body bytes
+			bodyBytes, _ := io.ReadAll(resp.Body)
 
-			// Call HandleAPIErrorResponse
-			result := HandleAPIErrorResponse(response, mockLogger)
+			// Call parseHTMLResponse
+			parseHTMLResponse(bodyBytes, apiError, mockLog, resp)
 
-			// Assert
-			assert.Equal(t, tt.expectedAPIError.StatusCode, result.StatusCode)
-			assert.Equal(t, tt.expectedAPIError.Type, result.Type)
-			assert.Equal(t, tt.expectedAPIError.Raw, result.Raw)
-
-			// Assert that all expectations were met
-			mockLogger.AssertExpectations(t)
+			// Assert the results
+			if !strings.Contains(apiError.Message, tc.expected) {
+				t.Errorf("Expected message to contain %q, got %q", tc.expected, apiError.Message)
+			}
 		})
 	}
 }
