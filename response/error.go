@@ -5,12 +5,12 @@ package response
 import (
 	"bytes"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/antchfx/xmlquery"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"golang.org/x/net/html"
 )
@@ -108,38 +108,41 @@ func parseJSONResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, 
 	}
 }
 
-// parseXMLResponse should be implemented to parse XML responses and log errors using the centralized logger.
+// parseXMLResponse dynamically parses XML error responses and accumulates potential error messages.
 func parseXMLResponse(bodyBytes []byte, apiError *APIError, log logger.Logger, resp *http.Response) {
-	var xmlErr APIError
+	// Always set the Raw field to the entire XML content for debugging purposes
+	apiError.Raw = string(bodyBytes)
 
-	// Attempt to unmarshal the XML body into the XMLErrorResponse struct
-	if err := xml.Unmarshal(bodyBytes, &xmlErr); err != nil {
-		// If parsing fails, log the error and keep the raw response
-		apiError.Raw = string(bodyBytes)
-		log.LogError("xml_parsing_error",
-			resp.Request.Method,
-			resp.Request.URL.String(),
-			apiError.StatusCode,
-			fmt.Sprintf("Failed to parse XML: %s", err),
-			err,
-			apiError.Raw,
-		)
-	} else {
-		// Update the APIError with information from the parsed XML
-		apiError.Message = xmlErr.Message
-		// Assuming you might want to add a 'Code' field to APIError to store xmlErr.Code
-		// apiError.Code = xmlErr.Code
-
-		// Log the parsed error details
-		log.LogError("xml_error_detected",
-			resp.Request.Method,
-			resp.Request.URL.String(),
-			apiError.StatusCode,
-			"Parsed XML error successfully",
-			nil, // No error during parsing
-			apiError.Raw,
-		)
+	// Parse the XML document
+	doc, err := xmlquery.Parse(bytes.NewReader(bodyBytes))
+	if err != nil {
+		logError(log, apiError, "xml_parsing_error", resp)
+		return
 	}
+
+	var messages []string
+	var traverse func(*xmlquery.Node)
+	traverse = func(n *xmlquery.Node) {
+		if n.Type == xmlquery.TextNode && strings.TrimSpace(n.Data) != "" {
+			messages = append(messages, strings.TrimSpace(n.Data))
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			traverse(c)
+		}
+	}
+
+	traverse(doc)
+
+	// Concatenate all messages found in the XML for the 'Message' field of APIError
+	if len(messages) > 0 {
+		apiError.Message = strings.Join(messages, "; ")
+	} else {
+		// Fallback error message if no specific messages were extracted
+		apiError.Message = "Failed to extract error details from XML response"
+	}
+
+	// Log the error using the centralized logger
+	logError(log, apiError, "xml_error_detected", resp)
 }
 
 // parseTextResponse updates the APIError structure based on a plain text error response and logs it.
