@@ -46,9 +46,10 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.L
 // handleDeleteRequest handles the special case for DELETE requests, where a successful response might not contain a body.
 func handleDeleteRequest(resp *http.Response, log logger.Logger) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		log.Info("Successfully processed DELETE request", zap.String("URL", resp.Request.URL.String()), zap.Int("Status Code", resp.StatusCode))
 		return nil
 	}
-	return log.Error("DELETE request failed", zap.Int("Status Code", resp.StatusCode))
+	return log.Error("DELETE request failed", zap.String("URL", resp.Request.URL.String()), zap.Int("Status Code", resp.StatusCode))
 }
 
 // readResponseBody reads and returns the body of an HTTP response. It logs an error if reading fails.
