@@ -71,27 +71,46 @@ func logResponseDetails(resp *http.Response, bodyBytes []byte, log logger.Logger
 	log.Debug("HTTP Response Headers", zap.Any("Headers", resp.Header))
 }
 
-// handleBinaryData checks if the response should be treated as binary data based on the Content-Type or Content-Disposition headers. It assigns the response body to 'out' if 'out' is of type *[]byte.
+
+// handleBinaryData checks if the response should be treated as binary data based on the Content-Type or Content-Disposition headers.
+// It supports writing the response body to an output parameter of type *[]byte or io.Writer.
 func handleBinaryData(contentType, contentDisposition string, bodyBytes []byte, log logger.Logger, out interface{}) error {
 	// Check if response is binary data either by Content-Type or Content-Disposition
 	if strings.Contains(contentType, "application/octet-stream") || strings.HasPrefix(contentDisposition, "attachment") {
-		// Assert that 'out' is of the correct type to receive binary data
-		if outPointer, ok := out.(*[]byte); ok {
-			*outPointer = bodyBytes          // Assign the response body to 'out'
-			log.Debug("Handled binary data", // Log handling of binary data
+		switch out := out.(type) {
+		case *[]byte:
+			*out = bodyBytes // Assign the response body to 'out'
+			log.Debug("Handled binary data as []byte",
 				zap.String("Content-Type", contentType),
 				zap.String("Content-Disposition", contentDisposition),
 			)
-			return nil
-		} else {
-			errMsg := "output parameter is not a *[]byte for binary data"
-			log.Error("Binary data handling error", // Log error for incorrect 'out' type
+
+		case io.Writer:
+			_, err := out.Write(bodyBytes) // Write the response body to 'out'
+			if err != nil {
+				errMsg := "failed to write binary data to io.Writer"
+				log.Error("Binary data writing error",
+					zap.String("error", errMsg),
+					zap.String("Content-Type", contentType),
+					zap.String("Content-Disposition", contentDisposition),
+				)
+				return fmt.Errorf(errMsg)
+			}
+			log.Debug("Handled binary data as io.Writer",
+				zap.String("Content-Type", contentType),
+				zap.String("Content-Disposition", contentDisposition),
+			)
+
+		default:
+			errMsg := "output parameter is not a *[]byte or io.Writer for binary data"
+			log.Error("Binary data handling error",
 				zap.String("error", errMsg),
 				zap.String("Content-Type", contentType),
 				zap.String("Content-Disposition", contentDisposition),
 			)
 			return fmt.Errorf(errMsg)
 		}
+		return nil
 	}
 	return nil // If not binary data, no action needed
 }
