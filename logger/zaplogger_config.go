@@ -17,6 +17,12 @@ func BuildLogger(logLevel LogLevel, encoding string, logConsoleSeparator string,
 		encoding = "console"
 	}
 
+	// Ensure the log path is correct and get the final log file path
+	logPath, err := EnsureLogFilePath(logExportPath)
+	if err != nil {
+		panic(err)
+	}
+
 	// Set up custom encoder configuration
 	encoderCfg := zap.NewProductionEncoderConfig()
 
@@ -69,7 +75,7 @@ func BuildLogger(logLevel LogLevel, encoding string, logConsoleSeparator string,
 
 	// Conditionally set the OutputPaths to include the log export path if provided
 	if logExportPath != "" {
-		config.OutputPaths = append(config.OutputPaths, logExportPath)
+		config.OutputPaths = append(config.OutputPaths, logPath)
 	}
 
 	// Build the logger from the configuration
