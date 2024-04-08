@@ -4,6 +4,8 @@ This Go module offers a sophisticated HTTP client designed for seamless API inte
 
 This client leverages API-specific SDKs to provide a comprehensive and consistent interface for interacting with various APIs, including Microsoft Graph, Jamf Pro, and others. It is designed to be easily extensible to support additional APIs and to be highly configurable to meet specific API requirements. It achieves this through using a modular design, with a core HTTP client and API-specific handlers that encapsulate the unique requirements of each API supported.
 
+This HTTP client is intended to be used with targetted SDK's and terraform providers only. As such the http client cannot be used without a supporting SDK.
+
 ## Features
 
 - **Comprehensive Authentication Support**: Robust support for various authentication schemes, including OAuth and Bearer Token, with built-in token management and validation.
