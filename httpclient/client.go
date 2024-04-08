@@ -63,6 +63,7 @@ type ClientOptions struct {
 	LogLevel                  string // Field for defining tiered logging level.
 	LogOutputFormat           string // Field for defining the output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
 	LogConsoleSeparator       string // Field for defining the separator in console output format.
+	LogExportPath             string // Field for specifying the path to output logs to.
 	HideSensitiveData         bool   // Field for defining whether sensitive fields should be hidden in logs.
 	MaxRetryAttempts          int    // Config item defines the max number of retry request attempts for retryable HTTP methods.
 	EnableDynamicRateLimiting bool   // Field for defining whether dynamic rate limiting should be enabled.
@@ -81,7 +82,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.LogLevel)
 
 	// Initialize the logger with parsed config values
-	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.LogOutputFormat, config.ClientOptions.LogConsoleSeparator)
+	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.LogOutputFormat, config.ClientOptions.LogConsoleSeparator, config.ClientOptions.LogExportPath)
 
 	// Set the logger's level (optional if BuildLogger already sets the level based on the input)
 	log.SetLevel(parsedLogLevel)
