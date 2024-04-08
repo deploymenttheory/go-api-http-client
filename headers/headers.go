@@ -9,6 +9,7 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/headers/redact"
+	"github.com/deploymenttheory/go-api-http-client/version"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
@@ -95,6 +96,11 @@ func SetXForwardedForHeader(req *http.Request, xForwardedForValue string) {
 // This function allows setting arbitrary headers for specialized API requirements.
 func SetCustomHeader(req *http.Request, headerName, headerValue string) {
 	req.Header.Set(headerName, headerValue)
+}
+
+// SetUserAgentHeader sets the User-Agent header for an HTTP request.
+func SetUserAgentHeader() string {
+	return fmt.Sprintf("%s/%s", version.UserAgentBase, version.SDKVersion)
 }
 
 // SetRequestHeaders sets the necessary HTTP headers for a given request using the APIHandler to determine the required headers.

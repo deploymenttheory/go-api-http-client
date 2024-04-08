@@ -2,11 +2,13 @@
 package headers
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
+	"github.com/deploymenttheory/go-api-http-client/version"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -125,6 +127,14 @@ func TestSetCustomHeader(t *testing.T) {
 	SetCustomHeader(req, headerName, headerValue)
 
 	assert.Equal(t, headerValue, req.Header.Get(headerName), "Custom header should be correctly set")
+}
+
+// TestSetUserAgentHeader verifies that the SetUserAgentHeader function returns the expected user agent string
+func TestSetUserAgentHeader(t *testing.T) {
+	expectedUserAgent := fmt.Sprintf("%s/%s", version.UserAgentBase, version.SDKVersion)
+	userAgent := SetUserAgentHeader()
+
+	assert.Equal(t, expectedUserAgent, userAgent, "User agent string should match expected format")
 }
 
 // TestSetRequestHeaders verifies that standard headers, including a custom Authorization header,
