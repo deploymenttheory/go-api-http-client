@@ -16,17 +16,17 @@ import (
 	"go.uber.org/zap"
 )
 
-// Refactored contentHandler to accept io.Reader instead of []byte for streaming support.
+// contentHandler defines the signature for unmarshaling content from an io.Reader.
 type contentHandler func(io.Reader, interface{}, logger.Logger, string) error
 
-// Updated handlers map to use the new contentHandler signature.
-var handlers = map[string]contentHandler{
+// responseUnmarshallers maps MIME types to the corresponding contentHandler functions.
+var responseUnmarshallers = map[string]contentHandler{
 	"application/json": unmarshalJSON,
 	"application/xml":  unmarshalXML,
 	"text/xml":         unmarshalXML,
 }
 
-// HandleAPISuccessResponse reads the response body and unmarshals it based on the content type.
+// HandleAPISuccessResponse reads the response body, logs the raw response details, and unmarshals the response based on the content type.
 func HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.Logger) error {
 	if resp.Request.Method == "DELETE" {
 		return handleDeleteRequest(resp, log)
@@ -38,7 +38,7 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.L
 	mimeType, _ := ParseContentTypeHeader(resp.Header.Get("Content-Type"))
 	contentDisposition := resp.Header.Get("Content-Disposition")
 
-	if handler, ok := handlers[mimeType]; ok {
+	if handler, ok := responseUnmarshallers[mimeType]; ok {
 		// Pass resp.Body directly to the handler for streaming.
 		return handler(resp.Body, out, log, mimeType)
 	} else if isBinaryData(mimeType, contentDisposition) {
@@ -54,10 +54,15 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.L
 // handleDeleteRequest handles the special case for DELETE requests, where a successful response might not contain a body.
 func handleDeleteRequest(resp *http.Response, log logger.Logger) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		log.Info("Successfully processed DELETE request", zap.String("URL", resp.Request.URL.String()), zap.Int("Status Code", resp.StatusCode))
+		if log != nil {
+			log.Info("Successfully processed DELETE request", zap.String("URL", resp.Request.URL.String()), zap.Int("Status Code", resp.StatusCode))
+		}
 		return nil
 	}
-	return log.Error("DELETE request failed", zap.String("URL", resp.Request.URL.String()), zap.Int("Status Code", resp.StatusCode))
+	if log != nil {
+		return log.Error("DELETE request failed", zap.String("URL", resp.Request.URL.String()), zap.Int("Status Code", resp.StatusCode))
+	}
+	return fmt.Errorf("DELETE request failed, status code: %d", resp.StatusCode)
 }
 
 // Adjusted logResponseDetails to handle a potential nil bodyBytes.
