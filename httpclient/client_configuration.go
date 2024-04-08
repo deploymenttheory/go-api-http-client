@@ -104,6 +104,9 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 	config.ClientOptions.LogConsoleSeparator = getEnvOrDefault("LOG_CONSOLE_SEPARATOR", config.ClientOptions.LogConsoleSeparator)
 	log.Printf("LogConsoleSeparator env value found and set to: %s", config.ClientOptions.LogConsoleSeparator)
 
+	config.ClientOptions.LogExportPath = getEnvOrDefault("LOG_EXPORT_PATH", config.ClientOptions.LogExportPath)
+	log.Printf("LogExportPath env value found and set to: %s", config.ClientOptions.LogExportPath)
+
 	config.ClientOptions.HideSensitiveData = parseBool(getEnvOrDefault("HIDE_SENSITIVE_DATA", strconv.FormatBool(config.ClientOptions.HideSensitiveData)))
 	log.Printf("HideSensitiveData env value found and set to: %t", config.ClientOptions.HideSensitiveData)
 
