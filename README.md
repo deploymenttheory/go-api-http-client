@@ -33,6 +33,18 @@ Currently, the HTTP client supports the following API handlers:
 
 ## Getting Started
 
+## HTTP Client Build Flow
+
+The HTTP client build flow can be initiated using a number of methods. The primary methods include:
+
+Using the SDK `BuildClientWithConfigFile` function, which reads the configuration from a JSON file and constructs the client accordingly. The configuration file specifies the authentication details, API environment settings, and client options, such as logging level, retry attempts, and concurrency limits.
+
+Or using the SDK `BuildClientWithEnvironmentVariables` function, which reads the configuration from environment variables and constructs the client accordingly. This method allows for more flexible configuration management, particularly in containerized environments or when using orchestration tools.
+
+There is also the option to the build the client manually by creating a new `Client` struct and setting the required fields directly. This method provides the most granular control over the client configuration and can be useful for advanced use cases or when integrating with existing configuration management systems. This is the approached used in related terraform providers.
+
+![HTTP Client Build Flow](docs/media/BuildClient.png)
+
 ### Installation
 
 To use this HTTP client in your project, add the package to your Go module dependencies:
@@ -42,7 +54,8 @@ go get github.com/yourusername/go-api-http-client
 ```
 
 ### Usage
-Example usage with a configuration file:
+
+Example usage with a configuration file using the jamfpro SDK client builder function:
 
 ```go
 package main
@@ -84,23 +97,21 @@ Example configuration file (clientconfig.json):
     "APIType": "" // "jamfpro" / "graph"
   },
   "ClientOptions": {
-    "LogLevel": "LogLevelDebug", // "LogLevelDebug" / "LogLevelInfo" / "LogLevelWarn" / "LogLevelError" / "LogLevelFatal" / "LogLevelPanic"
+    "LogLevel": "LogLevelDebug",  // "LogLevelDebug" / "LogLevelInfo" / "LogLevelWarn" / "LogLevelError" / "LogLevelFatal" / "LogLevelPanic"
     "LogOutputFormat": "console", // "console" / "json"
-    "LogConsoleSeparator": " ", // " " / "\t" / "," / etc.
-    "HideSensitiveData": true,  // true / false
-    "EnableDynamicRateLimiting": true, // true / false
-    "MaxRetryAttempts": 5,
-    "MaxConcurrentRequests": 3,
-    "EnableCookieJar": true // true / false
+    "LogConsoleSeparator": " ",   // " " / "\t" / "," / etc.
+    "LogExportPath": "/path/to/export/your/logs",
+    "HideSensitiveData": true,    // redacts sensitive data from logs
+    "MaxRetryAttempts": 5,        // set number of retry attempts
+    "MaxConcurrentRequests": 3,   // set number of concurrent requests
+    "EnableCookieJar": false,     // enable cookie jar support
+    "FollowRedirects": true,      // follow redirects
+	  "MaxRedirects": 5             // set number of redirects to follow
   }
 }
 ```
 
-## Status
 
-[![Super Linter](<https://github.com/segraef/Template/actions/workflows/linter.yml/badge.svg>)](<https://github.com/segraef/Template/actions/workflows/linter.yml>)
-
-[![Sample Workflow](<https://github.com/segraef/Template/actions/workflows/workflow.yml/badge.svg>)](<https://github.com/segraef/Template/actions/workflows/workflow.yml>)
 
 
 ## Reporting Issues and Feedback
