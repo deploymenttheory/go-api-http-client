@@ -4,6 +4,7 @@ and unmarshals the response based on the content type (JSON or XML). */
 package response
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -32,18 +33,26 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.L
 		return handleDeleteRequest(resp, log)
 	}
 
-	// No need to read the entire body into memory, pass resp.Body directly.
-	logResponseDetails(resp, nil, log) // Updated to handle nil bodyBytes.
+	// Create a buffer to hold a copy of the response body
+	var bodyBuffer bytes.Buffer
+
+	// Use TeeReader to read the response body and simultaneously write it to the buffer
+	teeReader := io.TeeReader(resp.Body, &bodyBuffer)
+
+	// log the response body
+	logResponseDetails(resp, bodyBuffer.Bytes(), log)
 
 	mimeType, _ := ParseContentTypeHeader(resp.Header.Get("Content-Type"))
 	contentDisposition := resp.Header.Get("Content-Disposition")
 
 	if handler, ok := responseUnmarshallers[mimeType]; ok {
-		// Pass resp.Body directly to the handler for streaming.
-		return handler(resp.Body, out, log, mimeType)
+		// Replace the response body with a new reader that reads from the buffer, allowing it to be read again
+		resp.Body = io.NopCloser(&bodyBuffer)
+		return handler(teeReader, out, log, mimeType) // Use teeReader here to unmarshal from the original response body
 	} else if isBinaryData(mimeType, contentDisposition) {
-		// For binary data, we still need to handle the body directly.
-		return handleBinaryData(resp.Body, log, out, mimeType, contentDisposition)
+		// Replace the response body with a new reader that reads from the buffer, allowing it to be read again
+		resp.Body = io.NopCloser(&bodyBuffer)
+		return handleBinaryData(teeReader, log, out, mimeType, contentDisposition) // Use teeReader here to handle binary data
 	} else {
 		errMsg := fmt.Sprintf("unexpected MIME type: %s", mimeType)
 		log.Error("Unmarshal error", zap.String("content type", mimeType), zap.Error(errors.New(errMsg)))
