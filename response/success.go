@@ -33,26 +33,17 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.L
 		return handleDeleteRequest(resp, log)
 	}
 
-	// Create a buffer to hold a copy of the response body
-	var bodyBuffer bytes.Buffer
-
-	// Use TeeReader to read the response body and simultaneously write it to the buffer
-	teeReader := io.TeeReader(resp.Body, &bodyBuffer)
-
-	// log the response body
-	logResponseDetails(resp, bodyBuffer.Bytes(), log)
+	// Log headers and set up deferred body logging.
+	deferBodyLog := logResponseDetails(resp, log)
+	defer deferBodyLog() // Ensure body logging happens at the end of this function.
 
 	mimeType, _ := ParseContentTypeHeader(resp.Header.Get("Content-Type"))
 	contentDisposition := resp.Header.Get("Content-Disposition")
 
 	if handler, ok := responseUnmarshallers[mimeType]; ok {
-		// Replace the response body with a new reader that reads from the buffer, allowing it to be read again
-		resp.Body = io.NopCloser(&bodyBuffer)
-		return handler(teeReader, out, log, mimeType) // Use teeReader here to unmarshal from the original response body
+		return handler(resp.Body, out, log, mimeType)
 	} else if isBinaryData(mimeType, contentDisposition) {
-		// Replace the response body with a new reader that reads from the buffer, allowing it to be read again
-		resp.Body = io.NopCloser(&bodyBuffer)
-		return handleBinaryData(teeReader, log, out, mimeType, contentDisposition) // Use teeReader here to handle binary data
+		return handleBinaryData(resp.Body, log, out, mimeType, contentDisposition)
 	} else {
 		errMsg := fmt.Sprintf("unexpected MIME type: %s", mimeType)
 		log.Error("Unmarshal error", zap.String("content type", mimeType), zap.Error(errors.New(errMsg)))
@@ -74,14 +65,22 @@ func handleDeleteRequest(resp *http.Response, log logger.Logger) error {
 	return fmt.Errorf("DELETE request failed, status code: %d", resp.StatusCode)
 }
 
-// Adjusted logResponseDetails to handle a potential nil bodyBytes.
-func logResponseDetails(resp *http.Response, bodyBytes []byte, log logger.Logger) {
-	// Conditional logging if bodyBytes is not nil.
-	if bodyBytes != nil {
-		log.Debug("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
-	}
-	// Logging headers remains unchanged.
+// logResponseDetails logs the raw response details and returns a deferred function to log the response body.
+func logResponseDetails(resp *http.Response, log logger.Logger) func() {
 	log.Debug("HTTP Response Headers", zap.Any("Headers", resp.Header))
+
+	// Returning a deferred function to log the body.
+	return func() {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Error("Error reading response body for logging", zap.Error(err))
+			return
+		}
+		log.Debug("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
+
+		// After logging, reset resp.Body so it can be read again.
+		resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	}
 }
 
 // unmarshalJSON unmarshals JSON content from an io.Reader into the provided output structure.
