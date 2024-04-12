@@ -1,4 +1,4 @@
-// msgraph_api_handler_constants.go
+// apiintegrations/msgraph/msgraph_api_handler_constants.go
 package msgraph
 
 // Endpoint constants represent the URL suffixes used for graph API token interactions.

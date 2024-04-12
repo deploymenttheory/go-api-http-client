@@ -1,4 +1,4 @@
-// msgraph_api_headers.go
+// apiintegrations/msgraph/msgraph_api_headers.go
 package msgraph
 
 import (

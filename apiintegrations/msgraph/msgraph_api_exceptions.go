@@ -1,4 +1,4 @@
-// msgraph_api_exceptions.go
+// apiintegrations/msgraph/msgraph_api_exceptions.go
 package msgraph
 
 import (
