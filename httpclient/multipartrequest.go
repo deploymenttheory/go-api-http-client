@@ -60,7 +60,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := c.APIHandler.ConstructAPIResourceEndpoint(c.InstanceName, endpoint, log)
+	url := c.APIHandler.ConstructAPIResourceEndpoint(c.clientConfig.Environment.InstanceName, endpoint, log)
 
 	// Create the request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))

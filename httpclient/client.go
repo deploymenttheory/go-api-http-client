@@ -22,12 +22,10 @@ import (
 
 // Client represents an HTTP client to interact with a specific API.
 type Client struct {
-	InstanceName       string    // Website Instance name without the root domain
-	AuthMethod         string    // Specifies the authentication method: "bearer" or "oauth"
-	Token              string    // Authentication Token
-	OverrideBaseDomain string    // Base domain override used when the default in the api handler isn't suitable
-	Expiry             time.Time // Expiry time set for the auth token
-	httpClient         *http.Client
+	AuthMethod         string       // Specifies the authentication method: "bearer" or "oauth"
+	Token              string       // Authentication Token
+	Expiry             time.Time    // Expiry time set for the auth token
+	httpClient         *http.Client // Internal HTTP client
 	clientConfig       ClientConfig
 	Logger             logger.Logger
 	ConcurrencyHandler *concurrency.ConcurrencyHandler
@@ -52,9 +50,11 @@ type AuthConfig struct {
 
 // EnvironmentConfig represents the structure to read authentication details from a JSON configuration file.
 type EnvironmentConfig struct {
-	InstanceName       string `json:"InstanceName,omitempty"`
-	OverrideBaseDomain string `json:"OverrideBaseDomain,omitempty"`
-	APIType            string `json:"APIType,omitempty"`
+	APIType            string `json:"APIType,omitempty"`            // APIType specifies the type of API integration to use
+	InstanceName       string `json:"InstanceName,omitempty"`       // Website Instance name without the root domain
+	OverrideBaseDomain string `json:"OverrideBaseDomain,omitempty"` // Base domain override used when the default in the api handler isn't suitable
+	TenantID           string `json:"TenantID,omitempty"`           // TenantID is the unique identifier for the tenant
+	TenantName         string `json:"TenantName,omitempty"`         // TenantName is the name of the tenant
 }
 
 // ClientOptions holds optional configuration options for the HTTP Client.
@@ -148,10 +148,10 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
-		APIHandler:         apiHandler,
-		InstanceName:       config.Environment.InstanceName,
-		AuthMethod:         authMethod,
-		OverrideBaseDomain: config.Environment.OverrideBaseDomain,
+		APIHandler: apiHandler,
+		//InstanceName:       config.Environment.InstanceName,
+		AuthMethod: authMethod,
+		//OverrideBaseDomain: config.Environment.OverrideBaseDomain,
 		httpClient:         httpClient,
 		clientConfig:       config,
 		Logger:             log,
@@ -162,8 +162,10 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	// Log the client's configuration.
 	log.Info("New API client initialized",
 		zap.String("API Type", config.Environment.APIType),
-		zap.String("Instance Name", client.InstanceName),
+		zap.String("Instance Name", config.Environment.InstanceName),
 		zap.String("Override Base Domain", config.Environment.OverrideBaseDomain),
+		zap.String("Tenant ID", config.Environment.TenantID),
+		zap.String("Tenant Name", config.Environment.TenantName),
 		zap.String("Authentication Method", authMethod),
 		zap.String("Logging Level", config.ClientOptions.LogLevel),
 		zap.String("Log Encoding Format", config.ClientOptions.LogOutputFormat),
