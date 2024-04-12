@@ -37,7 +37,7 @@ func (h *AuthTokenHandler) ObtainOAuthToken(apiHandler apihandler.APIHandler, ht
 	oauthTokenEndpoint := apiHandler.GetOAuthTokenEndpoint()
 
 	// Construct the full authentication endpoint URL
-	authenticationEndpoint := apiHandler.ConstructAPIAuthEndpoint(h.InstanceName, oauthTokenEndpoint, h.Logger)
+	authenticationEndpoint := apiHandler.ConstructAPIAuthEndpoint(oauthTokenEndpoint, h.Logger)
 
 	// Get the OAuth token scope from the APIHandler
 	oauthTokenScope := apiHandler.GetOAuthTokenScope()

@@ -21,7 +21,7 @@ func (h *AuthTokenHandler) ObtainToken(apiHandler apihandler.APIHandler, httpCli
 	bearerTokenEndpoint := apiHandler.GetBearerTokenEndpoint()
 
 	// Construct the full authentication endpoint URL
-	authenticationEndpoint := apiHandler.ConstructAPIAuthEndpoint(h.InstanceName, bearerTokenEndpoint, h.Logger)
+	authenticationEndpoint := apiHandler.ConstructAPIAuthEndpoint(bearerTokenEndpoint, h.Logger)
 
 	h.Logger.Debug("Attempting to obtain token for user", zap.String("Username", username))
 
@@ -69,7 +69,7 @@ func (h *AuthTokenHandler) RefreshToken(apiHandler apihandler.APIHandler, httpCl
 	apiTokenRefreshEndpoint := apiHandler.GetTokenRefreshEndpoint()
 
 	// Construct the full authentication endpoint URL
-	tokenRefreshEndpoint := apiHandler.ConstructAPIAuthEndpoint(h.InstanceName, apiTokenRefreshEndpoint, h.Logger)
+	tokenRefreshEndpoint := apiHandler.ConstructAPIAuthEndpoint(apiTokenRefreshEndpoint, h.Logger)
 
 	h.Logger.Debug("Attempting to refresh token", zap.String("URL", tokenRefreshEndpoint))
 

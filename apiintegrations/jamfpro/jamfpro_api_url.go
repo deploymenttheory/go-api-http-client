@@ -18,17 +18,17 @@ func (j *JamfAPIHandler) SetBaseDomain() string {
 }
 
 // ConstructAPIResourceEndpoint constructs the full URL for a Jamf API resource endpoint path and logs the URL.
-func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(instanceName string, endpointPath string, log logger.Logger) string {
+func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(endpointPath string, log logger.Logger) string {
 	urlBaseDomain := j.SetBaseDomain()
-	url := fmt.Sprintf("https://%s%s%s", instanceName, urlBaseDomain, endpointPath)
+	url := fmt.Sprintf("https://%s%s%s", j.InstanceName, urlBaseDomain, endpointPath)
 	j.Logger.Debug(fmt.Sprintf("Constructed %s API resource endpoint URL", APIName), zap.String("URL", url))
 	return url
 }
 
 // ConstructAPIAuthEndpoint constructs the full URL for a Jamf API auth endpoint path and logs the URL.
-func (j *JamfAPIHandler) ConstructAPIAuthEndpoint(instanceName string, endpointPath string, log logger.Logger) string {
+func (j *JamfAPIHandler) ConstructAPIAuthEndpoint(endpointPath string, log logger.Logger) string {
 	urlBaseDomain := j.SetBaseDomain()
-	url := fmt.Sprintf("https://%s%s%s", instanceName, urlBaseDomain, endpointPath)
+	url := fmt.Sprintf("https://%s%s%s", j.InstanceName, urlBaseDomain, endpointPath)
 	j.Logger.Debug(fmt.Sprintf("Constructed %s API authentication URL", APIName), zap.String("URL", url))
 	return url
 }

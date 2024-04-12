@@ -11,14 +11,11 @@ import (
 // SetBaseDomain returns the appropriate base domain for URL construction.
 // It uses j.OverrideBaseDomain if set, otherwise falls back to DefaultBaseDomain.
 func (g *GraphAPIHandler) SetBaseDomain() string {
-	if g.OverrideBaseDomain != "" {
-		return g.OverrideBaseDomain
-	}
 	return DefaultBaseDomain
 }
 
 // ConstructAPIResourceEndpoint constructs the full URL for a graph API resource endpoint path and logs the URL.
-func (g *GraphAPIHandler) ConstructAPIResourceEndpoint(tenantName string, endpointPath string, log logger.Logger) string {
+func (g *GraphAPIHandler) ConstructAPIResourceEndpoint(endpointPath string, log logger.Logger) string {
 	urlBaseDomain := g.SetBaseDomain()
 	url := fmt.Sprintf("https://%s%s%s", g.TenantName, urlBaseDomain, endpointPath)
 	g.Logger.Debug(fmt.Sprintf("Constructed %s API resource endpoint URL", APIName), zap.String("URL", url))
@@ -27,7 +24,7 @@ func (g *GraphAPIHandler) ConstructAPIResourceEndpoint(tenantName string, endpoi
 
 // ConstructAPIAuthEndpoint constructs the full URL for the Microsoft Graph API authentication endpoint.
 // It uses the provided tenant ID and endpoint path and logs the constructed URL.
-func (g *GraphAPIHandler) ConstructAPIAuthEndpoint(tenantID string, endpointPath string, log logger.Logger) string {
+func (g *GraphAPIHandler) ConstructAPIAuthEndpoint(endpointPath string, log logger.Logger) string {
 	// The base URL for the Microsoft Graph API authentication endpoint.
 	const baseURL = "https://login.microsoftonline.com"
 

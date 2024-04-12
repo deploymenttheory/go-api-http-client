@@ -146,7 +146,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	}
 
 	// Construct URL with correct structure defined in api handler
-	url := c.APIHandler.ConstructAPIResourceEndpoint(c.clientConfig.Environment.InstanceName, endpoint, log)
+	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
 	// Increment total request counter within ConcurrencyHandler's metrics
 	c.ConcurrencyHandler.Metrics.Lock.Lock()
@@ -312,7 +312,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := c.APIHandler.ConstructAPIResourceEndpoint(c.clientConfig.Environment.InstanceName, endpoint, log)
+	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
 	// Create a new HTTP request with the provided method, URL, and body
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))

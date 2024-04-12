@@ -11,8 +11,8 @@ import (
 // APIHandler is an interface for encoding, decoding, and implenting contexual api functions for different API implementations.
 // It encapsulates behavior for encoding and decoding requests and responses.
 type APIHandler interface {
-	ConstructAPIResourceEndpoint(APIResourceEndpointIdentifier string, endpointPath string, log logger.Logger) string
-	ConstructAPIAuthEndpoint(APIAuthEndpointIdentifier string, endpointPath string, log logger.Logger) string
+	ConstructAPIResourceEndpoint(endpointPath string, log logger.Logger) string
+	ConstructAPIAuthEndpoint(endpointPath string, log logger.Logger) string
 	MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error)
 	MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error)
 	GetContentTypeHeader(method string, log logger.Logger) string
@@ -29,22 +29,21 @@ type APIHandler interface {
 	GetAPIRequestHeaders(endpoint string) map[string]string // Provides standard headers required for making API requests.
 }
 
-// Modify the function signature to accept instanceName, tenantID, and tenantName.
+// LoadAPIHandler loads the appropriate API handler based on the API type.
 func LoadAPIHandler(apiType, instanceName, tenantID, tenantName string, log logger.Logger) (APIHandler, error) {
 	var apiHandler APIHandler
 	switch apiType {
 	case "jamfpro":
 		apiHandler = &jamfpro.JamfAPIHandler{
 			Logger:       log,
-			InstanceName: instanceName, // Assuming you add InstanceName field to JamfAPIHandler
+			InstanceName: instanceName, // Used for constructing the resource and auth endpoints
 		}
 		log.Info("Jamf Pro API handler loaded successfully", zap.String("APIType", apiType), zap.String("InstanceName", instanceName))
 
 	case "msgraph":
 		apiHandler = &msgraph.GraphAPIHandler{
-			Logger:     log,
-			TenantID:   tenantID,   // Assuming you add TenantID field to GraphAPIHandler
-			TenantName: tenantName, // Assuming you add TenantName field to GraphAPIHandler
+			Logger:   log,
+			TenantID: tenantID, // Used for constructing the auth endpoint
 		}
 		log.Info("Microsoft Graph API handler loaded successfully", zap.String("APIType", apiType), zap.String("TenantID", tenantID), zap.String("TenantName", tenantName))
 
