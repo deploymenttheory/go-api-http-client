@@ -1,55 +1,29 @@
-// msgraph_api_request.go
+// apiintegrations/msgraph/msgraph_api_request.go
 package msgraph
 
 import (
 	"bytes"
 	"encoding/json"
-	"encoding/xml"
 	"io"
 	"mime/multipart"
 	"os"
-	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
-// MarshalRequest encodes the request body according to the endpoint for the API.
+// MarshalRequest encodes the request body as JSON for the Microsoft Graph API.
 func (g *GraphAPIHandler) MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error) {
-	var (
-		data []byte
-		err  error
-	)
-
-	// Determine the format based on the endpoint
-	format := "json"
-	if strings.Contains(endpoint, "/JSSResource") {
-		format = "xml"
-	} else if strings.Contains(endpoint, "/api") {
-		format = "json"
+	// Marshal the body as JSON
+	data, err := json.Marshal(body)
+	if err != nil {
+		g.Logger.Error("Failed marshaling JSON request", zap.Error(err))
+		return nil, err
 	}
 
-	switch format {
-	case "xml":
-		data, err = xml.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-
-		if method == "POST" || method == "PUT" {
-			g.Logger.Debug("XML Request Body", zap.String("Body", string(data)))
-		}
-
-	case "json":
-		data, err = json.Marshal(body)
-		if err != nil {
-			g.Logger.Error("Failed marshaling JSON request", zap.Error(err))
-			return nil, err
-		}
-
-		if method == "POST" || method == "PUT" || method == "PATCH" {
-			g.Logger.Debug("JSON Request Body", zap.String("Body", string(data)))
-		}
+	// Log the JSON request body for POST, PUT, or PATCH methods
+	if method == "POST" || method == "PUT" || method == "PATCH" {
+		g.Logger.Debug("JSON Request Body", zap.String("Body", string(data)))
 	}
 
 	return data, nil

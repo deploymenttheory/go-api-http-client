@@ -1,4 +1,4 @@
-// msgraph_api_url.go
+// apiintegrations/msgraph/msgraph_api_url.go
 package msgraph
 
 import (
