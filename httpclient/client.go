@@ -88,7 +88,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	log.SetLevel(parsedLogLevel)
 
 	// Use the APIType from the config to determine which API handler to load
-	apiHandler, err := apihandler.LoadAPIHandler(config.Environment.APIType, log)
+	apiHandler, err := apihandler.LoadAPIHandler(config.Environment.APIType, config.Environment.InstanceName, config.Environment.TenantID, config.Environment.TenantName, log)
 	if err != nil {
 		log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
 		return nil, err
