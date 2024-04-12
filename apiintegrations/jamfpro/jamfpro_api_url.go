@@ -18,6 +18,7 @@ func (j *JamfAPIHandler) SetBaseDomain() string {
 }
 
 // ConstructAPIResourceEndpoint constructs the full URL for a Jamf API resource endpoint path and logs the URL.
+// It uses the instance name to construct the full URL.
 func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(endpointPath string, log logger.Logger) string {
 	urlBaseDomain := j.SetBaseDomain()
 	url := fmt.Sprintf("https://%s%s%s", j.InstanceName, urlBaseDomain, endpointPath)
@@ -26,6 +27,7 @@ func (j *JamfAPIHandler) ConstructAPIResourceEndpoint(endpointPath string, log l
 }
 
 // ConstructAPIAuthEndpoint constructs the full URL for a Jamf API auth endpoint path and logs the URL.
+// It uses the instance name to construct the full URL.
 func (j *JamfAPIHandler) ConstructAPIAuthEndpoint(endpointPath string, log logger.Logger) string {
 	urlBaseDomain := j.SetBaseDomain()
 	url := fmt.Sprintf("https://%s%s%s", j.InstanceName, urlBaseDomain, endpointPath)
