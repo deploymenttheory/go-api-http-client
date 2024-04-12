@@ -22,15 +22,15 @@ import (
 
 // Client represents an HTTP client to interact with a specific API.
 type Client struct {
-	AuthMethod         string       // Specifies the authentication method: "bearer" or "oauth"
-	Token              string       // Authentication Token
-	Expiry             time.Time    // Expiry time set for the auth token
-	httpClient         *http.Client // Internal HTTP client
-	clientConfig       ClientConfig
-	Logger             logger.Logger
-	ConcurrencyHandler *concurrency.ConcurrencyHandler
-	APIHandler         apihandler.APIHandler // APIHandler interface used to define which API handler to use
-	AuthTokenHandler   *authenticationhandler.AuthTokenHandler
+	AuthMethod         string                                  // Specifies the authentication method: "bearer" or "oauth"
+	Token              string                                  // Authentication Token
+	Expiry             time.Time                               // Expiry time set for the auth token
+	httpClient         *http.Client                            // Internal HTTP client
+	clientConfig       ClientConfig                            // HTTP Client configuration
+	Logger             logger.Logger                           // Logger for logging messages
+	ConcurrencyHandler *concurrency.ConcurrencyHandler         // ConcurrencyHandler for managing concurrent requests
+	APIHandler         apihandler.APIHandler                   // APIHandler interface used to define which API handler to use
+	AuthTokenHandler   *authenticationhandler.AuthTokenHandler // AuthTokenHandler for managing authentication
 }
 
 // Config holds configuration options for the HTTP Client.
@@ -148,10 +148,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
-		APIHandler: apiHandler,
-		//InstanceName:       config.Environment.InstanceName,
-		AuthMethod: authMethod,
-		//OverrideBaseDomain: config.Environment.OverrideBaseDomain,
+		APIHandler:         apiHandler,
+		AuthMethod:         authMethod,
 		httpClient:         httpClient,
 		clientConfig:       config,
 		Logger:             log,
