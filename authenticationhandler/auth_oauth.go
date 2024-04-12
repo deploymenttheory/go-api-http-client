@@ -48,7 +48,7 @@ func (h *AuthTokenHandler) ObtainOAuthToken(apiHandler apihandler.APIHandler, ht
 	data.Set("scope", oauthTokenScope)
 	data.Set("grant_type", "client_credentials")
 
-	h.Logger.Debug("Attempting to obtain OAuth token", zap.String("ClientID", clientID))
+	h.Logger.Debug("Attempting to obtain OAuth token", zap.String("ClientID", clientID), zap.String("Scope", oauthTokenScope))
 
 	req, err := http.NewRequest("POST", authenticationEndpoint, strings.NewReader(data.Encode()))
 	if err != nil {
