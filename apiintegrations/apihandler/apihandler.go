@@ -36,14 +36,14 @@ func LoadAPIHandler(apiType, instanceName, tenantID, tenantName string, log logg
 	case "jamfpro":
 		apiHandler = &jamfpro.JamfAPIHandler{
 			Logger:       log,
-			InstanceName: instanceName, // Used for constructing the resource and auth endpoints
+			InstanceName: instanceName, // Used for constructing both jamf pro resource and auth endpoints
 		}
 		log.Info("Jamf Pro API handler loaded successfully", zap.String("APIType", apiType), zap.String("InstanceName", instanceName))
 
 	case "msgraph":
 		apiHandler = &msgraph.GraphAPIHandler{
 			Logger:   log,
-			TenantID: tenantID, // Used for constructing the auth endpoint
+			TenantID: tenantID, // Used for constructing the graph auth endpoint
 		}
 		log.Info("Microsoft Graph API handler loaded successfully", zap.String("APIType", apiType), zap.String("TenantID", tenantID), zap.String("TenantName", tenantName))
 
