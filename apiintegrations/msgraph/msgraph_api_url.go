@@ -20,7 +20,7 @@ func (g *GraphAPIHandler) SetBaseDomain() string {
 // ConstructAPIResourceEndpoint constructs the full URL for a graph API resource endpoint path and logs the URL.
 func (g *GraphAPIHandler) ConstructAPIResourceEndpoint(tenantName string, endpointPath string, log logger.Logger) string {
 	urlBaseDomain := g.SetBaseDomain()
-	url := fmt.Sprintf("https://%s%s%s", tenantName, urlBaseDomain, endpointPath)
+	url := fmt.Sprintf("https://%s%s%s", g.TenantName, urlBaseDomain, endpointPath)
 	g.Logger.Debug(fmt.Sprintf("Constructed %s API resource endpoint URL", APIName), zap.String("URL", url))
 	return url
 }
@@ -32,7 +32,7 @@ func (g *GraphAPIHandler) ConstructAPIAuthEndpoint(tenantID string, endpointPath
 	const baseURL = "https://login.microsoftonline.com"
 
 	// Construct the full URL by combining the base URL, tenant ID, and endpoint path.
-	url := fmt.Sprintf("%s/%s%s", baseURL, tenantID, endpointPath)
+	url := fmt.Sprintf("%s/%s%s", baseURL, g.TenantID, endpointPath)
 
 	// Log the constructed URL for debugging purposes.
 	log.Debug("constructed Microsoft Graph API authentication URL", zap.String("URL", url))
