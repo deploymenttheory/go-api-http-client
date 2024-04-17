@@ -96,7 +96,7 @@ Example configuration file (clientconfig.json):
   "Environment": {
     "InstanceName": "yourinstance",
     "OverrideBaseDomain": "",
-    "APIType": "" // "jamfpro" / "graph"
+    "APIType": "" // "jamfpro" / "msgraph"
   },
   "ClientOptions": {
     "LogLevel": "LogLevelDebug",  // "LogLevelDebug" / "LogLevelInfo" / "LogLevelWarn" / "LogLevelError" / "LogLevelFatal" / "LogLevelPanic"
