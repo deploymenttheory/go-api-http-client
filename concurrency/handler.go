@@ -31,6 +31,8 @@ type ConcurrencyMetrics struct {
 	TotalRetries         int64
 	TotalRateLimitErrors int64
 	TotalResponseTime    time.Duration
+	AverageResponseTime  time.Duration
+	ErrorRate            float64
 	TokenWaitTime        time.Duration
 	Lock                 sync.Mutex // Protects performance metrics fields
 }
