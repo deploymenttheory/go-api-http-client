@@ -1,5 +1,4 @@
 // concurrency/resize.go
-
 package concurrency
 
 // ResizeSemaphore adjusts the size of the semaphore used to control concurrency. This method creates a new
