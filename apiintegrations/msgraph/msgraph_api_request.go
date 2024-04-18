@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"io"
 	"mime/multipart"
-	"os"
+	"path/filepath"
 
+	"github.com/deploymenttheory/go-api-http-client/helpers"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
@@ -29,8 +30,9 @@ func (g *GraphAPIHandler) MarshalRequest(body interface{}, method string, endpoi
 	return data, nil
 }
 
-// MarshalMultipartFormData takes a map with form fields and file paths and returns the encoded body and content type.
+// MarshalMultipartRequest handles multipart form data encoding with secure file handling and returns the encoded body and content type.
 func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error) {
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -41,15 +43,16 @@ func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, file
 		}
 	}
 
-	// Add the files to the form data
-	for formField, filepath := range files {
-		file, err := os.Open(filepath)
+	// Add the files to the form data, using safeOpenFile to ensure secure file access
+	for formField, filePath := range files {
+		file, err := helpers.SafeOpenFile(filePath)
 		if err != nil {
+			log.Error("Failed to open file securely", zap.String("file", filePath), zap.Error(err))
 			return nil, "", err
 		}
 		defer file.Close()
 
-		part, err := writer.CreateFormFile(formField, filepath)
+		part, err := writer.CreateFormFile(formField, filepath.Base(filePath))
 		if err != nil {
 			return nil, "", err
 		}
@@ -58,7 +61,7 @@ func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, file
 		}
 	}
 
-	// Close the writer before returning
+	// Close the writer to finish writing the multipart message
 	contentType := writer.FormDataContentType()
 	if err := writer.Close(); err != nil {
 		return nil, "", err
