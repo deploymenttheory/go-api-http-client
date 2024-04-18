@@ -6,14 +6,37 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"go.uber.org/zap"
 )
 
-// EvaluateAndAdjustConcurrency evaluates the response from the server and adjusts the concurrency level accordingly.
+// EvaluateAndAdjustConcurrency evaluates the HTTP response from a server along with the request's response time
+// and adjusts the concurrency level of the system accordingly. It utilizes three monitoring functions:
+// MonitorRateLimitHeaders, MonitorServerResponseCodes, and MonitorResponseTimeVariability, each of which
+// provides feedback on different aspects of the response and system's current state. The function aggregates
+// feedback from these monitoring functions to make a decision on whether to scale up or scale down the concurrency.
+// The decision is based on a simple majority of suggestions: if more functions suggest scaling down (return -1),
+// it scales down; if more suggest scaling up (return 1), it scales up. This method centralizes concurrency control
+// decision-making, providing a systematic approach to managing request handling capacity based on real-time
+// operational metrics.
+//
+// Parameters:
+//
+//	resp - The HTTP response received from the server.
+//	responseTime - The time duration between sending the request and receiving the response.
+//
+// It logs the specific reason for scaling decisions, helping in traceability and fine-tuning system performance.
 func (ch *ConcurrencyHandler) EvaluateAndAdjustConcurrency(resp *http.Response, responseTime time.Duration) {
 	// Call monitoring functions
 	rateLimitFeedback := ch.MonitorRateLimitHeaders(resp)
 	responseCodeFeedback := ch.MonitorServerResponseCodes(resp)
 	responseTimeFeedback := ch.MonitorResponseTimeVariability(responseTime)
+
+	// Log the feedback from each monitoring function for debugging
+	ch.logger.Debug("Concurrency Adjustment Feedback",
+		zap.Int("RateLimitFeedback", rateLimitFeedback),
+		zap.Int("ResponseCodeFeedback", responseCodeFeedback),
+		zap.Int("ResponseTimeFeedback", responseTimeFeedback))
 
 	// Determine overall action based on feedback
 	suggestions := []int{rateLimitFeedback, responseCodeFeedback, responseTimeFeedback}
@@ -29,11 +52,20 @@ func (ch *ConcurrencyHandler) EvaluateAndAdjustConcurrency(resp *http.Response, 
 		}
 	}
 
+	// Log the counts for scale down and up suggestions
+	ch.logger.Info("Scaling Decision Counts",
+		zap.Int("ScaleDownCount", scaleDownCount),
+		zap.Int("ScaleUpCount", scaleUpCount))
+
 	// Decide on scaling action
 	if scaleDownCount > scaleUpCount {
+		ch.logger.Info("Scaling down the concurrency", zap.String("Reason", "More signals suggested to decrease concurrency"))
 		ch.ScaleDown()
 	} else if scaleUpCount > scaleDownCount {
+		ch.logger.Info("Scaling up the concurrency", zap.String("Reason", "More signals suggested to increase concurrency"))
 		ch.ScaleUp()
+	} else {
+		ch.logger.Info("No change in concurrency", zap.String("Reason", "Equal signals for both scaling up and down"))
 	}
 }
 
