@@ -1,3 +1,4 @@
+// concurrency/const.go
 package concurrency
 
 import "time"
@@ -16,4 +17,9 @@ const (
 	// MaxAcceptableResponseTimeVariability represents the maximum acceptable variability in response times.
 	// It is used as a threshold to dynamically adjust concurrency based on fluctuations in response times.
 	MaxAcceptableResponseTimeVariability = 500 * time.Millisecond
+
+	// ErrorRateThreshold represents the threshold for error rate above which concurrency will be adjusted.
+	// Error rate is calculated as (TotalRateLimitErrors + 5xxErrors) / TotalRequests.
+	// Adjustments in concurrency will be made if the error rate exceeds this threshold. A threshold of 0.1 (or 10%) is common.
+	ErrorRateThreshold = 0.1
 )
