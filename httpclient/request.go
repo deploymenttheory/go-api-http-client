@@ -330,11 +330,26 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	// Log outgoing cookies
 	log.LogCookies("outgoing", req, method, endpoint)
 
+	// Measure the time taken to execute the request and receive the response
+	startTime := time.Now()
+
 	// Execute the HTTP request
 	resp, err := c.do(req, log, method, endpoint)
 	if err != nil {
 		return nil, err
 	}
+
+	// Calculate the duration between sending the request and receiving the response
+	duration := time.Since(startTime)
+
+	// Monitor response time variability
+	c.ConcurrencyHandler.MonitorResponseTimeVariability(duration)
+
+	// Monitor server response codes
+	c.ConcurrencyHandler.MonitorServerResponseCodes(resp)
+
+	// Monitor rate limit headers
+	c.ConcurrencyHandler.MonitorRateLimitHeaders(resp)
 
 	// Log outgoing cookies
 	log.LogCookies("incoming", req, method, endpoint)
