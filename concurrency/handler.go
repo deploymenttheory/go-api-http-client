@@ -25,16 +25,28 @@ type ConcurrencyHandler struct {
 	Metrics                  *ConcurrencyMetrics
 }
 
-// ConcurrencyMetrics captures various metrics related to managing concurrency for the client's interactions with the API.
+// ConcurrencyMetrics captures various metrics related to managing concurrency for the client's interactions with the API.// ConcurrencyMetrics captures various metrics related to managing concurrency for the client's interactions with the API.
 type ConcurrencyMetrics struct {
-	TotalRequests        int64
-	TotalRetries         int64
-	TotalRateLimitErrors int64
-	TotalResponseTime    time.Duration
-	AverageResponseTime  time.Duration
-	ErrorRate            float64
-	TokenWaitTime        time.Duration
-	Lock                 sync.Mutex // Protects performance metrics fields
+	TotalRequests        int64         // Total number of requests made
+	TotalRetries         int64         // Total number of retry attempts
+	TotalRateLimitErrors int64         // Total number of rate limit errors encountered
+	TotalResponseTime    time.Duration // Total response time for all requests
+	AverageResponseTime  time.Duration // Average response time across all requests
+	ErrorRate            float64       // Error rate calculated as (TotalRateLimitErrors + 5xxErrors) / TotalRequests
+	TokenWaitTime        time.Duration // Total time spent waiting for tokens
+	TTFB                 struct {      // Metrics related to Time to First Byte (TTFB)
+		Total time.Duration // Total Time to First Byte (TTFB) for all requests
+		Count int64         // Count of requests used for calculating TTFB
+		Lock  sync.Mutex    // Lock for TTFB metrics
+	}
+	Throughput struct { // Metrics related to network throughput
+		Total float64    // Total network throughput for all requests
+		Count int64      // Count of requests used for calculating throughput
+		Lock  sync.Mutex // Lock for throughput metrics
+	}
+	Variance      float64    // Variance of response times
+	ResponseCount int64      // Count of responses used for calculating response time variability
+	Lock          sync.Mutex // Lock for overall metrics fields
 }
 
 // NewConcurrencyHandler initializes a new ConcurrencyHandler with the given

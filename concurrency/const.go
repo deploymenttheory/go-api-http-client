@@ -1,0 +1,19 @@
+package concurrency
+
+import "time"
+
+const (
+	// MaxAcceptableTTFB represents the maximum acceptable Time to First Byte (TTFB) in milliseconds.
+	// TTFB is the time taken for the server to start sending the first byte of data in response to a request.
+	// Adjustments in concurrency will be made if the TTFB exceeds this threshold.
+	MaxAcceptableTTFB = 300 * time.Millisecond
+
+	// MaxAcceptableThroughput represents the maximum acceptable network throughput in bytes per second.
+	// Throughput is the amount of data transferred over the network within a specific time interval.
+	// Adjustments in concurrency will be made if the network throughput exceeds this threshold.
+	MaxAcceptableThroughput = 5 * 1024 * 1024
+
+	// MaxAcceptableResponseTimeVariability represents the maximum acceptable variability in response times.
+	// It is used as a threshold to dynamically adjust concurrency based on fluctuations in response times.
+	MaxAcceptableResponseTimeVariability = 500 * time.Millisecond
+)
