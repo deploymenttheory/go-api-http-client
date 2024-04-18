@@ -5,52 +5,66 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
-	"go.uber.org/zap"
 )
 
-// MonitorRateLimitHeaders monitors the rate limit headers (X-RateLimit-Remaining and Retry-After)
-// in the HTTP response and adjusts concurrency accordingly.
-// If X-RateLimit-Remaining is below a threshold or Retry-After is specified, decrease concurrency.
-// If neither condition is met, consider scaling up if concurrency is below the maximum limit.
-// - Threshold for X-RateLimit-Remaining: 10
-// - Maximum concurrency: MaxConcurrency
-func (ch *ConcurrencyHandler) MonitorRateLimitHeaders(resp *http.Response) {
-	// Extract X-RateLimit-Remaining and Retry-After headers from the response
+// EvaluateAndAdjustConcurrency evaluates the response from the server and adjusts the concurrency level accordingly.
+func (ch *ConcurrencyHandler) EvaluateAndAdjustConcurrency(resp *http.Response, responseTime time.Duration) {
+	// Call monitoring functions
+	rateLimitFeedback := ch.MonitorRateLimitHeaders(resp)
+	responseCodeFeedback := ch.MonitorServerResponseCodes(resp)
+	responseTimeFeedback := ch.MonitorResponseTimeVariability(responseTime)
+
+	// Determine overall action based on feedback
+	suggestions := []int{rateLimitFeedback, responseCodeFeedback, responseTimeFeedback}
+	scaleDownCount := 0
+	scaleUpCount := 0
+
+	for _, suggestion := range suggestions {
+		switch suggestion {
+		case -1:
+			scaleDownCount++
+		case 1:
+			scaleUpCount++
+		}
+	}
+
+	// Decide on scaling action
+	if scaleDownCount > scaleUpCount {
+		ch.ScaleDown()
+	} else if scaleUpCount > scaleDownCount {
+		ch.ScaleUp()
+	}
+}
+
+// MonitorRateLimitHeaders monitors the rate limit headers in the response and suggests a concurrency adjustment.
+func (ch *ConcurrencyHandler) MonitorRateLimitHeaders(resp *http.Response) int {
 	remaining := resp.Header.Get("X-RateLimit-Remaining")
 	retryAfter := resp.Header.Get("Retry-After")
+	suggestion := 0
 
 	if remaining != "" {
 		remainingValue, err := strconv.Atoi(remaining)
 		if err == nil && remainingValue < 10 {
-			// Decrease concurrency if X-RateLimit-Remaining is below the threshold
-			if len(ch.sem) > MinConcurrency {
-				newSize := len(ch.sem) - 1
-				ch.logger.Info("Reducing concurrency due to low X-RateLimit-Remaining", zap.Int("NewSize", newSize))
-				ch.ResizeSemaphore(newSize)
-			}
+			// Suggest decrease concurrency if X-RateLimit-Remaining is below the threshold
+			suggestion = -1
 		}
 	}
 
 	if retryAfter != "" {
-		// Decrease concurrency if Retry-After is specified
-		if len(ch.sem) > MinConcurrency {
-			newSize := len(ch.sem) - 1
-			ch.logger.Info("Reducing concurrency due to Retry-After header", zap.Int("NewSize", newSize))
-			ch.ResizeSemaphore(newSize)
-		}
+		// Suggest decrease concurrency if Retry-After is specified
+		suggestion = -1
 	} else {
-		// Scale up if concurrency is below the maximum limit
-		if len(ch.sem) < MaxConcurrency {
-			newSize := len(ch.sem) + 1
-			ch.logger.Info("Increasing concurrency", zap.Int("NewSize", newSize))
-			ch.ResizeSemaphore(newSize)
+		// Suggest increase concurrency if currently below maximum limit and no other decrease suggestion has been made
+		if len(ch.sem) < MaxConcurrency && suggestion == 0 {
+			suggestion = 1
 		}
 	}
+
+	return suggestion
 }
 
-// MonitorServerResponseCodes monitors server response codes and adjusts concurrency accordingly.
-func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) {
+// MonitorServerResponseCodes monitors the response status codes and suggests a concurrency adjustment.
+func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) int {
 	statusCode := resp.StatusCode
 
 	// Lock the metrics to ensure thread safety
@@ -63,7 +77,6 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) {
 		ch.Metrics.TotalRateLimitErrors++
 	case statusCode >= 400 && statusCode < 500:
 		// Assuming 4xx errors as client errors
-		// Increase the TotalRetries count to indicate a client error
 		ch.Metrics.TotalRetries++
 	}
 
@@ -75,23 +88,19 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) {
 	// Set the new error rate in the metrics
 	ch.Metrics.ResponseCodeMetrics.ErrorRate = errorRate
 
-	// Check if the error rate exceeds the threshold and adjust concurrency accordingly
-	if errorRate > ErrorRateThreshold && len(ch.sem) > MinConcurrency {
-		// Decrease concurrency
-		newSize := len(ch.sem) - 1
-		ch.logger.Info("Reducing request concurrency due to high error rate", zap.Int("NewSize", newSize))
-		ch.ResizeSemaphore(newSize)
+	// Determine action based on the error rate
+	if errorRate > ErrorRateThreshold {
+		// Suggest decrease concurrency
+		return -1
 	} else if errorRate <= ErrorRateThreshold && len(ch.sem) < MaxConcurrency {
-		// Scale up if error rate is below the threshold and concurrency is below the maximum limit
-		newSize := len(ch.sem) + 1
-		ch.logger.Info("Increasing request concurrency due to low error rate", zap.Int("NewSize", newSize))
-		ch.ResizeSemaphore(newSize)
+		// Suggest increase concurrency if there is capacity
+		return 1
 	}
+	return 0
 }
 
-// MonitorResponseTimeVariability calculates the standard deviation of response times
-// and uses moving averages to smooth out fluctuations, adjusting concurrency accordingly.
-func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.Duration) {
+// MonitorResponseTimeVariability monitors the response time variability and suggests a concurrency adjustment.
+func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.Duration) int {
 	ch.Metrics.Lock.Lock()
 	defer ch.Metrics.Lock.Unlock()
 
@@ -110,17 +119,15 @@ func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.D
 	// Calculate standard deviation of response times
 	stdDev := math.Sqrt(ch.Metrics.ResponseTimeVariability.Variance)
 
-	// Adjust concurrency based on response time variability
-	if stdDev > ch.Metrics.ResponseTimeVariability.StdDevThreshold && len(ch.sem) > MinConcurrency {
-		newSize := len(ch.sem) - 1
-		ch.logger.Info("Reducing request concurrency due to high response time variability", zap.Int("NewSize", newSize))
-		ch.ResizeSemaphore(newSize)
+	// Determine action based on standard deviation
+	if stdDev > ch.Metrics.ResponseTimeVariability.StdDevThreshold {
+		// Suggest decrease concurrency
+		return -1
 	} else if stdDev <= ch.Metrics.ResponseTimeVariability.StdDevThreshold && len(ch.sem) < MaxConcurrency {
-		// Scale up if response time variability is below the threshold and concurrency is below the maximum limit
-		newSize := len(ch.sem) + 1
-		ch.logger.Info("Increasing request concurrency due to low response time variability", zap.Int("NewSize", newSize))
-		ch.ResizeSemaphore(newSize)
+		// Suggest increase concurrency if there is capacity
+		return 1
 	}
+	return 0
 }
 
 // calculateVariance calculates the variance of response times.
@@ -133,36 +140,4 @@ func (ch *ConcurrencyHandler) calculateVariance(averageResponseTime time.Duratio
 	variance := (float64(ch.Metrics.ResponseTimeVariability.Count-1)*math.Pow(averageSeconds-responseSeconds, 2) + ch.Metrics.ResponseTimeVariability.Variance) / float64(ch.Metrics.ResponseTimeVariability.Count)
 	ch.Metrics.ResponseTimeVariability.Variance = variance
 	return variance
-}
-
-// MonitorNetworkLatency measures Time to First Byte (TTFB) and monitors network throughput,
-// adjusting concurrency based on changes in network latency and throughput.
-func (ch *ConcurrencyHandler) MonitorNetworkLatency(ttfb time.Duration, throughput float64) {
-	ch.Metrics.Lock.Lock()
-	defer ch.Metrics.Lock.Unlock()
-
-	// Calculate the TTFB moving average
-	ch.Metrics.TTFB.Lock.Lock()
-	defer ch.Metrics.TTFB.Lock.Unlock()
-	ch.Metrics.TTFB.Total += ttfb
-	ch.Metrics.TTFB.Count++
-	ttfbMovingAverage := ch.Metrics.TTFB.Total / time.Duration(ch.Metrics.TTFB.Count)
-
-	// Calculate the throughput moving average
-	ch.Metrics.Throughput.Lock.Lock()
-	defer ch.Metrics.Throughput.Lock.Unlock()
-	ch.Metrics.Throughput.Total += throughput
-	ch.Metrics.Throughput.Count++
-	throughputMovingAverage := ch.Metrics.Throughput.Total / float64(ch.Metrics.Throughput.Count)
-
-	// Adjust concurrency based on TTFB and throughput moving averages
-	if ttfbMovingAverage > MaxAcceptableTTFB && len(ch.sem) > MinConcurrency {
-		newSize := len(ch.sem) - 1
-		ch.logger.Info("Reducing request concurrency due to high TTFB", zap.Int("NewSize", newSize))
-		ch.ResizeSemaphore(newSize)
-	} else if throughputMovingAverage > MaxAcceptableThroughput && len(ch.sem) < MaxConcurrency {
-		newSize := len(ch.sem) + 1
-		ch.logger.Info("Increasing request concurrency due to high throughput", zap.Int("NewSize", newSize))
-		ch.ResizeSemaphore(newSize)
-	}
 }

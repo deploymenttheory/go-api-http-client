@@ -342,14 +342,8 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	// Calculate the duration between sending the request and receiving the response
 	duration := time.Since(startTime)
 
-	// Monitor response time variability
-	c.ConcurrencyHandler.MonitorResponseTimeVariability(duration)
-
-	// Monitor server response codes
-	c.ConcurrencyHandler.MonitorServerResponseCodes(resp)
-
-	// Monitor rate limit headers
-	c.ConcurrencyHandler.MonitorRateLimitHeaders(resp)
+	// Evaluate and adjust concurrency based on the request's feedback
+	c.ConcurrencyHandler.EvaluateAndAdjustConcurrency(resp, duration)
 
 	// Log outgoing cookies
 	log.LogCookies("incoming", req, method, endpoint)
