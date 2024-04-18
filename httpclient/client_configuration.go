@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -24,16 +25,35 @@ const (
 	DefaultTimeout                   = 10 * time.Second
 	FollowRedirects                  = true
 	MaxRedirects                     = 10
+	ConfigFileExtension              = ".json"
 )
 
 // LoadConfigFromFile loads configuration values from a JSON file into the ClientConfig struct.
 // This function opens the specified configuration file, reads its content, and unmarshals the JSON data
 // into the ClientConfig struct. It's designed to initialize the client configuration with values
 // from a file, complementing or overriding defaults and environment variable settings.
-// LoadConfigFromFile loads configuration values from a JSON file into the ClientConfig struct.
 func LoadConfigFromFile(filePath string) (*ClientConfig, error) {
+	// Clean up the file path to prevent directory traversal
+	cleanPath := filepath.Clean(filePath)
+
+	// Resolve the cleanPath to an absolute path to ensure it resolves any symbolic links
+	absPath, err := filepath.EvalSymlinks(cleanPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve the absolute path of the configuration file: %s, error: %w", filePath, err)
+	}
+
+	// Check for suspicious patterns in the resolved path
+	if strings.Contains(absPath, "..") {
+		return nil, fmt.Errorf("invalid path, path traversal patterns detected: %s", filePath)
+	}
+
+	// Ensure the file has the correct extension
+	if filepath.Ext(absPath) != ConfigFileExtension {
+		return nil, fmt.Errorf("invalid file extension for configuration file: %s, expected .json", filePath)
+	}
+
 	// Read the entire file
-	fileBytes, err := os.ReadFile(filePath)
+	fileBytes, err := os.ReadFile(absPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the configuration file: %s, error: %w", filePath, err)
 	}
@@ -48,11 +68,9 @@ func LoadConfigFromFile(filePath string) (*ClientConfig, error) {
 
 	log.Printf("Configuration successfully loaded from file: %s", filePath)
 
-	// Set default values if necessary
+	// Set default values if necessary and validate the configuration
 	setLoggerDefaultValues(&config)
 	setClientDefaultValues(&config)
-
-	// Validate mandatory configuration fields
 	if err := validateMandatoryConfiguration(&config); err != nil {
 		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
