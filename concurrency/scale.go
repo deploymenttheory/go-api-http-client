@@ -20,16 +20,19 @@ import "go.uber.org/zap"
 //		}
 //	}
 func (ch *ConcurrencyHandler) ScaleDown() {
-	// Lock to ensure thread safety
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
-	// We must consider the current capacity rather than the length of the semaphore
 	currentSize := ch.currentCapacity
 	if currentSize > MinConcurrency {
-		newSize := currentSize - 1
-		ch.logger.Info("Reducing request concurrency", zap.Int64("currentSize", currentSize), zap.Int64("newSize", newSize))
-		ch.ResizeSemaphore(newSize)
+		// Check if active permits allow for scaling down
+		if ch.activePermits < currentSize {
+			newSize := currentSize - 1
+			ch.logger.Info("Reducing request concurrency", zap.Int64("currentSize", currentSize), zap.Int64("newSize", newSize))
+			ch.ResizeSemaphore(newSize)
+		} else {
+			ch.logger.Info("Cannot scale down due to high number of active permits", zap.Int64("currentSize", currentSize), zap.Int64("activePermits", ch.activePermits))
+		}
 	} else {
 		ch.logger.Info("Concurrency already at minimum level; cannot reduce further", zap.Int64("currentSize", currentSize))
 	}
@@ -57,11 +60,19 @@ func (ch *ConcurrencyHandler) ScaleUp() {
 
 	currentSize := ch.currentCapacity
 	if currentSize < MaxConcurrency {
-		// Scale up by 10% of the available margin, ensuring we do not exceed MaxConcurrency
-		newSize := currentSize + int64(float64(MaxConcurrency-currentSize)*0.1)
-		newSize = min(newSize, MaxConcurrency)
-		ch.logger.Info("Increasing request concurrency", zap.Int64("currentSize", currentSize), zap.Int64("newSize", newSize))
-		ch.ResizeSemaphore(newSize)
+		// Calculate the increase based on a percentage of the available margin
+		increase := int64(float64(MaxConcurrency-currentSize) * 0.1)
+		if increase < 1 {
+			increase = 1 // Ensure at least a minimum increase of 1
+		}
+		newSize := currentSize + increase
+		newSize = min(newSize, MaxConcurrency) // Ensure not exceeding max limit
+		if newSize > currentSize {             // Check if there is an actual increase
+			ch.logger.Info("Increasing request concurrency", zap.Int64("currentSize", currentSize), zap.Int64("newSize", newSize))
+			ch.ResizeSemaphore(newSize)
+		} else {
+			ch.logger.Info("Attempted to increase concurrency but already at or near maximum limit", zap.Int64("currentSize", currentSize), zap.Int64("newSize", newSize))
+		}
 	} else {
 		ch.logger.Info("Concurrency already at maximum level; cannot increase further", zap.Int64("currentSize", currentSize))
 	}
