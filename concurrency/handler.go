@@ -6,26 +6,23 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
-	"golang.org/x/sync/semaphore"
+)
+
+// Constants and Data Structures:
+const (
+	MaxConcurrency     = 10              // Maximum allowed concurrent requests
+	MinConcurrency     = 1               // Minimum allowed concurrent requests
+	EvaluationInterval = 1 * time.Minute // Time interval for evaluating metrics and adjusting concurrency
 )
 
 // ConcurrencyHandler controls the number of concurrent HTTP requests.
-// type ConcurrencyHandler struct {
-// 	sem                      chan struct{}
-// 	logger                   logger.Logger
-// 	AcquisitionTimes         []time.Duration
-// 	lock                     sync.Mutex
-// 	lastTokenAcquisitionTime time.Time
-// 	Metrics                  *ConcurrencyMetrics
-// }
-
 type ConcurrencyHandler struct {
-	sem             *semaphore.Weighted
-	lock            sync.RWMutex
-	logger          logger.Logger
-	Metrics         *ConcurrencyMetrics
-	currentCapacity int64
-	activePermits   int64
+	sem                      chan struct{}
+	logger                   logger.Logger
+	AcquisitionTimes         []time.Duration
+	lock                     sync.Mutex
+	lastTokenAcquisitionTime time.Time
+	Metrics                  *ConcurrencyMetrics
 }
 
 // ConcurrencyMetrics captures various metrics related to managing concurrency for the client's interactions with the API.
@@ -63,22 +60,12 @@ type ConcurrencyMetrics struct {
 // concurrency limit, logger, and concurrency metrics. The ConcurrencyHandler ensures
 // no more than a certain number of concurrent requests are made.
 // It uses a semaphore to control concurrency.
-//
-//	func NewConcurrencyHandler(limit int, logger logger.Logger, metrics *ConcurrencyMetrics) *ConcurrencyHandler {
-//		return &ConcurrencyHandler{
-//			sem:              make(chan struct{}, limit),
-//			logger:           logger,
-//			AcquisitionTimes: []time.Duration{},
-//			Metrics:          metrics,
-//		}
-//	}
-func NewConcurrencyHandler(limit int64, logger logger.Logger, metrics *ConcurrencyMetrics) *ConcurrencyHandler {
+func NewConcurrencyHandler(limit int, logger logger.Logger, metrics *ConcurrencyMetrics) *ConcurrencyHandler {
 	return &ConcurrencyHandler{
-		sem:             semaphore.NewWeighted(limit),
-		logger:          logger,
-		Metrics:         metrics,
-		currentCapacity: limit,
-		activePermits:   0,
+		sem:              make(chan struct{}, limit),
+		logger:           logger,
+		AcquisitionTimes: []time.Duration{},
+		Metrics:          metrics,
 	}
 }
 

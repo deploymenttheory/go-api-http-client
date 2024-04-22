@@ -12,26 +12,26 @@ import (
 	"go.uber.org/zap"
 )
 
-// AcquireConcurrencyToken acquires a concurrency permit to regulate the number of concurrent
+// AcquireConcurrencyToken acquires a concurrency token to regulate the number of concurrent
 // operations within predefined limits, ensuring system stability and adherence to concurrency policies.
-// This function initiates a permit acquisition process that involves generating a unique request ID
-// for tracking purposes and attempting to acquire a permit within a specified timeout to prevent
+// This function initiates a token acquisition process that involves generating a unique request ID
+// for tracking purposes and attempting to acquire a token within a specified timeout to prevent
 // indefinite blocking. Successful acquisition updates performance metrics and associates the
 // unique request ID with the provided context for enhanced traceability and management of
 // concurrent requests.
 //
 // Parameters:
-//   - ctx: A parent context used as the basis for the permit acquisition attempt, facilitating
+//   - ctx: A parent context used as the basis for the token acquisition attempt, facilitating
 //     appropriate cancellation and timeout handling in line with best practices for concurrency control.
 //
 // Returns:
 //   - context.Context: A derived context that includes the unique request ID, offering a mechanism
-//     for associating subsequent operations with the acquired concurrency permit and facilitating
+//     for associating subsequent operations with the acquired concurrency token and facilitating
 //     effective request tracking and management.
-//   - uuid.UUID: The unique request ID generated as part of the permit acquisition process, serving
-//     as an identifier for the acquired permit and enabling detailed tracking and auditing of
+//   - uuid.UUID: The unique request ID generated as part of the token acquisition process, serving
+//     as an identifier for the acquired token and enabling detailed tracking and auditing of
 //     concurrent operations.
-//   - error: An error that signals failure to acquire a concurrency permit within the allotted timeout,
+//   - error: An error that signals failure to acquire a concurrency token within the allotted timeout,
 //     or due to other encountered issues, ensuring that potential problems in concurrency control
 //     are surfaced and can be addressed.
 //
@@ -46,121 +46,73 @@ import (
 // ctx, requestID, err := concurrencyHandler.AcquireConcurrencyToken(context.Background())
 //
 //	if err != nil {
-//	    // Handle permit acquisition failure
+//	    // Handle token acquisition failure
 //	}
 //
 // defer concurrencyHandler.Release(requestID)
 // // Proceed with the operation using the modified context
-// func (ch *ConcurrencyHandler) AcquireConcurrencyToken(ctx context.Context) (context.Context, uuid.UUID, error) {
-// 	log := ch.logger
-
-// 	// Measure the permit acquisition start time
-// 	tokenAcquisitionStart := time.Now()
-
-// 	// Generate a unique request ID for this acquisition
-// 	requestID := uuid.New()
-
-// 	// Create a new context with a timeout for acquiring the concurrency permit
-// 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
-// 	defer cancel()
-
-// 	// Attempt to acquire a permit from the semaphore within the given context timeout
-// 	select {
-// 	case ch.sem <- struct{}{}: // Successfully acquired a permit
-// 		// Calculate the duration it took to acquire the permit and record it
-// 		tokenAcquisitionDuration := time.Since(tokenAcquisitionStart)
-// 		ch.lock.Lock()
-// 		ch.AcquisitionTimes = append(ch.AcquisitionTimes, tokenAcquisitionDuration)
-// 		ch.Metrics.Lock.Lock()
-// 		ch.Metrics.TokenWaitTime += tokenAcquisitionDuration
-// 		ch.Metrics.TotalRequests++ // Increment total requests count
-// 		ch.Metrics.Lock.Unlock()
-// 		ch.lock.Unlock()
-
-// 		// Logging the acquisition
-// 		utilizedTokens := len(ch.sem)
-// 		availableTokens := cap(ch.sem) - utilizedTokens
-// 		log.Debug("Acquired concurrency permit", zap.String("RequestID", requestID.String()), zap.Duration("AcquisitionTime", tokenAcquisitionDuration), zap.Int("UtilizedTokens", utilizedTokens), zap.Int("AvailableTokens", availableTokens))
-
-// 		// Add the acquired request ID to the context for use in subsequent operations
-// 		ctxWithRequestID := context.WithValue(ctx, RequestIDKey{}, requestID)
-
-// 		// Return the updated context, the request ID, and nil error to indicate success
-// 		return ctxWithRequestID, requestID, nil
-
-//		case <-ctxWithTimeout.Done(): // Failed to acquire a permit within the timeout
-//			log.Error("Failed to acquire concurrency permit", zap.Error(ctxWithTimeout.Err()))
-//			return ctx, requestID, ctxWithTimeout.Err()
-//		}
-//	}
-func (ch *ConcurrencyHandler) AcquireConcurrencyPermit(ctx context.Context) (context.Context, uuid.UUID, error) {
+func (ch *ConcurrencyHandler) AcquireConcurrencyToken(ctx context.Context) (context.Context, uuid.UUID, error) {
 	log := ch.logger
 
-	// Measure the permit acquisition start time
+	// Measure the token acquisition start time
 	tokenAcquisitionStart := time.Now()
 
 	// Generate a unique request ID for this acquisition
 	requestID := uuid.New()
 
-	// Attempt to acquire a permit from the semaphore with a 10-second timeout
-	if err := ch.sem.Acquire(ctx, 1); err != nil {
-		log.Error("Failed to acquire concurrency permit", zap.Error(err))
-		return ctx, requestID, err
+	// Create a new context with a timeout for acquiring the concurrency token
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	// Attempt to acquire a token from the semaphore within the given context timeout
+	select {
+	case ch.sem <- struct{}{}: // Successfully acquired a token
+		// Calculate the duration it took to acquire the token and record it
+		tokenAcquisitionDuration := time.Since(tokenAcquisitionStart)
+		ch.lock.Lock()
+		ch.AcquisitionTimes = append(ch.AcquisitionTimes, tokenAcquisitionDuration)
+		ch.Metrics.Lock.Lock()
+		ch.Metrics.TokenWaitTime += tokenAcquisitionDuration
+		ch.Metrics.TotalRequests++ // Increment total requests count
+		ch.Metrics.Lock.Unlock()
+		ch.lock.Unlock()
+
+		// Logging the acquisition
+		utilizedTokens := len(ch.sem)
+		availableTokens := cap(ch.sem) - utilizedTokens
+		log.Debug("Acquired concurrency token", zap.String("RequestID", requestID.String()), zap.Duration("AcquisitionTime", tokenAcquisitionDuration), zap.Int("UtilizedTokens", utilizedTokens), zap.Int("AvailableTokens", availableTokens))
+
+		// Add the acquired request ID to the context for use in subsequent operations
+		ctxWithRequestID := context.WithValue(ctx, RequestIDKey{}, requestID)
+
+		// Return the updated context, the request ID, and nil error to indicate success
+		return ctxWithRequestID, requestID, nil
+
+	case <-ctxWithTimeout.Done(): // Failed to acquire a token within the timeout
+		log.Error("Failed to acquire concurrency token", zap.Error(ctxWithTimeout.Err()))
+		return ctx, requestID, ctxWithTimeout.Err()
 	}
-
-	tokenAcquisitionDuration := time.Since(tokenAcquisitionStart)
-	ch.lock.Lock()
-	ch.activePermits++
-	ch.Metrics.TokenWaitTime += tokenAcquisitionDuration
-	ch.Metrics.TotalRequests++
-	ch.lock.Unlock()
-
-	log.Debug("Acquired concurrency permit", zap.String("RequestID", requestID.String()), zap.Duration("AcquisitionTime", tokenAcquisitionDuration))
-
-	// Add the acquired request ID to the context for use in subsequent operations
-	ctxWithRequestID := context.WithValue(ctx, RequestIDKey{}, requestID)
-
-	return ctxWithRequestID, requestID, nil
 }
 
-// ReleaseConcurrencyToken returns a permit back to the semaphore pool, allowing other
+// ReleaseConcurrencyToken returns a token back to the semaphore pool, allowing other
 // operations to proceed. It uses the provided requestID for structured logging,
 // aiding in tracking and debugging the release of concurrency tokens.
-// func (ch *ConcurrencyHandler) ReleaseConcurrencyToken(requestID uuid.UUID) {
-// 	<-ch.sem // Release a permit back to the semaphore
-
-// 	ch.lock.Lock()
-// 	defer ch.lock.Unlock()
-
-// 	// Update the list of acquisition times by removing the time related to the released permit
-// 	// This step is optional and depends on whether you track acquisition times per permit or not
-
-// 	utilizedTokens := len(ch.sem)                   // Tokens currently in use
-// 	availableTokens := cap(ch.sem) - utilizedTokens // Tokens available for use
-
-//		// Log the release of the concurrency permit for auditing and debugging purposes
-//		ch.logger.Debug("Released concurrency permit",
-//			zap.String("RequestID", requestID.String()),
-//			zap.Int("UtilizedTokens", utilizedTokens),
-//			zap.Int("AvailableTokens", availableTokens),
-//		)
-//	}
 func (ch *ConcurrencyHandler) ReleaseConcurrencyToken(requestID uuid.UUID) {
-	ch.sem.Release(1) // Release a permit back to the semaphore
+	<-ch.sem // Release a token back to the semaphore
 
-	// Safely decrement the active permits counter and log the current state
 	ch.lock.Lock()
-	if ch.activePermits > 0 {
-		ch.activePermits--
-	}
-	utilizedPermits := ch.activePermits                      // Currently utilized permits
-	availablePermits := ch.currentCapacity - utilizedPermits // Available permits calculation
-	ch.lock.Unlock()
+	defer ch.lock.Unlock()
 
-	log := ch.logger
-	log.Debug("Released a concurrency permit",
+	// Update the list of acquisition times by removing the time related to the released token
+	// This step is optional and depends on whether you track acquisition times per token or not
+
+	utilizedTokens := len(ch.sem)                   // Tokens currently in use
+	availableTokens := cap(ch.sem) - utilizedTokens // Tokens available for use
+
+	// Log the release of the concurrency token for auditing and debugging purposes
+	ch.logger.Debug("Released concurrency token",
 		zap.String("RequestID", requestID.String()),
-		zap.Int64("UtilizedPermits", utilizedPermits),
-		zap.Int64("AvailablePermits", availablePermits),
+		zap.Int("UtilizedTokens", utilizedTokens),
+		zap.Int("AvailableTokens", availableTokens),
 	)
 }
