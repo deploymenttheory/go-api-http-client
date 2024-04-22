@@ -4,6 +4,19 @@ package concurrency
 import "time"
 
 const (
+	// Concurrency constants define parameters related to managing concurrent requests.
+
+	// MaxConcurrency represents the maximum allowed concurrent requests.
+	MaxConcurrency = 10
+
+	// MinConcurrency represents the minimum allowed concurrent requests.
+	MinConcurrency = 1
+
+	// EvaluationInterval defines the time interval for evaluating metrics and adjusting concurrency.
+	EvaluationInterval = 1 * time.Minute
+
+	// Threshold constants define thresholds for adjusting concurrency based on various metrics.
+
 	// MaxAcceptableTTFB represents the maximum acceptable Time to First Byte (TTFB) in milliseconds.
 	// TTFB is the time taken for the server to start sending the first byte of data in response to a request.
 	// Adjustments in concurrency will be made if the TTFB exceeds this threshold.

@@ -8,13 +8,6 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/logger"
 )
 
-// Constants and Data Structures:
-const (
-	MaxConcurrency     = 10              // Maximum allowed concurrent requests
-	MinConcurrency     = 1               // Minimum allowed concurrent requests
-	EvaluationInterval = 1 * time.Minute // Time interval for evaluating metrics and adjusting concurrency
-)
-
 // ConcurrencyHandler controls the number of concurrent HTTP requests.
 type ConcurrencyHandler struct {
 	sem                      chan struct{}
