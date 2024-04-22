@@ -141,7 +141,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Initialize the ConcurrencyHandler with the newly created ConcurrencyMetrics
 	concurrencyHandler := concurrency.NewConcurrencyHandler(
-		int64(config.ClientOptions.MaxConcurrentRequests), // Convert int to int64
+		config.ClientOptions.MaxConcurrentRequests,
 		log,
 		concurrencyMetrics,
 	)
