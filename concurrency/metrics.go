@@ -157,8 +157,10 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) in
 	defer ch.Metrics.Lock.Unlock()
 
 	if statusCode >= 200 && statusCode < 300 {
+		// Reset error counts for successful responses
 		ch.Metrics.TotalRateLimitErrors = 0
 		ch.Metrics.TotalRetries = 0
+		return 0 // No need to adjust concurrency for successful responses
 	} else if statusCode >= 500 && statusCode < 600 {
 		ch.Metrics.TotalRateLimitErrors++
 	} else if statusCode >= 400 && statusCode < 500 {
@@ -167,8 +169,11 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) in
 
 	totalRequests := float64(ch.Metrics.TotalRequests)
 	totalErrors := float64(ch.Metrics.TotalRateLimitErrors + ch.Metrics.TotalRetries)
-	errorRate := totalErrors / totalRequests
+	if totalErrors == 0 {
+		return 0 // No errors, no concurrency adjustment needed
+	}
 
+	errorRate := totalErrors / totalRequests
 	ch.Metrics.ResponseCodeMetrics.ErrorRate = errorRate
 
 	ch.logger.Debug("Server Response Code Monitoring",
@@ -180,11 +185,9 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) in
 
 	// Only suggest a scale-down if the error rate exceeds the threshold
 	if errorRate > ErrorRateThreshold {
-		return -1
-	} else if len(ch.sem) < MaxConcurrency {
-		return 1
+		return -1 // Suggest decrease concurrency
 	}
-	return 0
+	return 0 // Default to no change if error rate is within acceptable limits
 }
 
 // MonitorResponseTimeVariability monitors the response time variability and suggests a concurrency adjustment.
