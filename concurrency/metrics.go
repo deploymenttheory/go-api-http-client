@@ -145,33 +145,28 @@ func (ch *ConcurrencyHandler) MonitorRateLimitHeaders(resp *http.Response) int {
 func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) int {
 	statusCode := resp.StatusCode
 
-	// Lock the metrics to ensure thread safety
 	ch.Metrics.Lock.Lock()
 	defer ch.Metrics.Lock.Unlock()
 
-	// Update the appropriate error count based on the response status code
-	switch {
-	case statusCode >= 500 && statusCode < 600:
+	// Reset error rates on successful response
+	if statusCode >= 200 && statusCode < 300 {
+		ch.Metrics.TotalRateLimitErrors = 0
+		ch.Metrics.TotalRetries = 0
+	} else if statusCode >= 500 && statusCode < 600 {
 		ch.Metrics.TotalRateLimitErrors++
-	case statusCode >= 400 && statusCode < 500:
-		// Assuming 4xx errors as client errors
+	} else if statusCode >= 400 && statusCode < 500 {
 		ch.Metrics.TotalRetries++
 	}
 
-	// Calculate error rate
 	totalRequests := float64(ch.Metrics.TotalRequests)
 	totalErrors := float64(ch.Metrics.TotalRateLimitErrors + ch.Metrics.TotalRetries)
 	errorRate := totalErrors / totalRequests
 
-	// Set the new error rate in the metrics
 	ch.Metrics.ResponseCodeMetrics.ErrorRate = errorRate
 
-	// Determine action based on the error rate
 	if errorRate > ErrorRateThreshold {
-		// Suggest decrease concurrency
 		return -1
 	} else if errorRate <= ErrorRateThreshold && len(ch.sem) < MaxConcurrency {
-		// Suggest increase concurrency if there is capacity
 		return 1
 	}
 	return 0
