@@ -58,7 +58,7 @@ func (ch *ConcurrencyHandler) EvaluateAndAdjustConcurrency(resp *http.Response, 
 	// Calculate the cumulative score.
 	cumulativeScore := weightedRateLimitScore + weightedResponseCodeScore + weightedResponseTimeScore
 
-	// Log the feedback from each monitoring function for debugging.
+	// Detailed debugging output
 	ch.logger.Debug("Evaluate and Adjust Concurrency",
 		zap.String("event", "EvaluateConcurrency"),
 		zap.Float64("weightedRateLimitScore", weightedRateLimitScore),
@@ -71,6 +71,14 @@ func (ch *ConcurrencyHandler) EvaluateAndAdjustConcurrency(resp *http.Response, 
 		zap.Duration("responseTime", responseTime),
 	)
 
+	// Check for successful response and log appropriately
+	if responseCodeFeedback == 1 { // Assuming 1 indicates success
+		ch.logger.Info("Successful response noted, checking for scaling necessity.",
+			zap.String("API Response", "Success"),
+			zap.Int("StatusCode", resp.StatusCode),
+		)
+	}
+
 	// Check critical thresholds
 	if rateLimitFeedback <= RateLimitCriticalThreshold || weightedResponseCodeScore >= ErrorResponseThreshold {
 		ch.logger.Warn("Scaling down due to critical threshold breach",
@@ -82,7 +90,7 @@ func (ch *ConcurrencyHandler) EvaluateAndAdjustConcurrency(resp *http.Response, 
 		return
 	}
 
-	// Evaluate cumulative impact and make a scaling decision.
+	// Evaluate cumulative impact and make a scaling decision based on the cumulative score and other metrics.
 	if cumulativeScore < 0 {
 		utilizedBefore := len(ch.sem) // Tokens in use before scaling down.
 		ch.ScaleDown()
@@ -170,9 +178,10 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) in
 		zap.Float64("ErrorRate", errorRate),
 	)
 
+	// Only suggest a scale-down if the error rate exceeds the threshold
 	if errorRate > ErrorRateThreshold {
 		return -1
-	} else if errorRate <= ErrorRateThreshold && len(ch.sem) < MaxConcurrency {
+	} else if len(ch.sem) < MaxConcurrency {
 		return 1
 	}
 	return 0
