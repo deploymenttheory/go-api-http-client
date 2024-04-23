@@ -148,7 +148,6 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) in
 	ch.Metrics.Lock.Lock()
 	defer ch.Metrics.Lock.Unlock()
 
-	// Reset error rates on successful response
 	if statusCode >= 200 && statusCode < 300 {
 		ch.Metrics.TotalRateLimitErrors = 0
 		ch.Metrics.TotalRetries = 0
@@ -163,6 +162,13 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) in
 	errorRate := totalErrors / totalRequests
 
 	ch.Metrics.ResponseCodeMetrics.ErrorRate = errorRate
+
+	ch.logger.Debug("Server Response Code Monitoring",
+		zap.Int("StatusCode", statusCode),
+		zap.Float64("TotalRequests", totalRequests),
+		zap.Float64("TotalErrors", totalErrors),
+		zap.Float64("ErrorRate", errorRate),
+	)
 
 	if errorRate > ErrorRateThreshold {
 		return -1
