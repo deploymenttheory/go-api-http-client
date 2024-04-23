@@ -54,4 +54,9 @@ const (
 	// high. If response times exceed this threshold, it could signal that the system or the external service
 	// is under heavy load and may benefit from scaling down concurrency to alleviate pressure.
 	ResponseTimeCriticalThreshold = 2 * time.Second
+
+	debounceScaleDownThreshold = 5 // Number of consecutive triggers before scaling down
+
+	//
+	AcceptableAverageResponseTime = 100 * time.Millisecond
 )
