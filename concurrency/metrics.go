@@ -196,44 +196,56 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) in
 var responseTimes []time.Duration
 
 // MonitorResponseTimeVariability monitors the response time variability and suggests a concurrency adjustment.
+// MonitorResponseTimeVariability monitors the response time variability and suggests a concurrency adjustment.
 func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.Duration) int {
+	ch.Metrics.Lock.Lock() // Ensure thread safety when accessing shared metrics
+	defer ch.Metrics.Lock.Unlock()
+
 	// Append the latest response time
 	responseTimes = append(responseTimes, responseTime)
 	if len(responseTimes) > 10 { // Use the last 10 measurements for a smoother average
 		responseTimes = responseTimes[1:]
 	}
 
-	// Calculate moving average response time from the slice
-	var sum time.Duration
-	for _, rt := range responseTimes {
-		sum += rt
-	}
-	averageResponseTime := sum / time.Duration(len(responseTimes))
-
-	// Calculate standard deviation based on the moving average
-	var varianceSum float64
-	for _, rt := range responseTimes {
-		varianceSum += math.Pow(rt.Seconds()-averageResponseTime.Seconds(), 2)
-	}
-	variance := varianceSum / float64(len(responseTimes))
-	stdDev := math.Sqrt(variance)
+	stdDev := calculateStdDev(responseTimes)
 
 	// Action determination with debounce effect
-	// Requires keeping track of how often the stdDev threshold has been exceeded
-	const debounceCount = 3 // e.g., threshold must be exceeded in 3 consecutive checks to act
+	// Debounce mechanism for scaling down
+	const debounceCount = 3 // Threshold must be exceeded in 3 consecutive checks to act
 	if stdDev > (ch.Metrics.ResponseTimeVariability.StdDevThreshold * 1.5) {
 		ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount++
+		ch.logger.Info("Increased debounce counter", zap.Int("counter", ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount))
 		if ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount >= debounceCount {
 			ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount = 0 // reset counter after action
-			return -1                                                     // Suggest decrease concurrency
+			ch.logger.Info("Concurrent requests scaling down due to high response time variability")
+			return -1 // Suggest decrease concurrency
 		}
 	} else {
 		ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount = 0 // reset counter if condition not met
-		if stdDev <= ch.Metrics.ResponseTimeVariability.StdDevThreshold && len(ch.sem) < MaxConcurrency {
+		if stdDev <= ch.Metrics.ResponseTimeVariability.StdDevThreshold && len(ch.sem) < cap(ch.sem) {
+			ch.logger.Info("Concurrent requests scaling up as conditions are favorable")
 			return 1 // Suggest increase concurrency if there is capacity
 		}
 	}
 	return 0
+}
+
+// calculateStdDev computes the standard deviation of response times.
+func calculateStdDev(times []time.Duration) float64 {
+	var sum time.Duration
+	for _, t := range times {
+		sum += t
+	}
+	avg := sum / time.Duration(len(times))
+
+	var varianceSum float64
+	for _, t := range times {
+		varianceSum += math.Pow(t.Seconds()-avg.Seconds(), 2)
+	}
+	variance := varianceSum / float64(len(times))
+	stdDev := math.Sqrt(variance)
+
+	return stdDev
 }
 
 // calculateVariance calculates the variance of response times.
