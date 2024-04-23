@@ -211,7 +211,7 @@ func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.D
 	// Action determination with debounce effect
 	// Debounce mechanism for scaling down
 	const debounceCount = 3 // Threshold must be exceeded in 3 consecutive checks to act
-	if stdDev > (ch.Metrics.ResponseTimeVariability.StdDevThreshold * 1.5) {
+	if stdDev > (ch.Metrics.ResponseTimeVariability.StdDevThreshold * 2) {
 		ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount++
 		ch.logger.Info("Increased debounce counter", zap.Int("counter", ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount))
 		if ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount >= debounceCount {
