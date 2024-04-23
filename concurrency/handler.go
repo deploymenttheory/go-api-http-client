@@ -8,13 +8,6 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/logger"
 )
 
-// Constants and Data Structures:
-const (
-	MaxConcurrency     = 10              // Maximum allowed concurrent requests
-	MinConcurrency     = 1               // Minimum allowed concurrent requests
-	EvaluationInterval = 1 * time.Minute // Time interval for evaluating metrics and adjusting concurrency
-)
-
 // ConcurrencyHandler controls the number of concurrent HTTP requests.
 type ConcurrencyHandler struct {
 	sem                      chan struct{}
@@ -30,7 +23,7 @@ type ConcurrencyMetrics struct {
 	TotalRequests        int64         // Total number of requests made
 	TotalRetries         int64         // Total number of retry attempts
 	TotalRateLimitErrors int64         // Total number of rate limit errors encountered
-	TokenWaitTime        time.Duration // Total time spent waiting for tokens
+	PermitWaitTime       time.Duration // Total time spent waiting for tokens
 	TTFB                 struct {      // Metrics related to Time to First Byte (TTFB)
 		Total time.Duration // Total Time to First Byte (TTFB) for all requests
 		Count int64         // Count of requests used for calculating TTFB
