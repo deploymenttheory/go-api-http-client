@@ -199,11 +199,11 @@ var responseTimes []time.Duration
 func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.Duration) int {
 	// Append the latest response time
 	responseTimes = append(responseTimes, responseTime)
-	if len(responseTimes) > 5 { // Use the last 5 measurements
+	if len(responseTimes) > 10 { // Use the last 10 measurements for a smoother average
 		responseTimes = responseTimes[1:]
 	}
 
-	// Calculate average response time from the slice
+	// Calculate moving average response time from the slice
 	var sum time.Duration
 	for _, rt := range responseTimes {
 		sum += rt
@@ -218,11 +218,20 @@ func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.D
 	variance := varianceSum / float64(len(responseTimes))
 	stdDev := math.Sqrt(variance)
 
-	// Determine action based on standard deviation against a higher threshold
-	if stdDev > (ch.Metrics.ResponseTimeVariability.StdDevThreshold * 1.5) { // Increased threshold
-		return -1 // Suggest decrease concurrency
-	} else if stdDev <= ch.Metrics.ResponseTimeVariability.StdDevThreshold && len(ch.sem) < MaxConcurrency {
-		return 1 // Suggest increase concurrency if there is capacity
+	// Action determination with debounce effect
+	// Requires keeping track of how often the stdDev threshold has been exceeded
+	const debounceCount = 3 // e.g., threshold must be exceeded in 3 consecutive checks to act
+	if stdDev > (ch.Metrics.ResponseTimeVariability.StdDevThreshold * 1.5) {
+		ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount++
+		if ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount >= debounceCount {
+			ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount = 0 // reset counter after action
+			return -1                                                     // Suggest decrease concurrency
+		}
+	} else {
+		ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount = 0 // reset counter if condition not met
+		if stdDev <= ch.Metrics.ResponseTimeVariability.StdDevThreshold && len(ch.sem) < MaxConcurrency {
+			return 1 // Suggest increase concurrency if there is capacity
+		}
 	}
 	return 0
 }
