@@ -35,12 +35,13 @@ type ConcurrencyMetrics struct {
 		Lock  sync.Mutex // Lock for throughput metrics/
 	}
 	ResponseTimeVariability struct { // Metrics related to response time variability
-		Total           time.Duration // Total response time for all requests
-		Average         time.Duration // Average response time across all requests
-		Variance        float64       // Variance of response times
-		Count           int64         // Count of responses used for calculating response time variability
-		Lock            sync.Mutex    // Lock for response time variability metrics
-		StdDevThreshold float64       // Maximum acceptable standard deviation for adjusting concurrency
+		Total                  time.Duration // Total response time for all requests
+		Average                time.Duration // Average response time across all requests
+		Variance               float64       // Variance of response times
+		Count                  int64         // Count of responses used for calculating response time variability
+		Lock                   sync.Mutex    // Lock for response time variability metrics
+		StdDevThreshold        float64       // Maximum acceptable standard deviation for adjusting concurrency
+		DebounceScaleDownCount int           // Counter to manage scale down actions after consecutive triggers
 	}
 	ResponseCodeMetrics struct {
 		ErrorRate float64    // Error rate calculated as (TotalRateLimitErrors + 5xxErrors) / TotalRequests
