@@ -196,7 +196,6 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) in
 var responseTimes []time.Duration
 
 // MonitorResponseTimeVariability monitors the response time variability and suggests a concurrency adjustment.
-// MonitorResponseTimeVariability monitors the response time variability and suggests a concurrency adjustment.
 func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.Duration) int {
 	ch.Metrics.Lock.Lock() // Ensure thread safety when accessing shared metrics
 	defer ch.Metrics.Lock.Unlock()
@@ -246,16 +245,4 @@ func calculateStdDev(times []time.Duration) float64 {
 	stdDev := math.Sqrt(variance)
 
 	return stdDev
-}
-
-// calculateVariance calculates the variance of response times.
-func (ch *ConcurrencyHandler) calculateVariance(averageResponseTime time.Duration, responseTime time.Duration) float64 {
-	// Convert time.Duration values to seconds
-	averageSeconds := averageResponseTime.Seconds()
-	responseSeconds := responseTime.Seconds()
-
-	// Calculate variance
-	variance := (float64(ch.Metrics.ResponseTimeVariability.Count-1)*math.Pow(averageSeconds-responseSeconds, 2) + ch.Metrics.ResponseTimeVariability.Variance) / float64(ch.Metrics.ResponseTimeVariability.Count)
-	ch.Metrics.ResponseTimeVariability.Variance = variance
-	return variance
 }
