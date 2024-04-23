@@ -80,14 +80,16 @@ func (ch *ConcurrencyHandler) EvaluateAndAdjustConcurrency(resp *http.Response, 
 	}
 
 	// Check critical thresholds
-	if rateLimitFeedback <= RateLimitCriticalThreshold || weightedResponseCodeScore >= ErrorResponseThreshold {
-		ch.logger.Warn("Scaling down due to critical threshold breach",
-			zap.String("event", "CriticalThresholdBreach"),
-			zap.Int("rateLimitFeedback", rateLimitFeedback),
-			zap.Float64("errorResponseRate", weightedResponseCodeScore),
-		)
-		ch.ScaleDown()
-		return
+	if rateLimitFeedback <= RateLimitCriticalThreshold || responseCodeFeedback < 0 {
+		if weightedRateLimitScore >= ErrorResponseThreshold || weightedResponseCodeScore >= ErrorResponseThreshold {
+			ch.logger.Warn("Scaling down due to critical threshold breach",
+				zap.String("event", "CriticalThresholdBreach"),
+				zap.Int("rateLimitFeedback", rateLimitFeedback),
+				zap.Float64("errorResponseRate", weightedResponseCodeScore),
+			)
+			ch.ScaleDown()
+			return
+		}
 	}
 
 	// Evaluate cumulative impact and make a scaling decision based on the cumulative score and other metrics.
