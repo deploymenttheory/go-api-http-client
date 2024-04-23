@@ -192,33 +192,37 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) in
 	return 0 // Default to no change if error rate is within acceptable limits
 }
 
+// A slice to hold the last n response times for averaging
+var responseTimes []time.Duration
+
 // MonitorResponseTimeVariability monitors the response time variability and suggests a concurrency adjustment.
 func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.Duration) int {
-	ch.Metrics.Lock.Lock()
-	defer ch.Metrics.Lock.Unlock()
+	// Append the latest response time
+	responseTimes = append(responseTimes, responseTime)
+	if len(responseTimes) > 5 { // Use the last 5 measurements
+		responseTimes = responseTimes[1:]
+	}
 
-	// Update ResponseTimeVariability metrics
-	ch.Metrics.ResponseTimeVariability.Lock.Lock()
-	defer ch.Metrics.ResponseTimeVariability.Lock.Unlock()
-	ch.Metrics.ResponseTimeVariability.Total += responseTime
-	ch.Metrics.ResponseTimeVariability.Count++
+	// Calculate average response time from the slice
+	var sum time.Duration
+	for _, rt := range responseTimes {
+		sum += rt
+	}
+	averageResponseTime := sum / time.Duration(len(responseTimes))
 
-	// Calculate average response time
-	ch.Metrics.ResponseTimeVariability.Average = ch.Metrics.ResponseTimeVariability.Total / time.Duration(ch.Metrics.ResponseTimeVariability.Count)
+	// Calculate standard deviation based on the moving average
+	var varianceSum float64
+	for _, rt := range responseTimes {
+		varianceSum += math.Pow(rt.Seconds()-averageResponseTime.Seconds(), 2)
+	}
+	variance := varianceSum / float64(len(responseTimes))
+	stdDev := math.Sqrt(variance)
 
-	// Calculate variance of response times
-	ch.Metrics.ResponseTimeVariability.Variance = ch.calculateVariance(ch.Metrics.ResponseTimeVariability.Average, responseTime)
-
-	// Calculate standard deviation of response times
-	stdDev := math.Sqrt(ch.Metrics.ResponseTimeVariability.Variance)
-
-	// Determine action based on standard deviation
-	if stdDev > ch.Metrics.ResponseTimeVariability.StdDevThreshold {
-		// Suggest decrease concurrency
-		return -1
+	// Determine action based on standard deviation against a higher threshold
+	if stdDev > (ch.Metrics.ResponseTimeVariability.StdDevThreshold * 1.5) { // Increased threshold
+		return -1 // Suggest decrease concurrency
 	} else if stdDev <= ch.Metrics.ResponseTimeVariability.StdDevThreshold && len(ch.sem) < MaxConcurrency {
-		// Suggest increase concurrency if there is capacity
-		return 1
+		return 1 // Suggest increase concurrency if there is capacity
 	}
 	return 0
 }
