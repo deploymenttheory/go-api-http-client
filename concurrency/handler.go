@@ -23,7 +23,7 @@ type ConcurrencyMetrics struct {
 	TotalRequests        int64         // Total number of requests made
 	TotalRetries         int64         // Total number of retry attempts
 	TotalRateLimitErrors int64         // Total number of rate limit errors encountered
-	TokenWaitTime        time.Duration // Total time spent waiting for tokens
+	PermitWaitTime       time.Duration // Total time spent waiting for tokens
 	TTFB                 struct {      // Metrics related to Time to First Byte (TTFB)
 		Total time.Duration // Total Time to First Byte (TTFB) for all requests
 		Count int64         // Count of requests used for calculating TTFB

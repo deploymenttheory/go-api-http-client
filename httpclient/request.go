@@ -128,15 +128,15 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		return nil, err
 	}
 
-	// Acquire a concurrency token along with a unique request ID
-	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyToken(context.Background())
+	// Acquire a concurrency permit along with a unique request ID
+	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyPermit(context.Background())
 	if err != nil {
-		return nil, c.Logger.Error("Failed to acquire concurrency token", zap.Error(err))
+		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
 	}
 
-	// Ensure the token is released after the function exits
+	// Ensure the permit is released after the function exits
 	defer func() {
-		c.ConcurrencyHandler.ReleaseConcurrencyToken(requestID)
+		c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
 	}()
 
 	// Marshal Request with correct encoding defined in api handler
@@ -291,15 +291,15 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 		return nil, err
 	}
 
-	// Acquire a concurrency token along with a unique request ID
-	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyToken(context.Background())
+	// Acquire a concurrency permit along with a unique request ID
+	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyPermit(context.Background())
 	if err != nil {
-		return nil, c.Logger.Error("Failed to acquire concurrency token", zap.Error(err))
+		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
 	}
 
-	// Ensure the token is released after the function exits
+	// Ensure the permit is released after the function exits
 	defer func() {
-		c.ConcurrencyHandler.ReleaseConcurrencyToken(requestID)
+		c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
 	}()
 
 	// Determine which set of encoding and content-type request rules to use
