@@ -121,24 +121,21 @@ func (ch *ConcurrencyHandler) EvaluateAndAdjustConcurrency(resp *http.Response, 
 func (ch *ConcurrencyHandler) MonitorRateLimitHeaders(resp *http.Response) int {
 	remaining := resp.Header.Get("X-RateLimit-Remaining")
 	retryAfter := resp.Header.Get("Retry-After")
-	suggestion := 0
+	if remaining == "" && retryAfter == "" {
+		// No rate limit information available, return a neutral score
+		return 0
+	}
 
+	suggestion := 0
 	if remaining != "" {
 		remainingValue, err := strconv.Atoi(remaining)
 		if err == nil && remainingValue < 10 {
-			// Suggest decrease concurrency if X-RateLimit-Remaining is below the threshold
-			suggestion = -1
+			suggestion = -1 // Suggest decrease concurrency if critically low
 		}
 	}
 
 	if retryAfter != "" {
-		// Suggest decrease concurrency if Retry-After is specified
-		suggestion = -1
-	} else {
-		// Suggest increase concurrency if currently below maximum limit and no other decrease suggestion has been made
-		if len(ch.sem) < MaxConcurrency && suggestion == 0 {
-			suggestion = 1
-		}
+		suggestion = -1 // Suggest decrease concurrency if Retry-After is specified
 	}
 
 	return suggestion
