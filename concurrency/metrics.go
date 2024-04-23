@@ -10,62 +10,110 @@ import (
 	"go.uber.org/zap"
 )
 
-// EvaluateAndAdjustConcurrency evaluates the HTTP response from a server along with the request's response time
-// and adjusts the concurrency level of the system accordingly. It utilizes three monitoring functions:
-// MonitorRateLimitHeaders, MonitorServerResponseCodes, and MonitorResponseTimeVariability, each of which
-// provides feedback on different aspects of the response and system's current state. The function aggregates
-// feedback from these monitoring functions to make a decision on whether to scale up or scale down the concurrency.
-// The decision is based on a simple majority of suggestions: if more functions suggest scaling down (return -1),
-// it scales down; if more suggest scaling up (return 1), it scales up. This method centralizes concurrency control
-// decision-making, providing a systematic approach to managing request handling capacity based on real-time
-// operational metrics.
+// Defined weights for the metrics
+var metricWeights = map[string]float64{
+	"RateLimit":    5.0, // High importance
+	"ServerError":  3.0, // High importance
+	"ResponseTime": 1.0, // Lower importance
+}
+
+// EvaluateAndAdjustConcurrency assesses the current state of system metrics and decides whether to scale
+// up or down the number of concurrent operations allowed. It employs a combination of strategies:
+// a weighted scoring system, threshold-based direct actions, and cumulative impact assessment.
+//
+// A weighted scoring system is used to prioritize the importance of different system metrics. Each metric
+// can influence the scaling decision based on its assigned weight, reflecting its relative impact on system performance.
+//
+// Threshold-based scaling provides a fast-track decision path for critical metrics that have exceeded predefined limits.
+// If a critical metric, such as the rate limit remaining slots or server error rates, crosses a specified threshold,
+// immediate action is taken to scale down the concurrency to prevent system overload.
+//
+// Cumulative impact assessment calculates a cumulative score from all monitored metrics, taking into account
+// their respective weights. This score determines the overall tendency of the system to either scale up or down.
+// If the score indicates a negative trend (i.e., below zero), the system will scale down to reduce load.
+// Conversely, a positive score suggests that there is capacity to handle more concurrent operations, leading
+// to a scale-up decision.
 //
 // Parameters:
+//   - resp: The HTTP response received from the server, providing status codes and headers for rate limiting.
+//   - responseTime: The time duration between sending the request and receiving the response, indicating the server's responsiveness.
 //
-//	resp - The HTTP response received from the server.
-//	responseTime - The time duration between sending the request and receiving the response.
+// The function logs the decision process at each step, providing traceability and insight into the scaling mechanism.
+// The method should be called after each significant interaction with the external system (e.g., an HTTP request) to
+// ensure concurrency levels are adapted to current conditions.
 //
-// It logs the specific reason for scaling decisions, helping in traceability and fine-tuning system performance.
+// Returns: None. The function directly calls the ScaleUp or ScaleDown methods as needed.
+//
+// Note: This function does not return any value; it performs actions based on internal assessments and logs outcomes.
 func (ch *ConcurrencyHandler) EvaluateAndAdjustConcurrency(resp *http.Response, responseTime time.Duration) {
-	// Call monitoring functions
 	rateLimitFeedback := ch.MonitorRateLimitHeaders(resp)
 	responseCodeFeedback := ch.MonitorServerResponseCodes(resp)
 	responseTimeFeedback := ch.MonitorResponseTimeVariability(responseTime)
 
-	// Log the feedback from each monitoring function for debugging
-	ch.logger.Debug("Concurrency Adjustment Feedback",
-		zap.Int("RateLimitFeedback", rateLimitFeedback),
-		zap.Int("ResponseCodeFeedback", responseCodeFeedback),
-		zap.Int("ResponseTimeFeedback", responseTimeFeedback))
+	// Use weighted scores for each metric.
+	weightedRateLimitScore := float64(rateLimitFeedback) * metricWeights["RateLimit"]
+	weightedResponseCodeScore := float64(responseCodeFeedback) * metricWeights["ServerError"]
+	weightedResponseTimeScore := float64(responseTimeFeedback) * metricWeights["ResponseTime"]
 
-	// Determine overall action based on feedback
-	suggestions := []int{rateLimitFeedback, responseCodeFeedback, responseTimeFeedback}
-	scaleDownCount := 0
-	scaleUpCount := 0
+	// Calculate the cumulative score.
+	cumulativeScore := weightedRateLimitScore + weightedResponseCodeScore + weightedResponseTimeScore
 
-	for _, suggestion := range suggestions {
-		switch suggestion {
-		case -1:
-			scaleDownCount++
-		case 1:
-			scaleUpCount++
-		}
+	// Log the feedback from each monitoring function for debugging.
+	ch.logger.Debug("Evaluate and Adjust Concurrency",
+		zap.String("event", "EvaluateConcurrency"),
+		zap.Float64("weightedRateLimitScore", weightedRateLimitScore),
+		zap.Float64("weightedResponseCodeScore", weightedResponseCodeScore),
+		zap.Float64("weightedResponseTimeScore", weightedResponseTimeScore),
+		zap.Float64("cumulativeScore", cumulativeScore),
+		zap.Int("rateLimitFeedback", rateLimitFeedback),
+		zap.Int("responseCodeFeedback", responseCodeFeedback),
+		zap.Int("responseTimeFeedback", responseTimeFeedback),
+		zap.Duration("responseTime", responseTime),
+	)
+
+	// Check critical thresholds
+	if rateLimitFeedback <= RateLimitCriticalThreshold || weightedResponseCodeScore >= ErrorResponseThreshold {
+		ch.logger.Warn("Scaling down due to critical threshold breach",
+			zap.String("event", "CriticalThresholdBreach"),
+			zap.Int("rateLimitFeedback", rateLimitFeedback),
+			zap.Float64("errorResponseRate", weightedResponseCodeScore),
+		)
+		ch.ScaleDown()
+		return
 	}
 
-	// Log the counts for scale down and up suggestions
-	ch.logger.Info("Scaling Decision Counts",
-		zap.Int("ScaleDownCount", scaleDownCount),
-		zap.Int("ScaleUpCount", scaleUpCount))
-
-	// Decide on scaling action
-	if scaleDownCount > scaleUpCount {
-		ch.logger.Info("Scaling down the concurrency", zap.String("Reason", "More signals suggested to decrease concurrency"))
+	// Evaluate cumulative impact and make a scaling decision.
+	if cumulativeScore < 0 {
+		utilizedBefore := len(ch.sem) // Tokens in use before scaling down.
 		ch.ScaleDown()
-	} else if scaleUpCount > scaleDownCount {
-		ch.logger.Info("Scaling up the concurrency", zap.String("Reason", "More signals suggested to increase concurrency"))
+		utilizedAfter := len(ch.sem) // Tokens in use after scaling down.
+		ch.logger.Info("Concurrency scaling decision: scale down.",
+			zap.Float64("cumulativeScore", cumulativeScore),
+			zap.Int("utilizedTokensBefore", utilizedBefore),
+			zap.Int("utilizedTokensAfter", utilizedAfter),
+			zap.Int("availableTokensBefore", cap(ch.sem)-utilizedBefore),
+			zap.Int("availableTokensAfter", cap(ch.sem)-utilizedAfter),
+			zap.String("reason", "Cumulative impact of metrics suggested an overload."),
+		)
+	} else if cumulativeScore > 0 {
+		utilizedBefore := len(ch.sem) // Tokens in use before scaling up.
 		ch.ScaleUp()
+		utilizedAfter := len(ch.sem) // Tokens in use after scaling up.
+		ch.logger.Info("Concurrency scaling decision: scale up.",
+			zap.Float64("cumulativeScore", cumulativeScore),
+			zap.Int("utilizedTokensBefore", utilizedBefore),
+			zap.Int("utilizedTokensAfter", utilizedAfter),
+			zap.Int("availableTokensBefore", cap(ch.sem)-utilizedBefore),
+			zap.Int("availableTokensAfter", cap(ch.sem)-utilizedAfter),
+			zap.String("reason", "Metrics indicate available resources to handle more load."),
+		)
 	} else {
-		ch.logger.Info("No change in concurrency", zap.String("Reason", "Equal signals for both scaling up and down"))
+		ch.logger.Info("Concurrency scaling decision: no change.",
+			zap.Float64("cumulativeScore", cumulativeScore),
+			zap.Int("currentUtilizedTokens", len(ch.sem)),
+			zap.Int("currentAvailableTokens", cap(ch.sem)-len(ch.sem)),
+			zap.String("reason", "Metrics are stable, maintaining current concurrency level."),
+		)
 	}
 }
 
