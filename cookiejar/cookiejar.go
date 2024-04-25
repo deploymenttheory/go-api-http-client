@@ -31,6 +31,17 @@ func SetupCookieJar(client *http.Client, enableCookieJar bool, log logger.Logger
 	return nil
 }
 
+// SetSpecificCookies sets specific cookies provided in the configuration on the HTTP request.
+func SetSpecificCookies(req *http.Request, cookies map[string]string) {
+	for name, value := range cookies {
+		cookie := &http.Cookie{
+			Name:  name,
+			Value: value,
+		}
+		req.AddCookie(cookie)
+	}
+}
+
 // GetCookies is a middleware that extracts cookies from incoming requests and serializes them.
 func GetCookies(next http.Handler, log logger.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

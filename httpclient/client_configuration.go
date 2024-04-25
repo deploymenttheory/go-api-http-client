@@ -137,8 +137,15 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 	log.Printf("HideSensitiveData env value found and set to: %t", config.ClientOptions.Logging.HideSensitiveData)
 
 	// Cookies
-	config.ClientOptions.Cookie.EnableCookieJar = parseBool(getEnvOrDefault("ENABLE_COOKIE_JAR", strconv.FormatBool(config.ClientOptions.Cookie.EnableCookieJar)))
-	log.Printf("EnableCookieJar env value found and set to: %t", config.ClientOptions.Cookie.EnableCookieJar)
+	config.ClientOptions.Cookies.EnableCookieJar = parseBool(getEnvOrDefault("ENABLE_COOKIE_JAR", strconv.FormatBool(config.ClientOptions.Cookies.EnableCookieJar)))
+	log.Printf("EnableCookieJar env value found and set to: %t", config.ClientOptions.Cookies.EnableCookieJar)
+
+	// Load specific cookies from environment variable
+	cookieStr := getEnvOrDefault("CUSTOM_COOKIES", "")
+	if cookieStr != "" {
+		config.ClientOptions.Cookies.CustomCookies = parseCookiesFromString(cookieStr)
+		log.Printf("CustomCookies env value found and set")
+	}
 
 	// Retry
 	config.ClientOptions.Retry.MaxRetryAttempts = parseInt(getEnvOrDefault("MAX_RETRY_ATTEMPTS", strconv.Itoa(config.ClientOptions.Retry.MaxRetryAttempts)), DefaultMaxRetryAttempts)
@@ -342,4 +349,19 @@ func setLoggerDefaultValues(config *ClientConfig) {
 
 	// Log completion of setting default values
 	log.Println("Default values set for logger configuration")
+}
+
+// parseCookiesFromString parses a semi-colon separated string of key=value pairs into a map.
+func parseCookiesFromString(cookieStr string) map[string]string {
+	cookies := make(map[string]string)
+	pairs := strings.Split(cookieStr, ";")
+	for _, pair := range pairs {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) == 2 {
+			key := strings.TrimSpace(kv[0])
+			value := strings.TrimSpace(kv[1])
+			cookies[key] = value
+		}
+	}
+	return cookies
 }

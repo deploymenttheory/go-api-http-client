@@ -108,8 +108,12 @@ Example configuration file (clientconfig.json):
       "LogExportPath": "/your/log/path/folder",
       "HideSensitiveData": true // redacts sensitive data from logs
     },
-    "Cookie": {
-      "EnableCookieJar": true // enable cookie jar support
+    "Cookies": {
+      "EnableCookieJar": true, // enable cookie jar support
+      "CustomCookies": { // set custom cookies as an alternative to cookie jar
+        "sessionId": "abc123",
+        "authToken": "xyz789"
+      }
     },
     "Retry": {
       "MaxRetryAttempts": 5, // set number of retry attempts
