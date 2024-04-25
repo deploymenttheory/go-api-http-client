@@ -138,7 +138,7 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 
 	// Cookies
 	config.ClientOptions.Cookie.EnableCookieJar = parseBool(getEnvOrDefault("ENABLE_COOKIE_JAR", strconv.FormatBool(config.ClientOptions.Cookie.EnableCookieJar)))
-	log.Printf("EnableCookies env value found and set to: %t", config.ClientOptions.Cookie.EnableCookieJar)
+	log.Printf("EnableCookieJar env value found and set to: %t", config.ClientOptions.Cookie.EnableCookieJar)
 
 	// Retry
 	config.ClientOptions.Retry.MaxRetryAttempts = parseInt(getEnvOrDefault("MAX_RETRY_ATTEMPTS", strconv.Itoa(config.ClientOptions.Retry.MaxRetryAttempts)), DefaultMaxRetryAttempts)

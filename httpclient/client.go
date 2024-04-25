@@ -78,7 +78,8 @@ type LoggingConfig struct {
 
 // CookieConfig holds configuration related to cookie handling.
 type CookieConfig struct {
-	EnableCookieJar bool // Enable or disable cookie jar
+	EnableCookieJar bool              // Enable or disable cookie jar
+	SpecificCookies map[string]string `json:"SpecificCookies,omitempty"` // Key-value pairs for specific cookies
 }
 
 // RetryConfig holds configuration related to retry behavior.
