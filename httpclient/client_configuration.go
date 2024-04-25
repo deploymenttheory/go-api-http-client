@@ -181,13 +181,13 @@ func validateMandatoryConfiguration(config *ClientConfig) error {
 
 	// Check for mandatory fields related to the client options
 	if config.ClientOptions.Logging.LogLevel == "" {
-		missingFields = append(missingFields, "ClientOptions.LogLevel")
+		missingFields = append(missingFields, "ClientOptions.Logging.LogLevel")
 	}
 	if config.ClientOptions.Logging.LogOutputFormat == "" {
-		missingFields = append(missingFields, "ClientOptions.LogOutputFormat")
+		missingFields = append(missingFields, "ClientOptions.Logging.LogOutputFormat")
 	}
 	if config.ClientOptions.Logging.LogConsoleSeparator == "" {
-		missingFields = append(missingFields, "ClientOptions.LogConsoleSeparator")
+		missingFields = append(missingFields, "ClientOptions.Logging.LogConsoleSeparator")
 	}
 
 	// Check for either OAuth credentials pair or Username and Password pair
