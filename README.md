@@ -87,28 +87,41 @@ Example configuration file (clientconfig.json):
 
 ```json
 {
-   "Auth": {
-    "ClientID": "client-id",
-    "ClientSecret": "client-secret",
-    "Username": "username",
-    "Password": "password"
+  "Auth": {
+    "ClientID": "client-id", // set this for oauth2 based authentication
+    "ClientSecret": "client-secret", // set this for oauth2 based authentication
+    "Username": "username", // set this for basic auth
+    "Password": "password" // set this for basic auth
   },
   "Environment": {
-    "InstanceName": "yourinstance",
-    "OverrideBaseDomain": "",
-    "APIType": "" // "jamfpro" / "msgraph"
+    "APIType": "", // define the api integration e.g "jamfpro" / "msgraph"
+    "InstanceName": "yourinstance", // used for "jamfpro"
+    "OverrideBaseDomain": "", // used for "jamfpro"
+    "TenantID": "tenant-id", // used for "msgraph"h
+    "TenantName ": "resource", // used for "msgraph"
   },
   "ClientOptions": {
-    "LogLevel": "LogLevelDebug",  // "LogLevelDebug" / "LogLevelInfo" / "LogLevelWarn" / "LogLevelError" / "LogLevelFatal" / "LogLevelPanic"
-    "LogOutputFormat": "console", // "console" / "json"
-    "LogConsoleSeparator": " ",   // " " / "\t" / "," / etc.
-    "LogExportPath": "/path/to/export/your/logs",
-    "HideSensitiveData": true,    // redacts sensitive data from logs
-    "MaxRetryAttempts": 5,        // set number of retry attempts
-    "MaxConcurrentRequests": 3,   // set number of concurrent requests
-    "EnableCookieJar": false,     // enable cookie jar support
-    "FollowRedirects": true,      // follow redirects
-	  "MaxRedirects": 5             // set number of redirects to follow
+    "Logging": {
+      "LogLevel": "LogLevelDebug", // "LogLevelDebug" / "LogLevelInfo" / "LogLevelWarn" / "LogLevelError" / "LogLevelFatal" / "LogLevelPanic"
+      "LogOutputFormat": "console", // "console" / "json"
+      "LogConsoleSeparator": "  ", // " " / "\t" / "," / etc.
+      "LogExportPath": "/your/log/path/folder",
+      "HideSensitiveData": true // redacts sensitive data from logs
+    },
+    "Cookie": {
+      "EnableCookieJar": true // enable cookie jar support
+    },
+    "Retry": {
+      "MaxRetryAttempts": 5, // set number of retry attempts
+      "EnableDynamicRateLimiting": true // enable dynamic rate limiting
+    },
+    "Concurrency": {
+      "MaxConcurrentRequests": 3 // set number of concurrent requests
+    },
+    "Redirect": {
+      "FollowRedirects": true, // follow redirects
+      "MaxRedirects": 5 // set number of redirects to follow
+    }
   }
 }
 ```
