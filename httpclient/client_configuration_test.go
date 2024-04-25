@@ -49,16 +49,16 @@ func TestLoadConfigFromFile(t *testing.T) {
 	assert.Equal(t, "xxxxxxxxxxxxx", config.Auth.ClientSecret)
 	assert.Equal(t, "lbgsandbox", config.Environment.InstanceName)
 	assert.Equal(t, "jamfpro", config.Environment.APIType)
-	assert.Equal(t, "LogLevelDebug", config.ClientOptions.LogLevel)
-	assert.Equal(t, "console", config.ClientOptions.LogOutputFormat)
-	assert.Equal(t, "  ", config.ClientOptions.LogConsoleSeparator)
-	assert.True(t, config.ClientOptions.HideSensitiveData)
-	assert.True(t, config.ClientOptions.EnableDynamicRateLimiting)
-	assert.Equal(t, 5, config.ClientOptions.MaxRetryAttempts)
-	assert.Equal(t, 3, config.ClientOptions.MaxConcurrentRequests)
-	assert.True(t, config.ClientOptions.EnableCookieJar)
-	assert.True(t, config.ClientOptions.FollowRedirects)
-	assert.Equal(t, 5, config.ClientOptions.MaxRedirects)
+	assert.Equal(t, "LogLevelDebug", config.ClientOptions.Logging.LogLevel)
+	assert.Equal(t, "console", config.ClientOptions.Logging.LogOutputFormat)
+	assert.Equal(t, "  ", config.ClientOptions.Logging.LogConsoleSeparator)
+	assert.True(t, config.ClientOptions.Logging.HideSensitiveData)
+	assert.True(t, config.ClientOptions.Retry.EnableDynamicRateLimiting)
+	assert.Equal(t, 5, config.ClientOptions.Retry.MaxRetryAttempts)
+	assert.Equal(t, 3, config.ClientOptions.Concurrency.MaxConcurrentRequests)
+	assert.True(t, config.ClientOptions.Cookie.EnableCookieJar)
+	assert.True(t, config.ClientOptions.Redirect.FollowRedirects)
+	assert.Equal(t, 5, config.ClientOptions.Redirect.MaxRedirects)
 }
 
 func TestGetEnvOrDefault(t *testing.T) {
@@ -93,5 +93,5 @@ func TestParseDuration(t *testing.T) {
 func TestSetLoggerDefaultValues(t *testing.T) {
 	config := &ClientConfig{ClientOptions: ClientOptions{}}
 	setLoggerDefaultValues(config)
-	assert.Equal(t, ",", config.ClientOptions.LogConsoleSeparator)
+	assert.Equal(t, ",", config.ClientOptions.Logging.LogConsoleSeparator)
 }

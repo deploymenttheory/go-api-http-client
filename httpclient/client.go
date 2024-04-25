@@ -59,30 +59,60 @@ type EnvironmentConfig struct {
 
 // ClientOptions holds optional configuration options for the HTTP Client.
 type ClientOptions struct {
-	EnableCookieJar           bool   // Field to enable or disable cookie jar
-	LogLevel                  string // Field for defining tiered logging level.
-	LogOutputFormat           string // Field for defining the output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
-	LogConsoleSeparator       string // Field for defining the separator in console output format.
-	LogExportPath             string // Field for specifying the path to output logs to.
-	HideSensitiveData         bool   // Field for defining whether sensitive fields should be hidden in logs.
-	MaxRetryAttempts          int    // Config item defines the max number of retry request attempts for retryable HTTP methods.
-	EnableDynamicRateLimiting bool   // Field for defining whether dynamic rate limiting should be enabled.
-	MaxConcurrentRequests     int    // Field for defining the maximum number of concurrent requests allowed in the semaphore
-	FollowRedirects           bool   // Flag to enable/disable following redirects
-	MaxRedirects              int    // Maximum number of redirects to follow
-	TokenRefreshBufferPeriod  time.Duration
-	TotalRetryDuration        time.Duration
-	CustomTimeout             time.Duration
+	Logging     LoggingConfig     // Configuration related to logging
+	Cookie      CookieConfig      // Cookie handling settings
+	Retry       RetryConfig       // Retry behavior configuration
+	Concurrency ConcurrencyConfig // Concurrency configuration
+	Timeout     TimeoutConfig     // Custom timeout settings
+	Redirect    RedirectConfig    // Redirect handling settings
+}
+
+// LoggingConfig holds configuration options related to logging.
+type LoggingConfig struct {
+	LogLevel            string // Tiered logging level.
+	LogOutputFormat     string // Output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
+	LogConsoleSeparator string // Separator in console output format.
+	LogExportPath       string // Path to output logs to.
+	HideSensitiveData   bool   // Whether sensitive fields should be hidden in logs.
+}
+
+// CookieConfig holds configuration related to cookie handling.
+type CookieConfig struct {
+	EnableCookieJar bool // Enable or disable cookie jar
+}
+
+// RetryConfig holds configuration related to retry behavior.
+type RetryConfig struct {
+	MaxRetryAttempts          int  // Maximum number of retry request attempts for retryable HTTP methods.
+	EnableDynamicRateLimiting bool // Whether dynamic rate limiting should be enabled.
+}
+
+// ConcurrencyConfig holds configuration related to concurrency management.
+type ConcurrencyConfig struct {
+	MaxConcurrentRequests int // Maximum number of concurrent requests allowed.
+}
+
+// TimeoutConfig holds custom timeout settings.
+type TimeoutConfig struct {
+	CustomTimeout            time.Duration // Custom timeout for the HTTP client
+	TokenRefreshBufferPeriod time.Duration // Buffer period before token expiry to attempt token refresh
+	TotalRetryDuration       time.Duration // Total duration to attempt retries
+}
+
+// RedirectConfig holds configuration related to redirect handling.
+type RedirectConfig struct {
+	FollowRedirects bool // Enable or disable following redirects
+	MaxRedirects    int  // Maximum number of redirects to follow
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
 func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Parse the log level string to logger.LogLevel
-	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.LogLevel)
+	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.Logging.LogLevel)
 
 	// Initialize the logger with parsed config values
-	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.LogOutputFormat, config.ClientOptions.LogConsoleSeparator, config.ClientOptions.LogExportPath)
+	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.Logging.LogOutputFormat, config.ClientOptions.Logging.LogConsoleSeparator, config.ClientOptions.Logging.LogExportPath)
 
 	// Set the logger's level (optional if BuildLogger already sets the level based on the input)
 	log.SetLevel(parsedLogLevel)
@@ -114,24 +144,24 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		authMethod,
 		clientCredentials,
 		config.Environment.InstanceName,
-		config.ClientOptions.HideSensitiveData,
+		config.ClientOptions.Logging.HideSensitiveData,
 	)
 
 	log.Info("Initializing new HTTP client with the provided configuration")
 
 	// Initialize the internal HTTP client
 	httpClient := &http.Client{
-		Timeout: config.ClientOptions.CustomTimeout,
+		Timeout: config.ClientOptions.Timeout.CustomTimeout,
 	}
 
 	// Conditionally setup cookie jar
-	if err := cookiejar.SetupCookieJar(httpClient, config.ClientOptions.EnableCookieJar, log); err != nil {
+	if err := cookiejar.SetupCookieJar(httpClient, config.ClientOptions.Cookie.EnableCookieJar, log); err != nil {
 		log.Error("Error setting up cookie jar", zap.Error(err))
 		return nil, err
 	}
 
 	// Conditionally setup redirect handling
-	if err := redirecthandler.SetupRedirectHandler(httpClient, config.ClientOptions.FollowRedirects, config.ClientOptions.MaxRedirects, log); err != nil {
+	if err := redirecthandler.SetupRedirectHandler(httpClient, config.ClientOptions.Redirect.FollowRedirects, config.ClientOptions.Redirect.MaxRedirects, log); err != nil {
 		log.Error("Failed to set up redirect handler", zap.Error(err))
 		return nil, err
 	}
@@ -141,7 +171,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Initialize the ConcurrencyHandler with the newly created ConcurrencyMetrics
 	concurrencyHandler := concurrency.NewConcurrencyHandler(
-		config.ClientOptions.MaxConcurrentRequests,
+		config.ClientOptions.Concurrency.MaxConcurrentRequests,
 		log,
 		concurrencyMetrics,
 	)
@@ -165,19 +195,19 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.String("Tenant ID", config.Environment.TenantID),
 		zap.String("Tenant Name", config.Environment.TenantName),
 		zap.String("Authentication Method", authMethod),
-		zap.String("Logging Level", config.ClientOptions.LogLevel),
-		zap.String("Log Encoding Format", config.ClientOptions.LogOutputFormat),
-		zap.String("Log Separator", config.ClientOptions.LogConsoleSeparator),
-		zap.Bool("Hide Sensitive Data In Logs", config.ClientOptions.HideSensitiveData),
-		zap.Bool("Cookie Jar Enabled", config.ClientOptions.EnableCookieJar),
-		zap.Int("Max Retry Attempts", config.ClientOptions.MaxRetryAttempts),
-		zap.Int("Max Concurrent Requests", config.ClientOptions.MaxConcurrentRequests),
-		zap.Bool("Follow Redirects", config.ClientOptions.FollowRedirects),
-		zap.Int("Max Redirects", config.ClientOptions.MaxRedirects),
-		zap.Bool("Enable Dynamic Rate Limiting", config.ClientOptions.EnableDynamicRateLimiting),
-		zap.Duration("Token Refresh Buffer Period", config.ClientOptions.TokenRefreshBufferPeriod),
-		zap.Duration("Total Retry Duration", config.ClientOptions.TotalRetryDuration),
-		zap.Duration("Custom Timeout", config.ClientOptions.CustomTimeout),
+		zap.String("Logging Level", config.ClientOptions.Logging.LogLevel),
+		zap.String("Log Encoding Format", config.ClientOptions.Logging.LogOutputFormat),
+		zap.String("Log Separator", config.ClientOptions.Logging.LogConsoleSeparator),
+		zap.Bool("Hide Sensitive Data In Logs", config.ClientOptions.Logging.HideSensitiveData),
+		zap.Bool("Cookie Jar Enabled", config.ClientOptions.Cookie.EnableCookieJar),
+		zap.Int("Max Retry Attempts", config.ClientOptions.Retry.MaxRetryAttempts),
+		zap.Bool("Enable Dynamic Rate Limiting", config.ClientOptions.Retry.EnableDynamicRateLimiting),
+		zap.Int("Max Concurrent Requests", config.ClientOptions.Concurrency.MaxConcurrentRequests),
+		zap.Bool("Follow Redirects", config.ClientOptions.Redirect.FollowRedirects),
+		zap.Int("Max Redirects", config.ClientOptions.Redirect.MaxRedirects),
+		zap.Duration("Token Refresh Buffer Period", config.ClientOptions.Timeout.TokenRefreshBufferPeriod),
+		zap.Duration("Total Retry Duration", config.ClientOptions.Timeout.TotalRetryDuration),
+		zap.Duration("Custom Timeout", config.ClientOptions.Timeout.CustomTimeout),
 	)
 
 	return client, nil
