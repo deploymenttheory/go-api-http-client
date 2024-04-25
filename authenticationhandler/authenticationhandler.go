@@ -1,4 +1,4 @@
-// authenticationhandler/auth_handler.go
+// authenticationhandler/authenticationhandler.go
 
 package authenticationhandler
 

@@ -1,8 +1,7 @@
-// authenticationhandler/auth_oauth.go
+// authenticationhandler/oauth2.go
 
 /* The http_client_auth package focuses on authentication mechanisms for an HTTP client.
-It provides structures and methods for handling OAuth-based authentication
-*/
+It provides structures and methods for handling OAuth-based authentication */
 
 package authenticationhandler
 
