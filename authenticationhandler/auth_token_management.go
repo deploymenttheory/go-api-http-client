@@ -16,12 +16,12 @@ func (h *AuthTokenHandler) ValidAuthTokenCheck(apiHandler apihandler.APIHandler,
 	if h.Token == "" {
 		h.Logger.Debug("No token found, attempting to obtain a new one")
 		var err error
-		if h.AuthMethod == "bearer" {
+		if h.AuthMethod == "basicauth" {
 			h.Logger.Info("Credential Match", zap.String("AuthMethod", h.AuthMethod))
-			err = h.ObtainToken(apiHandler, httpClient, clientCredentials.Username, clientCredentials.Password)
-		} else if h.AuthMethod == "oauth" {
+			err = h.BasicAuthTokenAcquisition(apiHandler, httpClient, clientCredentials.Username, clientCredentials.Password)
+		} else if h.AuthMethod == "oauth2" {
 			h.Logger.Info("Credential Match", zap.String("AuthMethod", h.AuthMethod))
-			err = h.ObtainOAuthToken(apiHandler, httpClient, clientCredentials.ClientID, clientCredentials.ClientSecret)
+			err = h.OAuth2TokenAcquisition(apiHandler, httpClient, clientCredentials.ClientID, clientCredentials.ClientSecret)
 		} else {
 			return false, h.Logger.Error("No valid credentials provided. Unable to obtain a token", zap.String("AuthMethod", h.AuthMethod))
 		}
@@ -34,9 +34,9 @@ func (h *AuthTokenHandler) ValidAuthTokenCheck(apiHandler apihandler.APIHandler,
 	if time.Until(h.Expires) < tokenRefreshBufferPeriod {
 		var err error
 		if clientCredentials.Username != "" && clientCredentials.Password != "" {
-			err = h.RefreshToken(apiHandler, httpClient)
+			err = h.RefreshBearerToken(apiHandler, httpClient)
 		} else if clientCredentials.ClientID != "" && clientCredentials.ClientSecret != "" {
-			err = h.ObtainOAuthToken(apiHandler, httpClient, clientCredentials.ClientID, clientCredentials.ClientSecret)
+			err = h.OAuth2TokenAcquisition(apiHandler, httpClient, clientCredentials.ClientID, clientCredentials.ClientSecret)
 		} else {
 			return false, h.Logger.Error("Unknown auth method", zap.String("authMethod", h.AuthMethod))
 		}

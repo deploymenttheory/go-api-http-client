@@ -30,9 +30,9 @@ type OAuthResponse struct {
 	Error        string `json:"error,omitempty"`         // Error contains details if an error occurs during the token acquisition process.
 }
 
-// ObtainOAuthToken fetches an OAuth access token using the provided client ID and client secret.
+// OAuth2TokenAcquisition fetches an OAuth access token using the provided client ID and client secret.
 // It updates the AuthTokenHandler's Token and Expires fields with the obtained values.
-func (h *AuthTokenHandler) ObtainOAuthToken(apiHandler apihandler.APIHandler, httpClient *http.Client, clientID, clientSecret string) error {
+func (h *AuthTokenHandler) OAuth2TokenAcquisition(apiHandler apihandler.APIHandler, httpClient *http.Client, clientID, clientSecret string) error {
 	// Get the OAuth token endpoint from the APIHandler
 	oauthTokenEndpoint := apiHandler.GetOAuthTokenEndpoint()
 
