@@ -123,7 +123,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		ClientSecret: c.clientConfig.Auth.ClientSecret,
 	}
 
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.TokenRefreshBufferPeriod)
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
@@ -162,10 +162,10 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	// Set request headers
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.HideSensitiveData)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
 	// Define a retry deadline based on the client's total retry duration configuration
-	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.TotalRetryDuration)
+	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.Timeout.TotalRetryDuration)
 
 	var resp *http.Response
 	var retryCount int
@@ -212,7 +212,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		// Handling retryable errors with exponential backoff
 		if status.IsTransientError(resp) {
 			retryCount++
-			if retryCount > c.clientConfig.ClientOptions.MaxRetryAttempts {
+			if retryCount > c.clientConfig.ClientOptions.Retry.MaxRetryAttempts {
 				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
 				break // Stop retrying if max attempts are reached
 			}
@@ -286,7 +286,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 		ClientSecret: c.clientConfig.Auth.ClientSecret,
 	}
 
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.TokenRefreshBufferPeriod)
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
@@ -323,7 +323,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	// Set request headers
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.HideSensitiveData)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
 	req = req.WithContext(ctx)
 

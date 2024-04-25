@@ -58,7 +58,7 @@ func (c *Client) DoPole(method, endpoint string, body, out interface{}) (*http.R
 
 	// Initialize retry count and define maximum retries
 	var retryCount int
-	maxRetries := c.clientConfig.ClientOptions.MaxRetryAttempts
+	maxRetries := c.clientConfig.ClientOptions.Retry.MaxRetryAttempts
 
 	// Loop until a successful response is received or maximum retries are reached
 	for retryCount <= maxRetries {

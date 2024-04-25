@@ -48,7 +48,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 		ClientSecret: c.clientConfig.Auth.ClientSecret,
 	}
 
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.TokenRefreshBufferPeriod)
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	// Use HeaderManager to set headers
 	headerHandler.SetContentType(contentType)
 	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.HideSensitiveData)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
 	// Execute the request
 	resp, err := c.do(req, log, method, endpoint)
