@@ -31,7 +31,7 @@ func DetermineAuthMethod(authConfig AuthConfig) (string, error) {
 		validClientSecret, clientSecretErrMsg = authenticationhandler.IsValidClientSecret(authConfig.ClientSecret)
 		// If both ClientID and ClientSecret are valid, use OAuth
 		if validClientID && validClientSecret {
-			return "oauth", nil
+			return "oauth2", nil
 		}
 	}
 
@@ -41,7 +41,7 @@ func DetermineAuthMethod(authConfig AuthConfig) (string, error) {
 		validPassword, passwordErrMsg = authenticationhandler.IsValidPassword(authConfig.Password)
 		// If both Username and Password are valid, use Bearer
 		if validUsername && validPassword {
-			return "bearer", nil
+			return "basicauth", nil
 		}
 	}
 

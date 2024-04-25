@@ -1,4 +1,4 @@
-// authenticationhandler/auth_bearer_token.go
+// authenticationhandler/basicauthentication.go
 /* The http_client_auth package focuses on authentication mechanisms for an HTTP client.
 It provides structures and methods for handling both basic and bearer token based authentication */
 
@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// ObtainToken fetches and sets an authentication token using the stored basic authentication credentials.
-func (h *AuthTokenHandler) ObtainToken(apiHandler apihandler.APIHandler, httpClient *http.Client, username string, password string) error {
+// BasicAuthTokenAcquisition fetches and sets an authentication token using the stored basic authentication credentials.
+func (h *AuthTokenHandler) BasicAuthTokenAcquisition(apiHandler apihandler.APIHandler, httpClient *http.Client, username string, password string) error {
 
 	// Use the APIHandler's method to get the bearer token endpoint
 	bearerTokenEndpoint := apiHandler.GetBearerTokenEndpoint()
@@ -60,8 +60,8 @@ func (h *AuthTokenHandler) ObtainToken(apiHandler apihandler.APIHandler, httpCli
 	return nil
 }
 
-// RefreshToken refreshes the current authentication token.
-func (h *AuthTokenHandler) RefreshToken(apiHandler apihandler.APIHandler, httpClient *http.Client) error {
+// RefreshBearerToken refreshes the current authentication token.
+func (h *AuthTokenHandler) RefreshBearerToken(apiHandler apihandler.APIHandler, httpClient *http.Client) error {
 	h.tokenLock.Lock()
 	defer h.tokenLock.Unlock()
 

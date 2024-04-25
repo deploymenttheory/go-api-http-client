@@ -197,8 +197,20 @@ func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) in
 var responseTimes []time.Duration
 var responseTimesLock sync.Mutex
 
-// MonitorResponseTimeVariability monitors the response time variability and suggests a concurrency adjustment.
-// MonitorResponseTimeVariability monitors the response time variability and suggests a concurrency adjustment.
+// MonitorResponseTimeVariability assesses the response time variability from a series of HTTP requests and decides whether to adjust the concurrency level of outgoing requests. This function is integral to maintaining optimal system performance under varying load conditions.
+//
+// The function first appends the latest response time to a sliding window of the last 10 response times to maintain a recent history. It then calculates the standard deviation and the average of these times. The standard deviation helps determine the variability or consistency of response times, while the average gives a central tendency.
+//
+// Based on these calculated metrics, the function employs a multi-factor decision mechanism:
+// - If the standard deviation exceeds a pre-defined threshold and the average response time is greater than an acceptable maximum, a debounce counter is incremented. This counter must reach a predefined threshold (debounceScaleDownThreshold) before a decision to decrease concurrency is made, ensuring that only sustained negative trends lead to a scale down.
+// - If the standard deviation is below or equal to the threshold, suggesting stable response times, and the system is currently operating below its concurrency capacity, it may suggest an increase in concurrency to improve throughput.
+//
+// This approach aims to prevent transient spikes in response times from causing undue scaling actions, thus stabilizing the overall performance and responsiveness of the system.
+//
+// Returns:
+// - (-1) to suggest a decrease in concurrency,
+// - (1) to suggest an increase in concurrency,
+// - (0) to indicate no change needed.
 func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.Duration) int {
 	ch.Metrics.ResponseTimeVariability.Lock.Lock()
 	defer ch.Metrics.ResponseTimeVariability.Lock.Unlock()
@@ -229,7 +241,30 @@ func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.D
 	return 0 // Default to no change
 }
 
-// calculateAverage computes the average response time from a slice of response times.
+// calculateAverage computes the average response time from a slice of time.Duration values.
+// The average, or mean, is a measure of the central tendency of a set of values, providing a simple
+// summary of the 'typical' value in a set. In the context of response times, the average gives a
+// straightforward indication of the overall system response performance over a given set of requests.
+//
+// The function performs the following steps to calculate the average response time:
+// 1. Sum all the response times in the input slice.
+// 2. Divide the total sum by the number of response times to find the mean value.
+//
+// This method of averaging is vital for assessing the overall health and efficiency of the system under load.
+// Monitoring average response times can help in identifying trends in system performance, guiding capacity planning,
+// and optimizing resource allocation.
+//
+// Parameters:
+// - times: A slice of time.Duration values, each representing the response time for a single request.
+//
+// Returns:
+//   - time.Duration: The average response time across all provided times. This is a time.Duration value that
+//     can be directly compared to other durations or used to set thresholds for alerts or further analysis.
+//
+// Example Usage:
+// This function is typically used in performance analysis where the average response time is monitored over
+// specific intervals to ensure service level agreements (SLAs) are met or to trigger scaling actions when
+// average response times exceed acceptable levels.
 func calculateAverage(times []time.Duration) time.Duration {
 	var total time.Duration
 	for _, t := range times {
@@ -238,7 +273,28 @@ func calculateAverage(times []time.Duration) time.Duration {
 	return total / time.Duration(len(times))
 }
 
-// calculateStdDev computes the standard deviation of response times.
+// calculateStdDev computes the standard deviation of response times from a slice of time.Duration values.
+// Standard deviation is a measure of the amount of variation or dispersion in a set of values. A low standard
+// deviation indicates that the values tend to be close to the mean (average) of the set, while a high standard
+// deviation indicates that the values are spread out over a wider range.
+//
+// The function performs the following steps to calculate the standard deviation:
+// 1. Calculate the mean (average) response time of the input slice.
+// 2. Sum the squared differences from the mean for each response time. This measures the total variance from the mean.
+// 3. Divide the total variance by the number of response times to get the average variance.
+// 4. Take the square root of the average variance to obtain the standard deviation.
+//
+// This statistical approach is crucial for identifying how consistently the system responds under different loads
+// and can be instrumental in diagnosing performance fluctuations in real-time systems.
+//
+// Parameters:
+// - times: A slice of time.Duration values representing response times.
+//
+// Returns:
+// - float64: The calculated standard deviation of the response times, which represents the variability in response times.
+//
+// This function is typically used in performance monitoring to adjust system concurrency based on the stability
+// of response times, as part of a larger strategy to optimize application responsiveness and reliability.
 func calculateStdDev(times []time.Duration) float64 {
 	var sum time.Duration
 	for _, t := range times {

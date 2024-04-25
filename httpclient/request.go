@@ -123,7 +123,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		ClientSecret: c.clientConfig.Auth.ClientSecret,
 	}
 
-	valid, err := c.AuthTokenHandler.ValidAuthTokenCheck(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.TokenRefreshBufferPeriod)
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 		ClientSecret: c.clientConfig.Auth.ClientSecret,
 	}
 
-	valid, err := c.AuthTokenHandler.ValidAuthTokenCheck(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.TokenRefreshBufferPeriod)
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
