@@ -1,10 +1,43 @@
 // cookiejar/cookiejar.go
 
-/* The cookiejar package provides utility functions for managing cookies within an HTTP client
-context in Go. This package aims to enhance HTTP client functionalities by offering cookie
-handling capabilities, including initialization of a cookie jar, redaction of sensitive cookies,
-and parsing of cookies from HTTP headers. Below is an explanation of the core functionalities
-provided by this package*/
+/* When both the cookie jar is enabled and specific cookies are set for an HTTP client in
+your scenario, here’s what generally happens during the request processing:
+
+Cookie Jar Initialization: If the cookie jar is enabled through your SetupCookieJar function,
+an instance of http.cookiejar.Jar is created and associated with your HTTP client. This
+cookie jar will automatically handle incoming and outgoing cookies for all requests made
+using this client. It manages storing cookies and automatically sending them with subsequent
+requests to the domains for which they're valid.
+
+Setting Specific Cookies: The ApplyCustomCookies function checks for any user-defined specific
+cookies (from the CustomCookies map). If found, these cookies are explicitly added to the
+outgoing HTTP request headers via the SetSpecificCookies function.
+
+Interaction between Cookie Jar and Specific Cookies:
+Cookie Precedence: When a specific cookie (added via SetSpecificCookies) shares the same name
+as a cookie already handled by the cookie jar for a given domain, the behavior depends on the
+implementation of the HTTP client's cookie handling and the server's cookie management rules.
+Generally, the explicitly set cookie in the HTTP request header (from SetSpecificCookies)
+should override any similar cookie managed by the cookie jar for that single request.
+
+Subsequent Requests: For subsequent requests, if the specific cookies are not added again
+via ApplyCustomCookies, the cookies in the jar that were stored from previous responses
+will take precedence again, unless overwritten by subsequent responses or explicit setting
+again.
+
+Practical Usage:
+
+This setup allows flexibility:
+
+Use Cookie Jar: For general session management where cookies are automatically managed across
+requests.
+Use Specific Cookies: For overriding or adding specific cookies for particular requests where
+customized control is necessary (such as testing scenarios, special authentication cookies,
+etc.).
+Logging and Debugging: Your setup also includes logging functionalities which can be very
+useful to debug and verify which cookies are being sent and managed. This is crucial for
+maintaining visibility into how cookies are influencing the behavior of your HTTP client
+interactions.*/
 
 package cookiejar
 
@@ -29,6 +62,30 @@ func SetupCookieJar(client *http.Client, enableCookieJar bool, log logger.Logger
 		client.Jar = jar
 	}
 	return nil
+}
+
+// ApplyCustomCookies checks and applies custom cookies to the HTTP request if any are configured.
+// It logs the names of the custom cookies being applied without exposing their values.
+func ApplyCustomCookies(req *http.Request, cookies map[string]string, log logger.Logger) {
+	if len(cookies) > 0 {
+		cookieNames := make([]string, 0, len(cookies))
+		for name := range cookies {
+			cookieNames = append(cookieNames, name)
+		}
+		log.Debug("Applying custom cookies", zap.Strings("Cookies", cookieNames))
+		SetSpecificCookies(req, cookies)
+	}
+}
+
+// SetSpecificCookies sets specific cookies provided in the configuration on the HTTP request.
+func SetSpecificCookies(req *http.Request, cookies map[string]string) {
+	for name, value := range cookies {
+		cookie := &http.Cookie{
+			Name:  name,
+			Value: value,
+		}
+		req.AddCookie(cookie)
+	}
 }
 
 // GetCookies is a middleware that extracts cookies from incoming requests and serializes them.

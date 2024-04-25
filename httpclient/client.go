@@ -60,7 +60,7 @@ type EnvironmentConfig struct {
 // ClientOptions holds optional configuration options for the HTTP Client.
 type ClientOptions struct {
 	Logging     LoggingConfig     // Configuration related to logging
-	Cookie      CookieConfig      // Cookie handling settings
+	Cookies     CookieConfig      // Cookie handling settings
 	Retry       RetryConfig       // Retry behavior configuration
 	Concurrency ConcurrencyConfig // Concurrency configuration
 	Timeout     TimeoutConfig     // Custom timeout settings
@@ -78,7 +78,8 @@ type LoggingConfig struct {
 
 // CookieConfig holds configuration related to cookie handling.
 type CookieConfig struct {
-	EnableCookieJar bool // Enable or disable cookie jar
+	EnableCookieJar bool              // Enable or disable cookie jar
+	CustomCookies   map[string]string `json:"CustomCookies,omitempty"` // Key-value pairs for setting specific cookies
 }
 
 // RetryConfig holds configuration related to retry behavior.
@@ -155,7 +156,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	}
 
 	// Conditionally setup cookie jar
-	if err := cookiejar.SetupCookieJar(httpClient, config.ClientOptions.Cookie.EnableCookieJar, log); err != nil {
+	if err := cookiejar.SetupCookieJar(httpClient, config.ClientOptions.Cookies.EnableCookieJar, log); err != nil {
 		log.Error("Error setting up cookie jar", zap.Error(err))
 		return nil, err
 	}
@@ -199,7 +200,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.String("Log Encoding Format", config.ClientOptions.Logging.LogOutputFormat),
 		zap.String("Log Separator", config.ClientOptions.Logging.LogConsoleSeparator),
 		zap.Bool("Hide Sensitive Data In Logs", config.ClientOptions.Logging.HideSensitiveData),
-		zap.Bool("Cookie Jar Enabled", config.ClientOptions.Cookie.EnableCookieJar),
+		zap.Bool("Cookie Jar Enabled", config.ClientOptions.Cookies.EnableCookieJar),
 		zap.Int("Max Retry Attempts", config.ClientOptions.Retry.MaxRetryAttempts),
 		zap.Bool("Enable Dynamic Rate Limiting", config.ClientOptions.Retry.EnableDynamicRateLimiting),
 		zap.Int("Max Concurrent Requests", config.ClientOptions.Concurrency.MaxConcurrentRequests),

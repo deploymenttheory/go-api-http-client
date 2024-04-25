@@ -103,16 +103,24 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 	log.Printf("ClientSecret env value found and set")
 
 	// EnvironmentConfig
+	config.Environment.APIType = getEnvOrDefault("API_TYPE", config.Environment.APIType)
+	log.Printf("APIType env value found and set to: %s", config.Environment.APIType)
+
 	config.Environment.InstanceName = getEnvOrDefault("INSTANCE_NAME", config.Environment.InstanceName)
 	log.Printf("InstanceName env value found and set to: %s", config.Environment.InstanceName)
 
 	config.Environment.OverrideBaseDomain = getEnvOrDefault("OVERRIDE_BASE_DOMAIN", config.Environment.OverrideBaseDomain)
 	log.Printf("OverrideBaseDomain env value found and set to: %s", config.Environment.OverrideBaseDomain)
 
-	config.Environment.APIType = getEnvOrDefault("API_TYPE", config.Environment.APIType)
-	log.Printf("APIType env value found and set to: %s", config.Environment.APIType)
+	config.Environment.TenantID = getEnvOrDefault("TENANT_ID", config.Environment.TenantID)
+	log.Printf("TenantID env value found and set to: %s", config.Environment.TenantID)
+
+	config.Environment.TenantName = getEnvOrDefault("TENANT_NAME", config.Environment.TenantName)
+	log.Printf("TenantName env value found and set to: %s", config.Environment.TenantName)
 
 	// ClientOptions
+
+	// Logging
 	config.ClientOptions.Logging.LogLevel = getEnvOrDefault("LOG_LEVEL", config.ClientOptions.Logging.LogLevel)
 	log.Printf("LogLevel env value found and set to: %s", config.ClientOptions.Logging.LogLevel)
 
@@ -128,15 +136,29 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 	config.ClientOptions.Logging.HideSensitiveData = parseBool(getEnvOrDefault("HIDE_SENSITIVE_DATA", strconv.FormatBool(config.ClientOptions.Logging.HideSensitiveData)))
 	log.Printf("HideSensitiveData env value found and set to: %t", config.ClientOptions.Logging.HideSensitiveData)
 
+	// Cookies
+	config.ClientOptions.Cookies.EnableCookieJar = parseBool(getEnvOrDefault("ENABLE_COOKIE_JAR", strconv.FormatBool(config.ClientOptions.Cookies.EnableCookieJar)))
+	log.Printf("EnableCookieJar env value found and set to: %t", config.ClientOptions.Cookies.EnableCookieJar)
+
+	// Load specific cookies from environment variable
+	cookieStr := getEnvOrDefault("CUSTOM_COOKIES", "")
+	if cookieStr != "" {
+		config.ClientOptions.Cookies.CustomCookies = parseCookiesFromString(cookieStr)
+		log.Printf("CustomCookies env value found and set")
+	}
+
+	// Retry
 	config.ClientOptions.Retry.MaxRetryAttempts = parseInt(getEnvOrDefault("MAX_RETRY_ATTEMPTS", strconv.Itoa(config.ClientOptions.Retry.MaxRetryAttempts)), DefaultMaxRetryAttempts)
 	log.Printf("MaxRetryAttempts env value found and set to: %d", config.ClientOptions.Retry.MaxRetryAttempts)
 
 	config.ClientOptions.Retry.EnableDynamicRateLimiting = parseBool(getEnvOrDefault("ENABLE_DYNAMIC_RATE_LIMITING", strconv.FormatBool(config.ClientOptions.Retry.EnableDynamicRateLimiting)))
 	log.Printf("EnableDynamicRateLimiting env value found and set to: %t", config.ClientOptions.Retry.EnableDynamicRateLimiting)
 
+	// Concurrency
 	config.ClientOptions.Concurrency.MaxConcurrentRequests = parseInt(getEnvOrDefault("MAX_CONCURRENT_REQUESTS", strconv.Itoa(config.ClientOptions.Concurrency.MaxConcurrentRequests)), DefaultMaxConcurrentRequests)
 	log.Printf("MaxConcurrentRequests env value found and set to: %d", config.ClientOptions.Concurrency.MaxConcurrentRequests)
 
+	// timeouts
 	config.ClientOptions.Timeout.TokenRefreshBufferPeriod = parseDuration(getEnvOrDefault("TOKEN_REFRESH_BUFFER_PERIOD", config.ClientOptions.Timeout.TokenRefreshBufferPeriod.String()), DefaultTokenBufferPeriod)
 	log.Printf("TokenRefreshBufferPeriod env value found and set to: %s", config.ClientOptions.Timeout.TokenRefreshBufferPeriod)
 
@@ -327,4 +349,19 @@ func setLoggerDefaultValues(config *ClientConfig) {
 
 	// Log completion of setting default values
 	log.Println("Default values set for logger configuration")
+}
+
+// parseCookiesFromString parses a semi-colon separated string of key=value pairs into a map.
+func parseCookiesFromString(cookieStr string) map[string]string {
+	cookies := make(map[string]string)
+	pairs := strings.Split(cookieStr, ";")
+	for _, pair := range pairs {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) == 2 {
+			key := strings.TrimSpace(kv[0])
+			value := strings.TrimSpace(kv[1])
+			cookies[key] = value
+		}
+	}
+	return cookies
 }

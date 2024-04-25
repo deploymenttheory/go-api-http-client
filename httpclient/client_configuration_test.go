@@ -56,7 +56,7 @@ func TestLoadConfigFromFile(t *testing.T) {
 	assert.True(t, config.ClientOptions.Retry.EnableDynamicRateLimiting)
 	assert.Equal(t, 5, config.ClientOptions.Retry.MaxRetryAttempts)
 	assert.Equal(t, 3, config.ClientOptions.Concurrency.MaxConcurrentRequests)
-	assert.True(t, config.ClientOptions.Cookie.EnableCookieJar)
+	assert.True(t, config.ClientOptions.Cookies.EnableCookieJar)
 	assert.True(t, config.ClientOptions.Redirect.FollowRedirects)
 	assert.Equal(t, 5, config.ClientOptions.Redirect.MaxRedirects)
 }
