@@ -27,7 +27,7 @@ func (h *AuthTokenHandler) CheckAndRefreshAuthToken(apiHandler apihandler.APIHan
 	}
 
 	isValid := h.isTokenValid(tokenRefreshBufferPeriod)
-	h.Logger.Info("Token validation status post check", zap.Bool("IsValid", isValid))
+	h.Logger.Info("Authentication token status check completed", zap.Bool("IsTokenValid", isValid))
 	return isValid, nil
 }
 
