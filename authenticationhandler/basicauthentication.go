@@ -34,7 +34,7 @@ func (h *AuthTokenHandler) BasicAuthTokenAcquisition(apiHandler apihandler.APIHa
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		h.Logger.LogError("authentication_request_error", "POST", authenticationEndpoint, resp.StatusCode, resp.Status, err, "Failed to make request for token")
+		h.Logger.LogError("authentication_request_error", "POST", authenticationEndpoint, 0, "", err, "Failed to make request for token")
 		return err
 	}
 	defer resp.Body.Close()
