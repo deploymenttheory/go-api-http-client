@@ -8,13 +8,16 @@ like the baseURL, authentication details, and an embedded standard HTTP client. 
 package httpclient
 
 import (
+	"fmt"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
-	"github.com/deploymenttheory/go-api-http-client/cookiejar"
+
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 	"go.uber.org/zap"
@@ -156,7 +159,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	}
 
 	// Conditionally setup cookie jar
-	if err := cookiejar.SetupCookieJar(httpClient, config.ClientOptions.Cookies.EnableCookieJar, log); err != nil {
+	if err := SetupCookieJar(httpClient, config, log); err != nil {
 		log.Error("Error setting up cookie jar", zap.Error(err))
 		return nil, err
 	}
@@ -213,4 +216,36 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	return client, nil
 
+}
+
+func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.Logger) error {
+	if clientConfig.ClientOptions.Cookies.EnableCookieJar {
+		jar, err := cookiejar.New(nil) // nil options use default options
+		if err != nil {
+			log.Error("Failed to create cookie jar", zap.Error(err))
+			return fmt.Errorf("setupCookieJar failed: %w", err) // Wrap and return the error
+		}
+
+		if clientConfig.ClientOptions.Cookies.CustomCookies != nil {
+			var CookieList []*http.Cookie
+			CookieList = make([]*http.Cookie, 0)
+			for k, v := range clientConfig.ClientOptions.Cookies.CustomCookies {
+				newCookie := &http.Cookie{
+					Name:  k,
+					Value: v,
+				}
+				CookieList = append(CookieList, newCookie)
+			}
+
+			cookieUrl, err := url.Parse(fmt.Sprintf("http://%s.jamfcloud.com"))
+			if err != nil {
+				return err
+			}
+
+			jar.SetCookies(cookieUrl, CookieList)
+		}
+
+		client.Jar = jar
+	}
+	return nil
 }
