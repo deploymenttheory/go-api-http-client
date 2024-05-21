@@ -132,7 +132,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		return nil, err
 	}
 
-	// Initialize AuthTokenHandler test
+	// Initialize AuthTokenHandler
 	clientCredentials := authenticationhandler.ClientCredentials{
 		Username:     config.Auth.Username,
 		Password:     config.Auth.Password,
