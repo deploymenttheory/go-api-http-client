@@ -8,6 +8,7 @@ like the baseURL, authentication details, and an embedded standard HTTP client. 
 package httpclient
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
@@ -248,6 +249,8 @@ func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.L
 
 		client.Jar = jar
 		fmt.Printf("%+v", client.Jar)
+		jsonData, _ := json.MarshalIndent(client.Jar, " ", "	")
+		fmt.Println(string(jsonData))
 
 	}
 	return nil
