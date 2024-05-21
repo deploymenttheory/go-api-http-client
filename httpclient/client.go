@@ -247,6 +247,7 @@ func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.L
 			jar.SetCookies(cookieUrl, CookieList)
 		}
 
+		fmt.Println("LOGHERE-JSON")
 		client.Jar = jar
 		fmt.Printf("%+v", client.Jar)
 		jsonData, _ := json.MarshalIndent(client.Jar, " ", "	")
