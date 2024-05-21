@@ -247,7 +247,7 @@ func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.L
 		}
 
 		client.Jar = jar
-		fmt.Printf("%+v", client)
+		fmt.Printf("%+v", client.Jar)
 
 	}
 	return nil
