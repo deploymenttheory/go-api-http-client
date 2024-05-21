@@ -219,6 +219,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 }
 
 func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.Logger) error {
+	fmt.Println("LOGHERE-SETUPCOOKIEJAR")
 	if clientConfig.ClientOptions.Cookies.EnableCookieJar {
 		jar, err := cookiejar.New(nil) // nil options use default options
 		if err != nil {
@@ -237,7 +238,7 @@ func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.L
 				CookieList = append(CookieList, newCookie)
 			}
 
-			cookieUrl, err := url.Parse(fmt.Sprintf("http://%s.jamfcloud.com", clientConfig.Environment.InstanceName))
+			cookieUrl, err := url.Parse(fmt.Sprintf("https://%s.jamfcloud.com", clientConfig.Environment.InstanceName))
 			if err != nil {
 				return err
 			}
@@ -246,6 +247,8 @@ func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.L
 		}
 
 		client.Jar = jar
+		fmt.Printf("%+v", client)
+
 	}
 	return nil
 }
