@@ -237,7 +237,7 @@ func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.L
 				CookieList = append(CookieList, newCookie)
 			}
 
-			cookieUrl, err := url.Parse(fmt.Sprintf("http://%s.jamfcloud.com"))
+			cookieUrl, err := url.Parse(fmt.Sprintf("http://%s.jamfcloud.com", clientConfig.Environment.InstanceName))
 			if err != nil {
 				return err
 			}
