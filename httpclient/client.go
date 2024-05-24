@@ -95,9 +95,9 @@ type ConcurrencyConfig struct {
 
 // TimeoutConfig holds custom timeout settings.
 type TimeoutConfig struct {
-	CustomTimeout            time.Duration `json:"CustomTimeout,omitempty"`            // Custom timeout for the HTTP client
-	TokenRefreshBufferPeriod time.Duration `json:"TokenRefreshBufferPeriod,omitempty"` // Buffer period before token expiry to attempt token refresh
-	TotalRetryDuration       time.Duration `json:"TotalRetryDuration,omitempty"`       // Total duration to attempt retries
+	CustomTimeout            time.Duration // Custom timeout for the HTTP client
+	TokenRefreshBufferPeriod time.Duration // Buffer period before token expiry to attempt token refresh
+	TotalRetryDuration       time.Duration // Total duration to attempt retries
 }
 
 // RedirectConfig holds configuration related to redirect handling.
