@@ -13,11 +13,19 @@ import (
 // CheckAndRefreshAuthToken checks the token's validity and refreshes it if necessary.
 // It returns true if the token is valid post any required operations and false with an error otherwise.
 func (h *AuthTokenHandler) CheckAndRefreshAuthToken(apiHandler apihandler.APIHandler, httpClient *http.Client, clientCredentials ClientCredentials, tokenRefreshBufferPeriod time.Duration) (bool, error) {
-	if !h.isTokenValid(tokenRefreshBufferPeriod) {
+	const maxConsecutiveRefreshAttempts = 10
+	refreshAttempts := 0
+
+	for !h.isTokenValid(tokenRefreshBufferPeriod) {
 		h.Logger.Debug("Token found to be invalid or close to expiry, handling token acquisition or refresh.")
 		if err := h.obtainNewToken(apiHandler, httpClient, clientCredentials); err != nil {
 			h.Logger.Error("Failed to obtain new token", zap.Error(err))
 			return false, err
+		}
+
+		refreshAttempts++
+		if refreshAttempts >= maxConsecutiveRefreshAttempts {
+			return false, fmt.Errorf("exceeded maximum consecutive token refresh attempts (%d): token lifetime is likely too short", maxConsecutiveRefreshAttempts)
 		}
 	}
 
