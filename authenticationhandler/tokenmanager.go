@@ -25,7 +25,12 @@ func (h *AuthTokenHandler) CheckAndRefreshAuthToken(apiHandler apihandler.APIHan
 
 		refreshAttempts++
 		if refreshAttempts >= maxConsecutiveRefreshAttempts {
-			return false, fmt.Errorf("exceeded maximum consecutive token refresh attempts (%d): token lifetime is likely too short", maxConsecutiveRefreshAttempts)
+			return false, fmt.Errorf(
+				"exceeded maximum consecutive token refresh attempts (%d): access token lifetime (%s) is likely too short compared to the buffer period (%s) configured for token refresh",
+				maxConsecutiveRefreshAttempts,
+				h.Expires.Sub(time.Now()).String(), // Access token lifetime
+				tokenRefreshBufferPeriod.String(),  // Configured buffer period
+			)
 		}
 	}
 
