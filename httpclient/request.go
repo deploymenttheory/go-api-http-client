@@ -124,7 +124,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		ClientSecret: c.clientConfig.Auth.ClientSecret,
 	}
 
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod)
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
 	if err != nil || !valid {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
 	// Define a retry deadline based on the client's total retry duration configuration
-	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.Timeout.TotalRetryDuration)
+	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.Timeout.TotalRetryDuration.Duration())
 
 	var resp *http.Response
 	var retryCount int
@@ -290,7 +290,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 		ClientSecret: c.clientConfig.Auth.ClientSecret,
 	}
 
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod)
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
 	if err != nil || !valid {
 		return nil, err
 	}

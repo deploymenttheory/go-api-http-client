@@ -48,7 +48,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 		ClientSecret: c.clientConfig.Auth.ClientSecret,
 	}
 
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod)
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
 	if err != nil || !valid {
 		return nil, err
 	}

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deploymenttheory/go-api-http-client/helpers"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 )
 
@@ -20,9 +21,9 @@ const (
 	DefaultMaxRetryAttempts          = 3
 	DefaultEnableDynamicRateLimiting = true
 	DefaultMaxConcurrentRequests     = 5
-	DefaultTokenBufferPeriod         = 5 * time.Minute
-	DefaultTotalRetryDuration        = 5 * time.Minute
-	DefaultTimeout                   = 10 * time.Second
+	DefaultTokenBufferPeriod         = helpers.JSONDuration(5 * time.Minute)
+	DefaultTotalRetryDuration        = helpers.JSONDuration(5 * time.Minute)
+	DefaultTimeout                   = helpers.JSONDuration(10 * time.Second)
 	FollowRedirects                  = true
 	MaxRedirects                     = 10
 	ConfigFileExtension              = ".json"
@@ -159,13 +160,13 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 	log.Printf("MaxConcurrentRequests env value found and set to: %d", config.ClientOptions.Concurrency.MaxConcurrentRequests)
 
 	// timeouts
-	config.ClientOptions.Timeout.TokenRefreshBufferPeriod = parseDuration(getEnvOrDefault("TOKEN_REFRESH_BUFFER_PERIOD", config.ClientOptions.Timeout.TokenRefreshBufferPeriod.String()), DefaultTokenBufferPeriod)
+	config.ClientOptions.Timeout.TokenRefreshBufferPeriod = helpers.ParseJSONDuration(getEnvOrDefault("TOKEN_REFRESH_BUFFER_PERIOD", config.ClientOptions.Timeout.TokenRefreshBufferPeriod.String()), DefaultTokenBufferPeriod)
 	log.Printf("TokenRefreshBufferPeriod env value found and set to: %s", config.ClientOptions.Timeout.TokenRefreshBufferPeriod)
 
-	config.ClientOptions.Timeout.TotalRetryDuration = parseDuration(getEnvOrDefault("TOTAL_RETRY_DURATION", config.ClientOptions.Timeout.TotalRetryDuration.String()), DefaultTotalRetryDuration)
+	config.ClientOptions.Timeout.TotalRetryDuration = helpers.ParseJSONDuration(getEnvOrDefault("TOTAL_RETRY_DURATION", config.ClientOptions.Timeout.TotalRetryDuration.String()), DefaultTotalRetryDuration)
 	log.Printf("TotalRetryDuration env value found and set to: %s", config.ClientOptions.Timeout.TotalRetryDuration)
 
-	config.ClientOptions.Timeout.CustomTimeout = parseDuration(getEnvOrDefault("CUSTOM_TIMEOUT", config.ClientOptions.Timeout.CustomTimeout.String()), DefaultTimeout)
+	config.ClientOptions.Timeout.CustomTimeout = helpers.ParseJSONDuration(getEnvOrDefault("CUSTOM_TIMEOUT", config.ClientOptions.Timeout.CustomTimeout.String()), DefaultTimeout)
 	log.Printf("CustomTimeout env value found and set to: %s", config.ClientOptions.Timeout.CustomTimeout)
 
 	// Redirects

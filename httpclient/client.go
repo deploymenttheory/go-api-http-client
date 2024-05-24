@@ -14,6 +14,7 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
+	"github.com/deploymenttheory/go-api-http-client/helpers"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
@@ -94,10 +95,16 @@ type ConcurrencyConfig struct {
 }
 
 // TimeoutConfig holds custom timeout settings.
+// type TimeoutConfig struct {
+// 	CustomTimeout            time.Duration // Custom timeout for the HTTP client
+// 	TokenRefreshBufferPeriod time.Duration // Buffer period before token expiry to attempt token refresh
+// 	TotalRetryDuration       time.Duration // Total duration to attempt retries
+// }
+
 type TimeoutConfig struct {
-	CustomTimeout            time.Duration // Custom timeout for the HTTP client
-	TokenRefreshBufferPeriod time.Duration // Buffer period before token expiry to attempt token refresh
-	TotalRetryDuration       time.Duration // Total duration to attempt retries
+	CustomTimeout            helpers.JSONDuration // Custom timeout for the HTTP client
+	TokenRefreshBufferPeriod helpers.JSONDuration // Buffer period before token expiry to attempt token refresh
+	TotalRetryDuration       helpers.JSONDuration // Total duration to attempt retries
 }
 
 // RedirectConfig holds configuration related to redirect handling.
@@ -152,7 +159,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Initialize the internal HTTP client
 	httpClient := &http.Client{
-		Timeout: config.ClientOptions.Timeout.CustomTimeout,
+		Timeout: config.ClientOptions.Timeout.CustomTimeout.Duration(),
 	}
 
 	// Conditionally setup cookie jar
@@ -206,9 +213,9 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.Int("Max Concurrent Requests", config.ClientOptions.Concurrency.MaxConcurrentRequests),
 		zap.Bool("Follow Redirects", config.ClientOptions.Redirect.FollowRedirects),
 		zap.Int("Max Redirects", config.ClientOptions.Redirect.MaxRedirects),
-		zap.Duration("Token Refresh Buffer Period", config.ClientOptions.Timeout.TokenRefreshBufferPeriod),
-		zap.Duration("Total Retry Duration", config.ClientOptions.Timeout.TotalRetryDuration),
-		zap.Duration("Custom Timeout", config.ClientOptions.Timeout.CustomTimeout),
+		zap.Duration("Token Refresh Buffer Period", config.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration()),
+		zap.Duration("Total Retry Duration", config.ClientOptions.Timeout.TotalRetryDuration.Duration()),
+		zap.Duration("Custom Timeout", config.ClientOptions.Timeout.CustomTimeout.Duration()),
 	)
 
 	return client, nil

@@ -1,4 +1,4 @@
-// helpers/helpers_test.go
+// helpers/helpers.go
 package helpers
 
 import (
@@ -54,5 +54,27 @@ func (d JSONDuration) Duration() time.Duration {
 	return time.Duration(d)
 }
 
+// MarshalJSON returns the JSON representation of the duration.
+func (d JSONDuration) String() string {
+	return time.Duration(d).String()
+}
+
 // JSONDuration wraps time.Duration for custom JSON unmarshalling.
 type JSONDuration time.Duration
+
+// GetEnvOrDefault returns the value of an environment variable or a default value.
+func GetEnvOrDefault(envKey string, defaultValue string) string {
+	if value, exists := os.LookupEnv(envKey); exists {
+		return value
+	}
+	return defaultValue
+}
+
+// ParseJSONDuration attempts to parse a string value as a duration and returns the result or a default value.
+func ParseJSONDuration(value string, defaultVal JSONDuration) JSONDuration {
+	result, err := time.ParseDuration(value)
+	if err != nil {
+		return defaultVal
+	}
+	return JSONDuration(result)
+}
