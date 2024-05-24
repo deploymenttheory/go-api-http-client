@@ -2,6 +2,7 @@
 package helpers
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,3 +34,25 @@ func SafeOpenFile(filePath string) (*os.File, error) {
 	// Open the file if the path is deemed safe
 	return os.Open(absPath)
 }
+
+// UnmarshalJSON parses the duration from JSON string.
+func (d *JSONDuration) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	duration, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	*d = JSONDuration(duration)
+	return nil
+}
+
+// Duration returns the time.Duration value.
+func (d JSONDuration) Duration() time.Duration {
+	return time.Duration(d)
+}
+
+// JSONDuration wraps time.Duration for custom JSON unmarshalling.
+type JSONDuration time.Duration
