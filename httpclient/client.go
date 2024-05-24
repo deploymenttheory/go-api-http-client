@@ -8,10 +8,7 @@ like the baseURL, authentication details, and an embedded standard HTTP client. 
 package httpclient
 
 import (
-	"fmt"
 	"net/http"
-	"net/http/cookiejar"
-	"net/url"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
@@ -159,10 +156,10 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	}
 
 	// Conditionally setup cookie jar
-	if err := SetupCookieJar(httpClient, config, log); err != nil {
-		log.Error("Error setting up cookie jar", zap.Error(err))
-		return nil, err
-	}
+	// if err := SetupCookieJar(httpClient, config, log); err != nil {
+	// 	log.Error("Error setting up cookie jar", zap.Error(err))
+	// 	return nil, err
+	// }
 
 	// Conditionally setup redirect handling
 	if err := redirecthandler.SetupRedirectHandler(httpClient, config.ClientOptions.Redirect.FollowRedirects, config.ClientOptions.Redirect.MaxRedirects, log); err != nil {
@@ -218,34 +215,35 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 }
 
-func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.Logger) error {
-	if clientConfig.ClientOptions.Cookies.EnableCookieJar {
-		jar, err := cookiejar.New(nil) // nil options use default options
-		if err != nil {
-			log.Error("Failed to create cookie jar", zap.Error(err))
-			return fmt.Errorf("setupCookieJar failed: %w", err) // Wrap and return the error
-		}
+// // SetupCookieJar sets up the cookie jar for the HTTP client if enabled in the configuration.
+// func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.Logger) error {
+// 	if clientConfig.ClientOptions.Cookies.EnableCookieJar {
+// 		jar, err := cookiejar.New(nil) // nil options use default options
+// 		if err != nil {
+// 			log.Error("Failed to create cookie jar", zap.Error(err))
+// 			return fmt.Errorf("setupCookieJar failed: %w", err) // Wrap and return the error
+// 		}
 
-		if clientConfig.ClientOptions.Cookies.CustomCookies != nil {
-			var CookieList []*http.Cookie
-			CookieList = make([]*http.Cookie, 0)
-			for k, v := range clientConfig.ClientOptions.Cookies.CustomCookies {
-				newCookie := &http.Cookie{
-					Name:  k,
-					Value: v,
-				}
-				CookieList = append(CookieList, newCookie)
-			}
+// 		if clientConfig.ClientOptions.Cookies.CustomCookies != nil {
+// 			var CookieList []*http.Cookie
+// 			CookieList = make([]*http.Cookie, 0)
+// 			for k, v := range clientConfig.ClientOptions.Cookies.CustomCookies {
+// 				newCookie := &http.Cookie{
+// 					Name:  k,
+// 					Value: v,
+// 				}
+// 				CookieList = append(CookieList, newCookie)
+// 			}
 
-			cookieUrl, err := url.Parse(fmt.Sprintf("http://%s.jamfcloud.com", clientConfig.Environment.InstanceName))
-			if err != nil {
-				return err
-			}
+// 			cookieUrl, err := url.Parse(fmt.Sprintf("http://%s.jamfcloud.com", clientConfig.Environment.InstanceName))
+// 			if err != nil {
+// 				return err
+// 			}
 
-			jar.SetCookies(cookieUrl, CookieList)
-		}
+// 			jar.SetCookies(cookieUrl, CookieList)
+// 		}
 
-		client.Jar = jar
-	}
-	return nil
-}
+// 		client.Jar = jar
+// 	}
+// 	return nil
+// }

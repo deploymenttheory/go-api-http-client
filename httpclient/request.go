@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
+	"github.com/deploymenttheory/go-api-http-client/cookiejar"
 	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/httpmethod"
 	"github.com/deploymenttheory/go-api-http-client/logger"
@@ -160,7 +161,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	}
 
 	// Apply custom cookies if configured
-	// cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
+	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
 
 	// Set request headers
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
