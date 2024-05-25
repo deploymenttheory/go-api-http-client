@@ -76,69 +76,6 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	}
 }
 
-// doRequest contains the shared logic for making the HTTP request, including authentication,
-// setting headers, managing concurrency, and logging.
-func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
-	log := c.Logger
-
-	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     c.clientConfig.Auth.Username,
-		Password:     c.clientConfig.Auth.Password,
-		ClientID:     c.clientConfig.Auth.ClientID,
-		ClientSecret: c.clientConfig.Auth.ClientSecret,
-	}
-
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
-	if err != nil || !valid {
-		return nil, err
-	}
-
-	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyPermit(ctx)
-	if err != nil {
-		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
-	}
-
-	defer func() {
-		c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
-	}()
-
-	requestData, err := c.APIHandler.MarshalRequest(body, method, endpoint, log)
-	if err != nil {
-		return nil, err
-	}
-
-	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
-	if err != nil {
-		return nil, err
-	}
-
-	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
-
-	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
-	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
-
-	req = req.WithContext(ctx)
-	log.LogCookies("outgoing", req, method, endpoint)
-
-	startTime := time.Now()
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
-		return nil, err
-	}
-
-	duration := time.Since(startTime)
-	c.ConcurrencyHandler.EvaluateAndAdjustConcurrency(resp, duration)
-	log.LogCookies("incoming", req, method, endpoint)
-	headers.CheckDeprecationHeader(resp, log)
-
-	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
-
-	return resp, nil
-}
-
 // executeRequestWithRetries executes an HTTP request using the specified method, endpoint, request body, and output variable.
 // It is designed for idempotent HTTP methods (GET, PUT, DELETE), where the request can be safely retried in case of
 // transient errors or rate limiting. The function implements a retry mechanism that respects the client's configuration
@@ -288,4 +225,89 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	}
 
 	return nil, response.HandleAPIErrorResponse(res, log)
+}
+
+// doRequest contains the shared logic for making the HTTP request, including authentication,
+// setting headers, managing concurrency, and logging. This function performs the following steps:
+// 1. Authenticates the client using the provided credentials and refreshes the auth token if necessary.
+// 2. Acquires a concurrency permit to control the number of concurrent requests.
+// 3. Increments the total request counter within the ConcurrencyHandler's metrics.
+// 4. Marshals the request data based on the provided body, method, and endpoint.
+// 5. Constructs the full URL for the API endpoint.
+// 6. Creates the HTTP request and applies custom cookies and headers.
+// 7. Executes the HTTP request and logs relevant information.
+// 8. Adjusts concurrency settings based on the response and logs the response details.
+func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
+	log := c.Logger
+
+	// Authenticate the client using the provided credentials and refresh the auth token if necessary.
+	clientCredentials := authenticationhandler.ClientCredentials{
+		Username:     c.clientConfig.Auth.Username,
+		Password:     c.clientConfig.Auth.Password,
+		ClientID:     c.clientConfig.Auth.ClientID,
+		ClientSecret: c.clientConfig.Auth.ClientSecret,
+	}
+
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
+	if err != nil || !valid {
+		return nil, err
+	}
+
+	// Acquire a concurrency permit to control the number of concurrent requests.
+	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyPermit(ctx)
+	if err != nil {
+		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
+	}
+
+	// Ensure the concurrency permit is released after the function exits.
+	defer func() {
+		c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
+	}()
+
+	// Increment the total request counter within the ConcurrencyHandler's metrics.
+	c.ConcurrencyHandler.Metrics.Lock.Lock()
+	c.ConcurrencyHandler.Metrics.TotalRequests++
+	c.ConcurrencyHandler.Metrics.Lock.Unlock()
+
+	// Marshal the request data based on the provided api handler
+	requestData, err := c.APIHandler.MarshalRequest(body, method, endpoint, log)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct the full URL for the API endpoint.
+	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
+
+	// Create the HTTP request and apply custom cookies and headers.
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
+	if err != nil {
+		return nil, err
+	}
+
+	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
+
+	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler.SetRequestHeaders(endpoint)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+
+	req = req.WithContext(ctx)
+	log.LogCookies("outgoing", req, method, endpoint)
+
+	// Execute the HTTP request and log relevant information.
+	startTime := time.Now()
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
+		return nil, err
+	}
+
+	// Adjust concurrency settings based on the response and log the response details.
+	duration := time.Since(startTime)
+	c.ConcurrencyHandler.EvaluateAndAdjustConcurrency(resp, duration)
+	log.LogCookies("incoming", req, method, endpoint)
+	headers.CheckDeprecationHeader(resp, log)
+
+	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
+
+	return resp, nil
 }
