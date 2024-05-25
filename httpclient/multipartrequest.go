@@ -8,6 +8,7 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/response"
+	"go.uber.org/zap"
 )
 
 // DoMultipartRequest creates and executes a multipart HTTP request. It is used for sending files
@@ -78,8 +79,9 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
 	// Execute the request
-	resp, err := c.do(req, log, method, endpoint)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 

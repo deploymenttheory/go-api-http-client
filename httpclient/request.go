@@ -11,7 +11,6 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/cookiejar"
 	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/httpmethod"
-	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/ratehandler"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"github.com/deploymenttheory/go-api-http-client/status"
@@ -77,6 +76,69 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	}
 }
 
+// doRequest contains the shared logic for making the HTTP request, including authentication,
+// setting headers, managing concurrency, and logging.
+func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
+	log := c.Logger
+
+	clientCredentials := authenticationhandler.ClientCredentials{
+		Username:     c.clientConfig.Auth.Username,
+		Password:     c.clientConfig.Auth.Password,
+		ClientID:     c.clientConfig.Auth.ClientID,
+		ClientSecret: c.clientConfig.Auth.ClientSecret,
+	}
+
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
+	if err != nil || !valid {
+		return nil, err
+	}
+
+	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyPermit(ctx)
+	if err != nil {
+		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
+	}
+
+	defer func() {
+		c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
+	}()
+
+	requestData, err := c.APIHandler.MarshalRequest(body, method, endpoint, log)
+	if err != nil {
+		return nil, err
+	}
+
+	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
+	if err != nil {
+		return nil, err
+	}
+
+	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
+
+	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler.SetRequestHeaders(endpoint)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+
+	req = req.WithContext(ctx)
+	log.LogCookies("outgoing", req, method, endpoint)
+
+	startTime := time.Now()
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
+		return nil, err
+	}
+
+	duration := time.Since(startTime)
+	c.ConcurrencyHandler.EvaluateAndAdjustConcurrency(resp, duration)
+	log.LogCookies("incoming", req, method, endpoint)
+	headers.CheckDeprecationHeader(resp, log)
+
+	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
+
+	return resp, nil
+}
+
 // executeRequestWithRetries executes an HTTP request using the specified method, endpoint, request body, and output variable.
 // It is designed for idempotent HTTP methods (GET, PUT, DELETE), where the request can be safely retried in case of
 // transient errors or rate limiting. The function implements a retry mechanism that respects the client's configuration
@@ -92,7 +154,6 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // methods that do not send a payload.
 // - out: A pointer to the variable where the unmarshaled response will be stored. The function expects this to be a
 // pointer to a struct that matches the expected response schema.
-// - log:
 //
 // Returns:
 // - *http.Response: The HTTP response from the server, which may be the response from a successful request or the last
@@ -112,131 +173,66 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
 func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
-
-	// Include the core logic for handling non-idempotent requests with retries here.
-	log.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
-
-	// Auth Token validation check
-	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     c.clientConfig.Auth.Username,
-		Password:     c.clientConfig.Auth.Password,
-		ClientID:     c.clientConfig.Auth.ClientID,
-		ClientSecret: c.clientConfig.Auth.ClientSecret,
-	}
-
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
-	if err != nil || !valid {
-		return nil, err
-	}
-
-	// Acquire a concurrency permit along with a unique request ID
-	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyPermit(context.Background())
-	if err != nil {
-		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
-	}
-
-	// Ensure the permit is released after the function exits
-	defer func() {
-		c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
-	}()
-
-	// Marshal Request with correct encoding defined in api handler
-	requestData, err := c.APIHandler.MarshalRequest(body, method, endpoint, log)
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct URL with correct structure defined in api handler
-	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
-
-	// Increment total request counter within ConcurrencyHandler's metrics
-	c.ConcurrencyHandler.Metrics.Lock.Lock()
-	c.ConcurrencyHandler.Metrics.TotalRequests++
-	c.ConcurrencyHandler.Metrics.Lock.Unlock()
-
-	// Create a new HTTP request with the provided method, URL, and body
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
-	if err != nil {
-		return nil, err
-	}
-
-	// Apply custom cookies if configured
-	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
-
-	// Set request headers
-	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
-	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
-
-	// Define a retry deadline based on the client's total retry duration configuration
+	ctx := context.Background()
 	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.Timeout.TotalRetryDuration.Duration())
 
 	var resp *http.Response
+	var err error
 	var retryCount int
-	for time.Now().Before(totalRetryDeadline) { // Check if the current time is before the total retry deadline
-		req = req.WithContext(ctx)
 
-		// Log outgoing cookies
-		log.LogCookies("outgoing", req, method, endpoint)
+	log.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
-		// Execute the HTTP request
-		resp, err = c.do(req, log, method, endpoint)
+	for time.Now().Before(totalRetryDeadline) {
+		res, requestErr := c.doRequest(ctx, method, endpoint, body)
+		if requestErr != nil {
+			return nil, requestErr
+		}
+		resp = res
 
-		// Log outgoing cookies
-		log.LogCookies("incoming", req, method, endpoint)
-
-		// Check for successful status code
-		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 400 {
+		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 			if resp.StatusCode >= 300 {
 				log.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 			}
-			// Handle the response as successful.
 			return resp, response.HandleAPISuccessResponse(resp, out, log)
 		}
 
-		// Leverage TranslateStatusCode for more descriptive error logging
 		statusMessage := status.TranslateStatusCode(resp)
 
-		// Check for non-retryable errors
 		if resp != nil && status.IsNonRetryableStatusCode(resp) {
 			log.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
 			return resp, response.HandleAPIErrorResponse(resp, log)
 		}
 
-		// Parsing rate limit headers if a rate-limit error is detected
 		if status.IsRateLimitError(resp) {
 			waitDuration := ratehandler.ParseRateLimitHeaders(resp, log)
 			if waitDuration > 0 {
 				log.Warn("Rate limit encountered, waiting before retrying", zap.Duration("waitDuration", waitDuration))
 				time.Sleep(waitDuration)
-				continue // Continue to next iteration after waiting
+				continue
 			}
 		}
 
-		// Handling retryable errors with exponential backoff
 		if status.IsTransientError(resp) {
 			retryCount++
 			if retryCount > c.clientConfig.ClientOptions.Retry.MaxRetryAttempts {
 				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
-				break // Stop retrying if max attempts are reached
+				break
 			}
 			waitDuration := ratehandler.CalculateBackoff(retryCount)
 			log.Warn("Retrying request due to transient error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err))
-			time.Sleep(waitDuration) // Wait before retrying
-			continue                 // Continue to next iteration after waiting
+			time.Sleep(waitDuration)
+			continue
 		}
 
-		// Handle error responses
-		if err != nil || !status.IsRetryableStatusCode(resp.StatusCode) {
+		if !status.IsRetryableStatusCode(resp.StatusCode) {
 			if apiErr := response.HandleAPIErrorResponse(resp, log); apiErr != nil {
 				err = apiErr
 			}
-			log.LogError("request_error", method, endpoint, resp.StatusCode, resp.Status, err, status.TranslateStatusCode(resp))
+			log.LogError("request_error", method, endpoint, resp.StatusCode, resp.Status, err, statusMessage)
 			break
 		}
 	}
 
-	// Handles final non-API error.
 	if err != nil {
 		return nil, err
 	}
@@ -245,25 +241,22 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 }
 
 // executeRequest executes an HTTP request using the specified method, endpoint, and request body without implementing
-// retry logic. It is primarily designed for non idempotent HTTP methods like POST and PATCH, where the request should
+// retry logic. It is primarily designed for non-idempotent HTTP methods like POST and PATCH, where the request should
 // not be automatically retried within this function due to the potential side effects of re-submitting the same data.
 //
 // Parameters:
-// - method: The HTTP method to be used for the request, typically "POST" or "PATCH".
-// - endpoint: The API endpoint to which the request will be sent. This should be a relative path that will be appended
-// to the base URL of the HTTP client.
+//   - method: The HTTP method to be used for the request, typically "POST" or "PATCH".
+//   - endpoint: The API endpoint to which the request will be sent. This should be a relative path that will be appended
+//     to the base URL of the HTTP client.
 //   - body: The request payload, which will be marshaled into the request body based on the content type. This can be any
 //     data structure that can be marshaled into the expected request format (e.g., JSON, XML).
 //   - out: A pointer to the variable where the unmarshaled response will be stored. This should be a pointer to a struct
-//
-// that matches the expected response schema.
-// - log: An instance of a logger (conforming to the logger.Logger interface) used for logging the request and any errors
-// encountered.
+//     that matches the expected response schema.
 //
 // Returns:
-// - *http.Response: The HTTP response from the server. This includes the status code, headers, and body of the response.
-// - error: An error object if an error occurred during the request execution. This could be due to network issues,
-// server errors, or issues with marshaling/unmarshaling the request/response.
+//   - *http.Response: The HTTP response from the server. This includes the status code, headers, and body of the response.
+//   - error: An error object if an error occurred during the request execution. This could be due to network issues,
+//     server errors, or issues with marshaling/unmarshaling the request/response.
 //
 // Usage:
 // This function is suitable for operations where the request should not be retried automatically, such as data submission
@@ -271,136 +264,28 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 // once and provides detailed logging for debugging purposes.
 //
 // Note:
-// - The caller is responsible for closing the response body to prevent resource leaks.
-// - The function ensures concurrency control by acquiring and releasing a concurrency token before and after the request
-// execution.
-// - The function logs detailed information about the request execution, including the method, endpoint, status code, and
-// any errors encountered.
+//   - The caller is responsible for closing the response body to prevent resource leaks.
+//   - The function ensures concurrency control by acquiring and releasing a concurrency token before and after the request
+//     execution.
+//   - The function logs detailed information about the request execution, including the method, endpoint, status code, and
+//     any errors encountered.
 func (c *Client) executeRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
+	ctx := context.Background()
 
-	// Include the core logic for handling idempotent requests here.
 	log.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	// Auth Token validation check
-	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     c.clientConfig.Auth.Username,
-		Password:     c.clientConfig.Auth.Password,
-		ClientID:     c.clientConfig.Auth.ClientID,
-		ClientSecret: c.clientConfig.Auth.ClientSecret,
-	}
-
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
-	if err != nil || !valid {
-		return nil, err
-	}
-
-	// Acquire a concurrency permit along with a unique request ID
-	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyPermit(context.Background())
-	if err != nil {
-		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
-	}
-
-	// Ensure the permit is released after the function exits
-	defer func() {
-		c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
-	}()
-
-	// Determine which set of encoding and content-type request rules to use
-	apiHandler := c.APIHandler
-
-	// Marshal Request with correct encoding
-	requestData, err := apiHandler.MarshalRequest(body, method, endpoint, log)
+	res, err := c.doRequest(ctx, method, endpoint, body)
 	if err != nil {
 		return nil, err
 	}
 
-	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
-
-	// Create a new HTTP request with the provided method, URL, and body
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
-	if err != nil {
-		return nil, err
-	}
-
-	// Apply custom cookies if configured
-	// cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
-
-	// Set request headers
-	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
-	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
-
-	req = req.WithContext(ctx)
-
-	// Log outgoing cookies
-	log.LogCookies("outgoing", req, method, endpoint)
-
-	// Measure the time taken to execute the request and receive the response
-	startTime := time.Now()
-
-	// Execute the HTTP request
-	resp, err := c.do(req, log, method, endpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	// Calculate the duration between sending the request and receiving the response
-	duration := time.Since(startTime)
-
-	// Evaluate and adjust concurrency based on the request's feedback
-	c.ConcurrencyHandler.EvaluateAndAdjustConcurrency(resp, duration)
-
-	// Log outgoing cookies
-	log.LogCookies("incoming", req, method, endpoint)
-
-	// Checks for the presence of a deprecation header in the HTTP response and logs if found.
-	headers.CheckDeprecationHeader(resp, log)
-
-	// Check for successful status code, including redirects
-	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-		// Warn on redirects but proceed as successful
-		if resp.StatusCode >= 300 {
-			log.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
+	if res.StatusCode >= 200 && res.StatusCode < 400 {
+		if res.StatusCode >= 300 {
+			log.Warn("Redirect response received", zap.Int("status_code", res.StatusCode), zap.String("location", res.Header.Get("Location")))
 		}
-		return resp, response.HandleAPISuccessResponse(resp, out, log)
-
+		return res, response.HandleAPISuccessResponse(res, out, log)
 	}
 
-	// Handle error responses for status codes outside the successful range
-	return nil, response.HandleAPIErrorResponse(resp, log)
-}
-
-// do sends an HTTP request using the client's HTTP client. It logs the request and error details, if any,
-// using structured logging with zap fields.
-//
-// Parameters:
-// - req: The *http.Request object that contains all the details of the HTTP request to be sent.
-// - log: An instance of a logger (conforming to the logger.Logger interface) used for logging the request details and any
-// errors.
-// - method: The HTTP method used for the request, used for logging.
-// - endpoint: The API endpoint the request is being sent to, used for logging.
-//
-// Returns:
-// - *http.Response: The HTTP response from the server.
-// - error: An error object if an error occurred while sending the request or nil if no error occurred.
-//
-// Usage:
-// This function should be used whenever the client needs to send an HTTP request. It abstracts away the common logic of
-// request execution and error handling, providing detailed logs for debugging and monitoring.
-func (c *Client) do(req *http.Request, log logger.Logger, method, endpoint string) (*http.Response, error) {
-
-	resp, err := c.httpClient.Do(req)
-
-	if err != nil {
-		// Log the error with structured logging, including method, endpoint, and the error itself
-		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
-		return nil, err
-	}
-
-	// Log the response status code for successful requests
-	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
-
-	return resp, nil
+	return nil, response.HandleAPIErrorResponse(res, log)
 }
