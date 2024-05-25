@@ -69,6 +69,7 @@ func (h *AuthTokenHandler) obtainNewToken(apiHandler apihandler.APIHandler, http
 		}
 
 		if err == nil {
+			h.Logger.Info("Successfully obtained new token", zap.String("AuthMethod", h.AuthMethod))
 			break
 		}
 
