@@ -16,6 +16,11 @@ func (h *AuthTokenHandler) CheckAndRefreshAuthToken(apiHandler apihandler.APIHan
 	const maxConsecutiveRefreshAttempts = 10
 	refreshAttempts := 0
 
+	if h.isTokenValid(tokenRefreshBufferPeriod) {
+		h.Logger.Info("Authentication token is valid", zap.Bool("IsTokenValid", true))
+		return true, nil
+	}
+
 	for !h.isTokenValid(tokenRefreshBufferPeriod) {
 		h.Logger.Debug("Token found to be invalid or close to expiry, handling token acquisition or refresh.")
 		if err := h.obtainNewToken(apiHandler, httpClient, clientCredentials); err != nil {
@@ -32,11 +37,6 @@ func (h *AuthTokenHandler) CheckAndRefreshAuthToken(apiHandler apihandler.APIHan
 				tokenRefreshBufferPeriod.String(),  // Configured buffer period
 			)
 		}
-	}
-
-	if err := h.refreshTokenIfNeeded(apiHandler, httpClient, clientCredentials, tokenRefreshBufferPeriod); err != nil {
-		h.Logger.Error("Failed to refresh token", zap.Error(err))
-		return false, err
 	}
 
 	isValid := h.isTokenValid(tokenRefreshBufferPeriod)
@@ -56,18 +56,27 @@ func (h *AuthTokenHandler) isTokenValid(tokenRefreshBufferPeriod time.Duration) 
 // It handles different authentication methods based on the AuthMethod setting.
 func (h *AuthTokenHandler) obtainNewToken(apiHandler apihandler.APIHandler, httpClient *http.Client, clientCredentials ClientCredentials) error {
 	var err error
-	if h.AuthMethod == "basicauth" {
-		err = h.BasicAuthTokenAcquisition(apiHandler, httpClient, clientCredentials.Username, clientCredentials.Password)
-	} else if h.AuthMethod == "oauth2" {
-		err = h.OAuth2TokenAcquisition(apiHandler, httpClient, clientCredentials.ClientID, clientCredentials.ClientSecret)
-	} else {
-		err = fmt.Errorf("no valid credentials provided. Unable to obtain a token")
-		h.Logger.Error("Authentication method not supported", zap.String("AuthMethod", h.AuthMethod))
+	backoff := time.Millisecond * 100
+
+	for attempts := 0; attempts < 5; attempts++ {
+		if h.AuthMethod == "basicauth" {
+			err = h.BasicAuthTokenAcquisition(apiHandler, httpClient, clientCredentials.Username, clientCredentials.Password)
+		} else if h.AuthMethod == "oauth2" {
+			err = h.OAuth2TokenAcquisition(apiHandler, httpClient, clientCredentials.ClientID, clientCredentials.ClientSecret)
+		} else {
+			err = fmt.Errorf("no valid credentials provided. Unable to obtain a token")
+			h.Logger.Error("Authentication method not supported", zap.String("AuthMethod", h.AuthMethod))
+		}
+
+		if err == nil {
+			break
+		}
+
+		h.Logger.Error("Failed to obtain new token, retrying...", zap.Error(err), zap.Int("attempt", attempts+1))
+		time.Sleep(backoff)
+		backoff *= 2
 	}
 
-	if err != nil {
-		h.Logger.Error("Failed to obtain new token", zap.Error(err))
-	}
 	return err
 }
 
