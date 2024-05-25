@@ -1,4 +1,4 @@
-// http_request.go
+// httpclient/request.go
 package httpclient
 
 import (

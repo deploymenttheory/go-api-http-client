@@ -1,4 +1,4 @@
-// httprequest/multipartrequest.go
+// httpclient/multipartrequest.go
 package httpclient
 
 import (

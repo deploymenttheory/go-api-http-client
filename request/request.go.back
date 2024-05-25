@@ -1,5 +1,5 @@
-// http_request.go
-package httpclient
+// request.go
+package request
 
 import (
 	"bytes"
