@@ -42,6 +42,7 @@ type ConcurrencyMetrics struct {
 		Lock                   sync.Mutex    // Lock for response time variability metrics
 		StdDevThreshold        float64       // Maximum acceptable standard deviation for adjusting concurrency
 		DebounceScaleDownCount int           // Counter to manage scale down actions after consecutive triggers
+		DebounceScaleUpCount   int           // Counter to manage scale up actions after consecutive triggers
 	}
 	ResponseCodeMetrics struct {
 		ErrorRate float64    // Error rate calculated as (TotalRateLimitErrors + 5xxErrors) / TotalRequests
