@@ -66,6 +66,7 @@ func (h *AuthTokenHandler) obtainNewToken(apiHandler apihandler.APIHandler, http
 		} else {
 			err = fmt.Errorf("no valid credentials provided. Unable to obtain a token")
 			h.Logger.Error("Authentication method not supported", zap.String("AuthMethod", h.AuthMethod))
+			return err // Return the error immediately
 		}
 
 		if err == nil {
@@ -77,7 +78,12 @@ func (h *AuthTokenHandler) obtainNewToken(apiHandler apihandler.APIHandler, http
 		backoff *= 2
 	}
 
-	return err
+	if err != nil {
+		h.Logger.Error("Failed to obtain new token after all attempts", zap.Error(err))
+		return err
+	}
+
+	return nil
 }
 
 // refreshTokenIfNeeded refreshes the token if it's close to expiration.
