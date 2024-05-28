@@ -8,10 +8,6 @@ like the baseURL, authentication details, and an embedded standard HTTP client. 
 package httpclient
 
 import (
-
-	"encoding/json"
-	"fmt"
-
 	"net/http"
 	"time"
 
@@ -225,43 +221,3 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	return client, nil
 
 }
-
-
-func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.Logger) error {
-	fmt.Println("LOGHERE-SETUPCOOKIEJAR")
-	if clientConfig.ClientOptions.Cookies.EnableCookieJar {
-		jar, err := cookiejar.New(nil) // nil options use default options
-		if err != nil {
-			log.Error("Failed to create cookie jar", zap.Error(err))
-			return fmt.Errorf("setupCookieJar failed: %w", err) // Wrap and return the error
-		}
-
-		if clientConfig.ClientOptions.Cookies.CustomCookies != nil {
-			var CookieList []*http.Cookie
-			CookieList = make([]*http.Cookie, 0)
-			for k, v := range clientConfig.ClientOptions.Cookies.CustomCookies {
-				newCookie := &http.Cookie{
-					Name:  k,
-					Value: v,
-				}
-				CookieList = append(CookieList, newCookie)
-			}
-
-			cookieUrl, err := url.Parse(fmt.Sprintf("https://%s.jamfcloud.com", clientConfig.Environment.InstanceName))
-			if err != nil {
-				return err
-			}
-
-			jar.SetCookies(cookieUrl, CookieList)
-		}
-
-		fmt.Println("LOGHERE-JSON")
-		client.Jar = jar
-		fmt.Printf("%+v", client.Jar)
-		jsonData, _ := json.MarshalIndent(client.Jar, " ", "	")
-		fmt.Println(string(jsonData))
-
-	}
-	return nil
-}
-
