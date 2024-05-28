@@ -116,7 +116,9 @@ type RedirectConfig struct {
 // BuildClient creates a new HTTP client with the provided configuration.
 func BuildClient(config ClientConfig) (*Client, error) {
 
-	// Parse the log level string to logger.LogLevel
+	// region Logging
+
+	// Parse the log level string to logger.LogLevel // NOTE which are just numbers.
 	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.Logging.LogLevel)
 
 	// Initialize the logger with parsed config values
@@ -125,12 +127,18 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	// Set the logger's level (optional if BuildLogger already sets the level based on the input)
 	log.SetLevel(parsedLogLevel)
 
+	// endregion
+
+	// API Handler
+
 	// Use the APIType from the config to determine which API handler to load
 	apiHandler, err := apihandler.LoadAPIHandler(config.Environment.APIType, config.Environment.InstanceName, config.Environment.TenantID, config.Environment.TenantName, log)
 	if err != nil {
 		log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
 		return nil, err
 	}
+
+	// Auth
 
 	// Determine the authentication method using the helper function
 	authMethod, err := DetermineAuthMethod(config.Auth)
@@ -155,6 +163,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		config.ClientOptions.Logging.HideSensitiveData,
 	)
 
+	// HTTP Client
+
 	log.Info("Initializing new HTTP client with the provided configuration")
 
 	// Initialize the internal HTTP client
@@ -168,11 +178,15 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	// 	return nil, err
 	// }
 
+	// Redirect?
+
 	// Conditionally setup redirect handling
 	if err := redirecthandler.SetupRedirectHandler(httpClient, config.ClientOptions.Redirect.FollowRedirects, config.ClientOptions.Redirect.MaxRedirects, log); err != nil {
 		log.Error("Failed to set up redirect handler", zap.Error(err))
 		return nil, err
 	}
+
+	// Concurrency
 
 	// Initialize ConcurrencyMetrics specifically for ConcurrencyHandler
 	concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
@@ -184,6 +198,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		concurrencyMetrics,
 	)
 
+	// Create
+
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
 		APIHandler:         apiHandler,
@@ -194,6 +210,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		ConcurrencyHandler: concurrencyHandler,
 		AuthTokenHandler:   authTokenHandler,
 	}
+
+	// Logging
 
 	// Log the client's configuration.
 	log.Info("New API client initialized",
