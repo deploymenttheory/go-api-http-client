@@ -69,7 +69,7 @@ func (c *Client) DoDownloadRequest(method, endpoint string, out io.Writer) (*htt
 	// Execute the request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
+		log.Error("Failed to send download request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
