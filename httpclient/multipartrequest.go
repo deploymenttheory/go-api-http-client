@@ -81,7 +81,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	// Execute the request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
+		log.Error("Failed to send multipart request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
