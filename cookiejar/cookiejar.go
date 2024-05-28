@@ -45,22 +45,27 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
+
 	"net/url"
 	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/httpclient"
+
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
 // SetupCookieJar initializes the HTTP client with a cookie jar if enabled in the configuration.
+
 func SetupCookieJar(client *http.Client, clientConfig httpclient.ClientConfig, log logger.Logger) error {
 	if clientConfig.ClientOptions.Cookies.EnableCookieJar {
+
 		jar, err := cookiejar.New(nil) // nil options use default options
 		if err != nil {
 			log.Error("Failed to create cookie jar", zap.Error(err))
 			return fmt.Errorf("setupCookieJar failed: %w", err) // Wrap and return the error
 		}
+
 
 		if clientConfig.ClientOptions.Cookies.CustomCookies != nil {
 			var CookieList []*http.Cookie
@@ -80,6 +85,7 @@ func SetupCookieJar(client *http.Client, clientConfig httpclient.ClientConfig, l
 
 			jar.SetCookies(cookieUrl, CookieList)
 		}
+
 
 		client.Jar = jar
 	}

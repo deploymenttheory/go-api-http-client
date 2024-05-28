@@ -1,4 +1,4 @@
-// httpclient_ping.go
+// httpclient/ping.go
 package httpclient
 
 import (

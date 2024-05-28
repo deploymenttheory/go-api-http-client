@@ -225,7 +225,7 @@ func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.D
 	stdDev := calculateStdDev(responseTimes)
 	averageResponseTime := calculateAverage(responseTimes)
 
-	// Multi-factor check before scaling down
+	// Check if conditions suggest a need to scale down
 	if stdDev > ch.Metrics.ResponseTimeVariability.StdDevThreshold && averageResponseTime > AcceptableAverageResponseTime {
 		ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount++
 		if ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount >= debounceScaleDownThreshold {
@@ -234,10 +234,19 @@ func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.D
 		}
 	} else {
 		ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount = 0 // Reset counter if conditions are not met
-		if stdDev <= ch.Metrics.ResponseTimeVariability.StdDevThreshold {
-			return 1 // Suggest increase concurrency if conditions are favorable
-		}
 	}
+
+	// Check if conditions suggest a need to scale up
+	if stdDev <= ch.Metrics.ResponseTimeVariability.StdDevThreshold && averageResponseTime <= AcceptableAverageResponseTime {
+		ch.Metrics.ResponseTimeVariability.DebounceScaleUpCount++
+		if ch.Metrics.ResponseTimeVariability.DebounceScaleUpCount >= debounceScaleDownThreshold {
+			ch.Metrics.ResponseTimeVariability.DebounceScaleUpCount = 0
+			return 1 // Suggest increase concurrency
+		}
+	} else {
+		ch.Metrics.ResponseTimeVariability.DebounceScaleUpCount = 0 // Reset counter if conditions are not met
+	}
+
 	return 0 // Default to no change
 }
 

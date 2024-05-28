@@ -76,7 +76,7 @@ func (h *AuthTokenHandler) OAuth2TokenAcquisition(apiHandler apihandler.APIHandl
 	err = json.Unmarshal(bodyBytes, oauthResp)
 	if err != nil {
 		h.Logger.Error("Failed to decode OAuth response", zap.Error(err))
-		return err
+		return fmt.Errorf("failed to decode OAuth response: %w", err)
 	}
 
 	if oauthResp.Error != "" {
