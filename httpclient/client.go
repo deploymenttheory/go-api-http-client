@@ -156,8 +156,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	//region API Handler
 
-	// Use the APIType from the config to determine which API handler to load
-	apiHandler, err := GetAPIHandler(config.Environment.APIType, config.Environment.InstanceName, config.Environment.TenantID, config.Environment.TenantName, log)
+	// Not going down this one either
+	apiHandler, err := getAPIHandler(config.Environment.APIType, config.Environment.InstanceName, config.Environment.TenantID, config.Environment.TenantName, log)
 	if err != nil {
 		log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
 		return nil, err
@@ -168,7 +168,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	//region Auth
 
 	// Determine the authentication method using the helper function
-	authMethod, err := DetermineAuthMethod(config.Auth)
+	authMethod, err := GetAuthMethod(config.Auth)
 	if err != nil {
 		log.Error("Failed to determine authentication method", zap.Error(err))
 		return nil, err
@@ -243,8 +243,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	client := &Client{
 		APIHandler:         apiHandler,
 		AuthMethod:         authMethod,
-		httpClient:         httpClient,
-		clientConfig:       config,
+		http:               httpClient,
+		config:             config,
 		Logger:             log,
 		ConcurrencyHandler: concurrencyHandler,
 		AuthTokenHandler:   authTokenHandler,

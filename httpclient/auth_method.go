@@ -20,32 +20,28 @@ import (
 // DetermineAuthMethod determines the authentication method based on the provided credentials.
 // It prefers strong authentication methods (e.g., OAuth) over weaker ones (e.g., bearer tokens).
 // It logs an error and returns "unknown" if no valid credentials are provided.
-func DetermineAuthMethod(authConfig AuthConfig) (string, error) {
-	// Initialize validation flags as true
-	validClientID, validClientSecret, validUsername, validPassword := true, true, true, true
-	clientIDErrMsg, clientSecretErrMsg, usernameErrMsg, passwordErrMsg := "", "", "", ""
+func GetAuthMethod(authConfig AuthConfig) (string, error) {
+	var validClientID, validClientSecret, validUsername, validPassword bool
+	var clientIDErrMsg, clientSecretErrMsg, usernameErrMsg, passwordErrMsg string
 
-	// Validate ClientID and ClientSecret for OAuth if provided
 	if authConfig.ClientID != "" || authConfig.ClientSecret != "" {
 		validClientID, clientIDErrMsg = authenticationhandler.IsValidClientID(authConfig.ClientID)
 		validClientSecret, clientSecretErrMsg = authenticationhandler.IsValidClientSecret(authConfig.ClientSecret)
-		// If both ClientID and ClientSecret are valid, use OAuth
+
 		if validClientID && validClientSecret {
 			return "oauth2", nil
 		}
 	}
 
-	// Validate Username and Password for Bearer if OAuth is not valid or not provided
 	if authConfig.Username != "" || authConfig.Password != "" {
 		validUsername, usernameErrMsg = authenticationhandler.IsValidUsername(authConfig.Username)
 		validPassword, passwordErrMsg = authenticationhandler.IsValidPassword(authConfig.Password)
-		// If both Username and Password are valid, use Bearer
+
 		if validUsername && validPassword {
 			return "basicauth", nil
 		}
 	}
 
-	// Construct an error message if any of the provided fields are invalid
 	errorMsg := "No valid credentials provided."
 	if !validClientID && authConfig.ClientID != "" {
 		errorMsg += " " + clientIDErrMsg

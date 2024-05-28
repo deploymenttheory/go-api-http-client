@@ -31,6 +31,7 @@ func EnsureLogFilePath(logPath string) (string, error) {
 
 	// Ensure the directory exists
 	dir := filepath.Dir(logPath)
+
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return "", err
 	}

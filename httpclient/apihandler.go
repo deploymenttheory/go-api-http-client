@@ -30,7 +30,7 @@ type APIHandler interface {
 }
 
 // LoadAPIHandler loads the appropriate API handler based on the API type.
-func GetAPIHandler(apiType, instanceName, tenantID, tenantName string, log logger.Logger) (APIHandler, error) {
+func getAPIHandler(apiType, instanceName, tenantID, tenantName string, log logger.Logger) (APIHandler, error) {
 	var apiHandler APIHandler
 	switch apiType {
 	case "jamfpro":
