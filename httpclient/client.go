@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
 	"github.com/deploymenttheory/go-api-http-client/helpers"
@@ -21,27 +20,36 @@ import (
 	"go.uber.org/zap"
 )
 
-// Client represents an HTTP client to interact with a specific API.
+// region main
+// Master struct/object
 type Client struct {
-	AuthMethod         string                                  // Specifies the authentication method: "bearer" or "oauth"
-	Token              string                                  // Authentication Token
-	Expiry             time.Time                               // Expiry time set for the auth token
-	httpClient         *http.Client                            // Internal HTTP client
-	clientConfig       ClientConfig                            // HTTP Client configuration
-	Logger             logger.Logger                           // Logger for logging messages
-	ConcurrencyHandler *concurrency.ConcurrencyHandler         // ConcurrencyHandler for managing concurrent requests
-	APIHandler         apihandler.APIHandler                   // APIHandler interface used to define which API handler to use
-	AuthTokenHandler   *authenticationhandler.AuthTokenHandler // AuthTokenHandler for managing authentication
+	AuthMethod         string
+	AuthToken          string
+	AuthTokenExpiry    time.Time
+	http               *http.Client
+	config             ClientConfig
+	Logger             logger.Logger
+	ConcurrencyHandler *concurrency.ConcurrencyHandler
+	APIHandler         APIHandler
+	AuthTokenHandler   *authenticationhandler.AuthTokenHandler
 }
 
-// Config holds configuration options for the HTTP Client.
+//endregion
+
+// region clientconfig
+
+// Setup Options for Client
 type ClientConfig struct {
-	Auth          AuthConfig        // User can either supply these values manually or pass from LoadAuthConfig/Env vars
-	Environment   EnvironmentConfig // User can either supply these values manually or pass from LoadAuthConfig/Env vars
-	ClientOptions ClientOptions     // Optional configuration options for the HTTP Client
+	Auth          AuthConfig
+	Environment   EnvironmentConfig
+	ClientOptions ClientOptions
 }
 
-// AuthConfig represents the structure to read authentication details from a JSON configuration file.
+//endregion
+
+// region authconfig
+
+// Struct to map auth config from JSON.
 type AuthConfig struct {
 	Username     string `json:"Username,omitempty"`
 	Password     string `json:"Password,omitempty"`
@@ -49,16 +57,24 @@ type AuthConfig struct {
 	ClientSecret string `json:"ClientSecret,omitempty"`
 }
 
-// EnvironmentConfig represents the structure to read authentication details from a JSON configuration file.
+//endregion
+
+// region envconfig
+
+// Struct to map environment config from JSON
 type EnvironmentConfig struct {
-	APIType            string `json:"APIType,omitempty"`            // APIType specifies the type of API integration to use
-	InstanceName       string `json:"InstanceName,omitempty"`       // Website Instance name without the root domain
-	OverrideBaseDomain string `json:"OverrideBaseDomain,omitempty"` // Base domain override used when the default in the api handler isn't suitable
-	TenantID           string `json:"TenantID,omitempty"`           // TenantID is the unique identifier for the tenant
-	TenantName         string `json:"TenantName,omitempty"`         // TenantName is the name of the tenant
+	APIType            string `json:"APIType,omitempty"`            // APIType specifies the type of API integration to use // QUERY what are the types?!
+	InstanceName       string `json:"InstanceName,omitempty"`       // Website Instance name without the root domain // NOTE Jamf specific
+	OverrideBaseDomain string `json:"OverrideBaseDomain,omitempty"` // Base domain override used when the default in the api handler isn't suitable // NOTE ??
+	TenantID           string `json:"TenantID,omitempty"`           // TenantID is the unique identifier for the tenant // QUERY what tenant?
+	TenantName         string `json:"TenantName,omitempty"`         // TenantName is the name of the tenant // QUERY ?!?!
 }
 
-// ClientOptions holds optional configuration options for the HTTP Client.
+//endregion
+
+// region clientoptions
+
+// ClientOptions holds optional configuration options for the HTTP Client. // NOTE how is this difference from ClientConfig?!
 type ClientOptions struct {
 	Logging     LoggingConfig     // Configuration related to logging
 	Cookies     CookieConfig      // Cookie handling settings
@@ -68,7 +84,10 @@ type ClientOptions struct {
 	Redirect    RedirectConfig    // Redirect handling settings
 }
 
-// LoggingConfig holds configuration options related to logging.
+//endregion
+
+// region loggingconfig
+
 type LoggingConfig struct {
 	LogLevel            string // Tiered logging level.
 	LogOutputFormat     string // Output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
@@ -77,29 +96,35 @@ type LoggingConfig struct {
 	HideSensitiveData   bool   // Whether sensitive fields should be hidden in logs.
 }
 
-// CookieConfig holds configuration related to cookie handling.
+//endregion
+
+// region cookieconfig
+// CookieConfig holds configuration related to cookie handling. // QUERY is this needed?
 type CookieConfig struct {
 	EnableCookieJar bool              // Enable or disable cookie jar
 	CustomCookies   map[string]string `json:"CustomCookies,omitempty"` // Key-value pairs for setting specific cookies
 }
 
-// RetryConfig holds configuration related to retry behavior.
+//endregion
+
+// region retryconfig
+// RetryConfig holds configuration related to retry behavior. // QUERY is this needed?!
 type RetryConfig struct {
 	MaxRetryAttempts          int  // Maximum number of retry request attempts for retryable HTTP methods.
 	EnableDynamicRateLimiting bool // Whether dynamic rate limiting should be enabled.
 }
 
-// ConcurrencyConfig holds configuration related to concurrency management.
+//endregion
+
+// region concurrencyconfig
+// ConcurrencyConfig holds configuration related to concurrency management. // QUERY and this?!
 type ConcurrencyConfig struct {
 	MaxConcurrentRequests int // Maximum number of concurrent requests allowed.
 }
 
-// TimeoutConfig holds custom timeout settings.
-// type TimeoutConfig struct {
-// 	CustomTimeout            time.Duration // Custom timeout for the HTTP client
-// 	TokenRefreshBufferPeriod time.Duration // Buffer period before token expiry to attempt token refresh
-// 	TotalRetryDuration       time.Duration // Total duration to attempt retries
-// }
+//endregion
+
+// region timeoutconfig
 
 type TimeoutConfig struct {
 	CustomTimeout            helpers.JSONDuration // Custom timeout for the HTTP client
@@ -107,38 +132,40 @@ type TimeoutConfig struct {
 	TotalRetryDuration       helpers.JSONDuration // Total duration to attempt retries
 }
 
-// RedirectConfig holds configuration related to redirect handling.
+//endregion
+
+// region redirectconfig
+// RedirectConfig holds configuration related to redirect handling. // QUERY is this needed?!
 type RedirectConfig struct {
 	FollowRedirects bool // Enable or disable following redirects
 	MaxRedirects    int  // Maximum number of redirects to follow
 }
 
+//endregion
+
 // BuildClient creates a new HTTP client with the provided configuration.
 func BuildClient(config ClientConfig) (*Client, error) {
 
-	// region Logging
-
-	// Parse the log level string to logger.LogLevel // NOTE which are just numbers.
+	//region Logging
+	// I'm not going down this rabbit hole yet.
 	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.Logging.LogLevel)
-
-	// Initialize the logger with parsed config values
 	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.Logging.LogOutputFormat, config.ClientOptions.Logging.LogConsoleSeparator, config.ClientOptions.Logging.LogExportPath)
-
-	// Set the logger's level (optional if BuildLogger already sets the level based on the input)
 	log.SetLevel(parsedLogLevel)
 
-	// endregion
+	//endregion
 
-	// API Handler
+	//region API Handler
 
 	// Use the APIType from the config to determine which API handler to load
-	apiHandler, err := apihandler.LoadAPIHandler(config.Environment.APIType, config.Environment.InstanceName, config.Environment.TenantID, config.Environment.TenantName, log)
+	apiHandler, err := GetAPIHandler(config.Environment.APIType, config.Environment.InstanceName, config.Environment.TenantID, config.Environment.TenantName, log)
 	if err != nil {
 		log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
 		return nil, err
 	}
 
-	// Auth
+	//endregion
+
+	//region Auth
 
 	// Determine the authentication method using the helper function
 	authMethod, err := DetermineAuthMethod(config.Auth)
@@ -163,7 +190,9 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		config.ClientOptions.Logging.HideSensitiveData,
 	)
 
-	// HTTP Client
+	//endregion
+
+	//region HTTP
 
 	log.Info("Initializing new HTTP client with the provided configuration")
 
@@ -172,13 +201,19 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		Timeout: config.ClientOptions.Timeout.CustomTimeout.Duration(),
 	}
 
+	//endregion
+
+	// region COOKIES
+
 	// Conditionally setup cookie jar
 	// if err := SetupCookieJar(httpClient, config, log); err != nil {
 	// 	log.Error("Error setting up cookie jar", zap.Error(err))
 	// 	return nil, err
 	// }
 
-	// Redirect?
+	//endregion
+
+	//region Redirect?
 
 	// Conditionally setup redirect handling
 	if err := redirecthandler.SetupRedirectHandler(httpClient, config.ClientOptions.Redirect.FollowRedirects, config.ClientOptions.Redirect.MaxRedirects, log); err != nil {
@@ -186,7 +221,9 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		return nil, err
 	}
 
-	// Concurrency
+	//endregion
+
+	//region Concurrency
 
 	// Initialize ConcurrencyMetrics specifically for ConcurrencyHandler
 	concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
@@ -198,7 +235,9 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		concurrencyMetrics,
 	)
 
-	// Create
+	//endregion
+
+	//region Create
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
@@ -211,7 +250,9 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		AuthTokenHandler:   authTokenHandler,
 	}
 
-	// Logging
+	//endregion
+
+	//region LoggingOut
 
 	// Log the client's configuration.
 	log.Info("New API client initialized",
@@ -235,6 +276,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.Duration("Total Retry Duration", config.ClientOptions.Timeout.TotalRetryDuration.Duration()),
 		zap.Duration("Custom Timeout", config.ClientOptions.Timeout.CustomTimeout.Duration()),
 	)
+
+	//endregion
 
 	return client, nil
 

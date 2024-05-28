@@ -1,5 +1,5 @@
 // apiintegrations/apihandler/apihandler.go
-package apihandler
+package httpclient
 
 import (
 	"github.com/deploymenttheory/go-api-http-client/apiintegrations/jamfpro"
@@ -30,7 +30,7 @@ type APIHandler interface {
 }
 
 // LoadAPIHandler loads the appropriate API handler based on the API type.
-func LoadAPIHandler(apiType, instanceName, tenantID, tenantName string, log logger.Logger) (APIHandler, error) {
+func GetAPIHandler(apiType, instanceName, tenantID, tenantName string, log logger.Logger) (APIHandler, error) {
 	var apiHandler APIHandler
 	switch apiType {
 	case "jamfpro":

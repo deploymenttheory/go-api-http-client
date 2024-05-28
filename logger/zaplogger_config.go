@@ -12,6 +12,7 @@ import (
 // It configures the logger with JSON formatting and a custom encoder to ensure the 'pid', 'application', and 'timestamp' fields
 // appear at the end of each log message. The function panics if the logger cannot be initialized.
 func BuildLogger(logLevel LogLevel, encoding string, logConsoleSeparator string, logExportPath string) Logger {
+
 	// Set default encoding to console if not provided
 	if encoding == "" {
 		encoding = "console"
