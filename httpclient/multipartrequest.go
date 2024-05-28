@@ -88,7 +88,6 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	// Check for successful status code
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Handle error responses
-		//return nil, c.handleErrorResponse(resp, log, "Failed to process the HTTP request", method, endpoint)
 		return nil, response.HandleAPIErrorResponse(resp, log)
 	} else {
 		// Handle successful responses
