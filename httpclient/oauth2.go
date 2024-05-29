@@ -34,15 +34,13 @@ func (c *Client) OAuth2TokenAcquisition() error {
 	endpoint := c.API.GetOAuthTokenEndpoint()
 
 	// Get the OAuth token scope from the APIHandler
-	oauthTokenScope := c.API.GetOAuthTokenScope()
 
 	data := url.Values{}
 	data.Set("client_id", c.config.ClientID)
 	data.Set("client_secret", c.config.ClientID)
-	data.Set("scope", oauthTokenScope)
 	data.Set("grant_type", "client_credentials")
 
-	c.Logger.Debug("Attempting to obtain OAuth token", zap.String("ClientID", c.config.ClientID), zap.String("Scope", oauthTokenScope))
+	c.Logger.Debug("Attempting to obtain OAuth token", zap.String("ClientID", c.config.ClientID))
 
 	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
