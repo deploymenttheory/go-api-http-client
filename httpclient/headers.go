@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/headers/redact"
 	"github.com/deploymenttheory/go-api-http-client/version"
 
@@ -15,45 +14,39 @@ import (
 )
 
 // HeaderHandler is responsible for managing and setting headers on HTTP requests.
-type HeaderHandler struct {
-	req              *http.Request                           // The http.Request for which headers are being managed
-	log              logger.Logger                           // The logger to use for logging headers
-	apiHandler       APIHandler                              // The APIHandler to use for retrieving standard headers
-	authTokenHandler *authenticationhandler.AuthTokenHandler // The token to use for setting the Authorization header
-}
 
 // NewHeaderHandler creates a new instance of HeaderHandler for a given http.Request, logger, and APIHandler.
-func NewHeaderHandler(req *http.Request, log logger.Logger, apiHandler APIHandler, authTokenHandler *authenticationhandler.AuthTokenHandler) *HeaderHandler {
-	return &HeaderHandler{
-		req:              req,
-		log:              log,
-		apiHandler:       apiHandler,
-		authTokenHandler: authTokenHandler,
-	}
-}
+// func NewHeaderHandler(req *http.Request, log logger.Logger, apiHandler APIHandler, authTokenHandler *authenticationhandler.AuthTokenHandler) *HeaderHandler {
+// 	return &HeaderHandler{
+// 		req:              req,
+// 		log:              log,
+// 		apiHandler:       apiHandler,
+// 		authTokenHandler: authTokenHandler,
+// 	}
+// }
 
 // SetAuthorization sets the Authorization header for the request.
-func (h *HeaderHandler) SetAuthorization() {
-	token := h.authTokenHandler.Token
+func (c *Client) SetAuthorizationHeader(req *http.Request) {
+	token := c.AuthToken
 	if !strings.HasPrefix(token, "Bearer ") {
 		token = "Bearer " + token
 	}
-	h.req.Header.Set("Authorization", token)
+	req.Header.Set("Authorization", token)
 }
 
 // SetContentType sets the Content-Type header for the request.
-func (h *HeaderHandler) SetContentType(contentType string) {
-	h.req.Header.Set("Content-Type", contentType)
+func SetContentType(req *http.Request, contentType string) {
+	req.Header.Set("Content-Type", contentType)
 }
 
 // SetAccept sets the Accept header for the request.
-func (h *HeaderHandler) SetAccept(acceptHeader string) {
-	h.req.Header.Set("Accept", acceptHeader)
+func SetAccept(req *http.Request, acceptHeader string) {
+	req.Header.Set("Accept", acceptHeader)
 }
 
 // SetUserAgent sets the User-Agent header for the request.
-func (h *HeaderHandler) SetUserAgent(userAgent string) {
-	h.req.Header.Set("User-Agent", userAgent)
+func SetUserAgent(req *http.Request, userAgent string) {
+	req.Header.Set("User-Agent", userAgent)
 }
 
 // SetCacheControlHeader sets the Cache-Control header for an HTTP request.
@@ -103,29 +96,29 @@ func SetUserAgentHeader() string {
 }
 
 // SetRequestHeaders sets the necessary HTTP headers for a given request using the APIHandler to determine the required headers.
-func (h *HeaderHandler) SetRequestHeaders(endpoint string) {
+func (c *Client) SetRequestHeaders(req *http.Request, endpoint string) {
 	// Retrieve the standard headers required for the request
-	standardHeaders := h.apiHandler.GetAPIRequestHeaders(endpoint)
+	standardHeaders := c.API.GetAPIRequestHeaders(endpoint)
 
 	// Loop through the standard headers and set them on the request
 	for header, value := range standardHeaders {
 		if header == "Authorization" {
 			// Set the Authorization header using the token
-			h.SetAuthorization() // Ensure the token is correctly prefixed with "Bearer "
+			c.SetAuthorizationHeader(req) // Ensure the token is correctly prefixed with "Bearer "
 		} else if value != "" {
-			h.req.Header.Set(header, value)
+			req.Header.Set(header, value)
 		}
 	}
 }
 
 // LogHeaders prints all the current headers in the http.Request using the zap logger.
 // It uses the RedactSensitiveHeaderData function to redact sensitive data based on the hideSensitiveData flag.
-func (h *HeaderHandler) LogHeaders(hideSensitiveData bool) {
-	if h.log.GetLogLevel() <= logger.LogLevelDebug {
+func (c *Client) LogHeaders(req *http.Request, hideSensitiveData bool) {
+	if c.Logger.GetLogLevel() <= logger.LogLevelDebug {
 		// Initialize a new Header to hold the potentially redacted headers
 		redactedHeaders := http.Header{}
 
-		for name, values := range h.req.Header {
+		for name, values := range req.Header {
 			// Redact sensitive values
 			if len(values) > 0 {
 				// Use the first value for simplicity; adjust if multiple values per header are expected
@@ -138,7 +131,7 @@ func (h *HeaderHandler) LogHeaders(hideSensitiveData bool) {
 		headersStr := HeadersToString(redactedHeaders)
 
 		// Log the redacted headers
-		h.log.Debug("HTTP Request Headers", zap.String("Headers", headersStr))
+		c.Logger.Debug("HTTP Request Headers", zap.String("Headers", headersStr))
 	}
 }
 

@@ -265,9 +265,8 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	ApplyCustomCookies(req, c.config.CustomCookies, log)
 
-	headerHandler := NewHeaderHandler(req, c.Logger, c.API, c.AuthTokenHandler)
-	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.config.HideSensitiveData)
+	c.SetRequestHeaders(req, endpoint)
+	c.LogHeaders(req, c.config.HideSensitiveData)
 
 	req = req.WithContext(ctx)
 	log.LogCookies("outgoing", req, method, endpoint)
@@ -282,7 +281,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	// Adjust concurrency settings based on the response and log the response details.
 	duration := time.Since(startTime)
-	c.ConcurrencyHandler.EvaluateAndAdjustConcurrency(resp, duration)
+	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
 	log.LogCookies("incoming", req, method, endpoint)
 	CheckDeprecationHeader(resp, log)
 
