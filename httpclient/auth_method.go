@@ -20,22 +20,30 @@ import (
 // DetermineAuthMethod determines the authentication method based on the provided credentials.
 // It prefers strong authentication methods (e.g., OAuth) over weaker ones (e.g., bearer tokens).
 // It logs an error and returns "unknown" if no valid credentials are provided.
-func GetAuthMethod(authConfig AuthConfig) (string, error) {
-	var validClientID, validClientSecret, validUsername, validPassword bool
-	var clientIDErrMsg, clientSecretErrMsg, usernameErrMsg, passwordErrMsg string
+func GetAuthMethod(config ClientConfig) (string, error) {
+	var (
+		validClientID      bool
+		validClientSecret  bool
+		validUsername      bool
+		validPassword      bool
+		errMsgClientID     string
+		errMsgClientSecret string
+		errMsgUsername     string
+		errMesgPassword    string
+	)
 
-	if authConfig.ClientID != "" || authConfig.ClientSecret != "" {
-		validClientID, clientIDErrMsg = authenticationhandler.IsValidClientID(authConfig.ClientID)
-		validClientSecret, clientSecretErrMsg = authenticationhandler.IsValidClientSecret(authConfig.ClientSecret)
+	if config.clientID != "" || config.clientSecret != "" {
+		validClientID, errMsgClientID = authenticationhandler.IsValidClientID(config.clientID)
+		validClientSecret, errMsgClientSecret = authenticationhandler.IsValidClientSecret(config.clientSecret)
 
 		if validClientID && validClientSecret {
 			return "oauth2", nil
 		}
 	}
 
-	if authConfig.Username != "" || authConfig.Password != "" {
-		validUsername, usernameErrMsg = authenticationhandler.IsValidUsername(authConfig.Username)
-		validPassword, passwordErrMsg = authenticationhandler.IsValidPassword(authConfig.Password)
+	if config.basicAuthUsername != "" || config.basicAuthPassword != "" {
+		validUsername, errMsgUsername = authenticationhandler.IsValidUsername(config.basicAuthUsername)
+		validPassword, errMesgPassword = authenticationhandler.IsValidPassword(config.basicAuthPassword)
 
 		if validUsername && validPassword {
 			return "basicauth", nil
@@ -43,17 +51,17 @@ func GetAuthMethod(authConfig AuthConfig) (string, error) {
 	}
 
 	errorMsg := "No valid credentials provided."
-	if !validClientID && authConfig.ClientID != "" {
-		errorMsg += " " + clientIDErrMsg
+	if !validClientID && config.clientID != "" {
+		errorMsg += " " + errMsgClientID
 	}
-	if !validClientSecret && authConfig.ClientSecret != "" {
-		errorMsg += " " + clientSecretErrMsg
+	if !validClientSecret && config.clientSecret != "" {
+		errorMsg += " " + errMsgClientSecret
 	}
-	if !validUsername && authConfig.Username != "" {
-		errorMsg += " " + usernameErrMsg
+	if !validUsername && config.basicAuthUsername != "" {
+		errorMsg += " " + errMsgUsername
 	}
-	if !validPassword && authConfig.Password != "" {
-		errorMsg += " " + passwordErrMsg
+	if !validPassword && config.basicAuthPassword != "" {
+		errorMsg += " " + errMesgPassword
 	}
 
 	return "unknown", errors.New(errorMsg)

@@ -83,12 +83,14 @@ type EnvironmentConfig struct {
 func BuildClient(config ClientConfig) (*Client, error) {
 
 	//region Logging
-	// I'm not going down this rabbit hole yet.
+
 	parsedLogLevel := logger.ParseLogLevelFromString(config.LogLevel)
 	log := logger.BuildLogger(parsedLogLevel, config.LogOutputFormat, config.LogConsoleSeparator, config.LogExportPath)
 	log.SetLevel(parsedLogLevel)
 
 	//endregion
+
+	//////////////////////////////////////////////////////////////////////////////////////////
 
 	//region API Handler
 
@@ -100,6 +102,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	}
 
 	//endregion
+
+	//////////////////////////////////////////////////////////////////////////////////////////
 
 	//region Auth
 
@@ -128,6 +132,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	//endregion
 
+	//////////////////////////////////////////////////////////////////////////////////////////
+
 	//region HTTP
 
 	log.Info("Initializing new HTTP client with the provided configuration")
@@ -138,6 +144,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	}
 
 	//endregion
+
+	//////////////////////////////////////////////////////////////////////////////////////////
 
 	// region COOKIES
 
@@ -159,6 +167,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	//endregion
 
+	//////////////////////////////////////////////////////////////////////////////////////////
+
 	//region Concurrency
 
 	// Initialize ConcurrencyMetrics specifically for ConcurrencyHandler
@@ -172,6 +182,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	)
 
 	//endregion
+
+	//////////////////////////////////////////////////////////////////////////////////////////
 
 	//region Create
 
@@ -187,6 +199,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	}
 
 	//endregion
+
+	//////////////////////////////////////////////////////////////////////////////////////////
 
 	//region LoggingOut
 
