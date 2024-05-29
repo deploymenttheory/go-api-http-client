@@ -14,7 +14,6 @@ import (
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
-	"github.com/deploymenttheory/go-api-http-client/helpers"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
@@ -61,9 +60,9 @@ type ClientConfig struct {
 	MaxRetryAttempts          int
 	EnableDynamicRateLimiting bool
 	MaxConcurrentRequests     int
-	CustomTimeout             helpers.JSONDuration
-	TokenRefreshBufferPeriod  helpers.JSONDuration
-	TotalRetryDuration        helpers.JSONDuration
+	CustomTimeout             time.Duration
+	TokenRefreshBufferPeriod  time.Duration
+	TotalRetryDuration        time.Duration
 	FollowRedirects           bool
 	MaxRedirects              int
 

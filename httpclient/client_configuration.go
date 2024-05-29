@@ -53,17 +53,19 @@ func LoadConfigFromFile(filepath string) (*ClientConfig, error) {
 	return &config, nil
 }
 
+// TODO try to get all the "valid list of x" strings out. Can't make them constants though? (and this func string)
 func validateClientConfig(config ClientConfig) error {
 	var err error
-
+	config.CustomTimeout = time.Second * 10
 	// region Auth
 
-	// TODO centralise these values
+	// Method
 	validAuthMethods := []string{"oauth2", "basic"}
 	if !slices.Contains(validAuthMethods, config.AuthMethod) {
 		return fmt.Errorf("auth method not valid: %s", config.AuthMethod)
 	}
 
+	// Creds per Method
 	switch config.AuthMethod {
 	case "oauth2":
 		err = validateValidClientID(config.ClientID)
@@ -85,6 +87,7 @@ func validateClientConfig(config ClientConfig) error {
 			return err
 		}
 
+	// Theoretically unreachable?
 	default:
 		return errors.New("you shouldn't be here")
 
@@ -118,6 +121,68 @@ func validateClientConfig(config ClientConfig) error {
 	}
 
 	// Log Console Separator
+	// any string fine
+
+	// Export Logs
+	// bool
+
+	// Log Export Path
+	_, err = validateFilePath(config.LogExportPath)
+	if err != nil {
+		return err
+	}
+
+	// Hide Sensitive Data
+	// bool
+
+	// endregion
+
+	// region Cookies
+
+	// CookieJar
+	// bool
+
+	// CustomCookies
+	// no validation required
+
+	// region Misc
+
+	// Max Retry Attempts
+	if config.MaxRetryAttempts < 0 {
+		return errors.New("max retry attempts cannot be less than 0")
+	}
+
+	// Dynamic Rate Limiting
+	// bool
+
+	// Max Concurrent Requests
+	if config.MaxConcurrentRequests < 0 {
+		return errors.New("max concurrent requests cannot be less than 0")
+	}
+
+	// CustomTimeout
+	if config.CustomTimeout.Seconds() < 0 {
+		return errors.New("timeout cannot be less than 0 seconds")
+	}
+
+	// Token refesh buffer
+	if config.TokenRefreshBufferPeriod.Seconds() < 0 {
+		return errors.New("refresh buffer period cannot be less than 0 seconds")
+	}
+
+	if config.TotalRetryDuration.Seconds() < 0 {
+		return errors.New("total retry duration cannot be less than 0 seconds")
+	}
+
+	// Follow redirects
+	// bool
+
+	// MaxRedirects
+	if config.FollowRedirects {
+		if MaxRedirects < 1 {
+			return errors.New("max redirects cannot be less than 1")
+		}
+	}
 
 	// endregion
 
