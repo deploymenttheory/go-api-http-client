@@ -110,7 +110,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 	ctx := context.Background()
-	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.Timeout.TotalRetryDuration.Duration())
+	totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
 
 	var resp *http.Response
 	var err error
@@ -150,7 +150,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 
 		if status.IsTransientError(resp) {
 			retryCount++
-			if retryCount > c.clientConfig.ClientOptions.Retry.MaxRetryAttempts {
+			if retryCount > c.config.MaxRetryAttempts {
 				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
 				break
 			}
@@ -226,28 +226,18 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	return nil, response.HandleAPIErrorResponse(res, log)
 }
 
-// doRequest contains the shared logic for making the HTTP request, including authentication,
-// setting headers, managing concurrency, and logging. This function performs the following steps:
-// 1. Authenticates the client using the provided credentials and refreshes the auth token if necessary.
-// 2. Acquires a concurrency permit to control the number of concurrent requests.
-// 3. Increments the total request counter within the ConcurrencyHandler's metrics.
-// 4. Marshals the request data based on the provided body, method, and endpoint.
-// 5. Constructs the full URL for the API endpoint.
-// 6. Creates the HTTP request and applies custom cookies and headers.
-// 7. Executes the HTTP request and logs relevant information.
-// 8. Adjusts concurrency settings based on the response and logs the response details.
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 	log := c.Logger
 
 	// Authenticate the client using the provided credentials and refresh the auth token if necessary.
 	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     c.clientConfig.Auth.Username,
-		Password:     c.clientConfig.Auth.Password,
-		ClientID:     c.clientConfig.Auth.ClientID,
-		ClientSecret: c.clientConfig.Auth.ClientSecret,
+		Username:     c.config.BasicAuthUsername,
+		Password:     c.config.BasicAuthPassword,
+		ClientID:     c.config.ClientID,
+		ClientSecret: c.config.ClientSecret,
 	}
 
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.http, clientCredentials, c.config.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
@@ -283,18 +273,18 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 		return nil, err
 	}
 
-	ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
+	ApplyCustomCookies(req, c.config.CustomCookies, log)
 
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+	headerHandler.LogHeaders(c.config.HideSensitiveData)
 
 	req = req.WithContext(ctx)
 	log.LogCookies("outgoing", req, method, endpoint)
 
 	// Execute the HTTP request and log relevant information.
 	startTime := time.Now()
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.http.Do(req)
 	if err != nil {
 		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err

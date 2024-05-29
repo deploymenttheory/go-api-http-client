@@ -43,13 +43,13 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 
 	// Auth Token validation check
 	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     c.clientConfig.Auth.Username,
-		Password:     c.clientConfig.Auth.Password,
-		ClientID:     c.clientConfig.Auth.ClientID,
-		ClientSecret: c.clientConfig.Auth.ClientSecret,
+		Username:     c.config.BasicAuthUsername,
+		Password:     c.config.BasicAuthPassword,
+		ClientID:     c.config.ClientID,
+		ClientSecret: c.config.ClientSecret,
 	}
 
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
+	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.http, clientCredentials, c.config.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
@@ -76,10 +76,10 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	// Use HeaderManager to set headers
 	headerHandler.SetContentType(contentType)
 	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+	headerHandler.LogHeaders(c.config.HideSensitiveData)
 
 	// Execute the request
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.http.Do(req)
 	if err != nil {
 		log.Error("Failed to send multipart request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err

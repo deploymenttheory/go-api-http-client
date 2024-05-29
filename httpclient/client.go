@@ -53,8 +53,8 @@ type ClientConfig struct {
 	HideSensitiveData   bool
 
 	// Cookies
-	CookieJar     bool              // Enable or disable cookie jar
-	CustomCookies map[string]string `json:"CustomCookies,omitempty"` // Key-value pairs for setting specific cookies
+	CookieJarEnabled bool              // Enable or disable cookie jar
+	CustomCookies    map[string]string `json:"CustomCookies,omitempty"` // Key-value pairs for setting specific cookies
 
 	// Misc
 	MaxRetryAttempts          int
@@ -121,14 +121,14 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	// Initialize AuthTokenHandler
 	clientCredentials := authenticationhandler.ClientCredentials{
 		Username:     config.BasicAuthUsername,
-		Password:     config.basicAuthPassword,
-		ClientID:     config.clientID,
-		ClientSecret: config.clientSecret,
+		Password:     config.BasicAuthPassword,
+		ClientID:     config.ClientID,
+		ClientSecret: config.ClientSecret,
 	}
 
 	authTokenHandler := authenticationhandler.NewAuthTokenHandler(
 		log,
-		authMethod,
+		config.AuthMethod,
 		clientCredentials,
 		config.Environment.InstanceName,
 		config.HideSensitiveData,
@@ -144,7 +144,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Initialize the internal HTTP client
 	httpClient := &http.Client{
-		Timeout: config.CustomTimeout.Duration(),
+		Timeout: config.CustomTimeout,
 	}
 
 	//endregion
@@ -194,7 +194,6 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
 		APIHandler:         apiHandler,
-		AuthMethod:         authMethod,
 		http:               httpClient,
 		config:             config,
 		Logger:             log,
@@ -209,26 +208,26 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	//region LoggingOut
 
 	// Log the client's configuration.
-	log.Info("New API client initialized",
+	log.Debug("New API client initialized",
 		zap.String("API Type", config.Environment.APIType),
 		zap.String("Instance Name", config.Environment.InstanceName),
 		zap.String("Override Base Domain", config.Environment.OverrideBaseDomain),
 		zap.String("Tenant ID", config.Environment.TenantID),
 		zap.String("Tenant Name", config.Environment.TenantName),
-		zap.String("Authentication Method", authMethod),
-		zap.String("Logging Level", config.ClientOptions.Logging.LogLevel),
-		zap.String("Log Encoding Format", config.ClientOptions.Logging.LogOutputFormat),
-		zap.String("Log Separator", config.ClientOptions.Logging.LogConsoleSeparator),
-		zap.Bool("Hide Sensitive Data In Logs", config.ClientOptions.Logging.HideSensitiveData),
-		zap.Bool("Cookie Jar Enabled", config.ClientOptions.Cookies.EnableCookieJar),
-		zap.Int("Max Retry Attempts", config.ClientOptions.Retry.MaxRetryAttempts),
-		zap.Bool("Enable Dynamic Rate Limiting", config.ClientOptions.Retry.EnableDynamicRateLimiting),
-		zap.Int("Max Concurrent Requests", config.ClientOptions.Concurrency.MaxConcurrentRequests),
-		zap.Bool("Follow Redirects", config.ClientOptions.Redirect.FollowRedirects),
-		zap.Int("Max Redirects", config.ClientOptions.Redirect.MaxRedirects),
-		zap.Duration("Token Refresh Buffer Period", config.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration()),
-		zap.Duration("Total Retry Duration", config.ClientOptions.Timeout.TotalRetryDuration.Duration()),
-		zap.Duration("Custom Timeout", config.ClientOptions.Timeout.CustomTimeout.Duration()),
+		zap.String("Authentication Method", config.AuthMethod),
+		zap.String("Logging Level", config.LogLevel),
+		zap.String("Log Encoding Format", config.LogOutputFormat),
+		zap.String("Log Separator", config.LogConsoleSeparator),
+		zap.Bool("Hide Sensitive Data In Logs", config.HideSensitiveData),
+		zap.Bool("Cookie Jar Enabled", config.CookieJarEnabled),
+		zap.Int("Max Retry Attempts", config.MaxRetryAttempts),
+		zap.Bool("Enable Dynamic Rate Limiting", config.EnableDynamicRateLimiting),
+		zap.Int("Max Concurrent Requests", config.MaxConcurrentRequests),
+		zap.Bool("Follow Redirects", config.FollowRedirects),
+		zap.Int("Max Redirects", config.MaxRedirects),
+		zap.Duration("Token Refresh Buffer Period", config.TokenRefreshBufferPeriod),
+		zap.Duration("Total Retry Duration", config.TotalRetryDuration),
+		zap.Duration("Custom Timeout", config.CustomTimeout),
 	)
 
 	//endregion

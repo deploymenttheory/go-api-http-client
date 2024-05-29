@@ -54,7 +54,7 @@ import (
 // SetupCookieJar initializes the HTTP client with a cookie jar if enabled in the configuration.
 
 func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.Logger) error {
-	if clientConfig.ClientOptions.Cookies.EnableCookieJar {
+	if clientConfig.CookieJarEnabled {
 
 		jar, err := cookiejar.New(nil) // nil options use default options
 		if err != nil {
@@ -62,10 +62,10 @@ func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.L
 			return fmt.Errorf("setupCookieJar failed: %w", err) // Wrap and return the error
 		}
 
-		if clientConfig.ClientOptions.Cookies.CustomCookies != nil {
+		if clientConfig.CustomCookies != nil {
 			var CookieList []*http.Cookie
 			CookieList = make([]*http.Cookie, 0)
-			for k, v := range clientConfig.ClientOptions.Cookies.CustomCookies {
+			for k, v := range clientConfig.CustomCookies {
 				newCookie := &http.Cookie{
 					Name:  k,
 					Value: v,
