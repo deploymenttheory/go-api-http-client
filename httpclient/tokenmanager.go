@@ -3,7 +3,6 @@ package httpclient
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"go.uber.org/zap"
@@ -11,16 +10,16 @@ import (
 
 // CheckAndRefreshAuthToken checks the token's validity and refreshes it if necessary.
 // It returns true if the token is valid post any required operations and false with an error otherwise.
-func (c *Client) CheckAndRefreshAuthToken(httpClient *http.Client, tokenRefreshBufferPeriod time.Duration) (bool, error) {
+func (c *Client) CheckAndRefreshAuthToken() (bool, error) {
 	const maxConsecutiveRefreshAttempts = 10
 	refreshAttempts := 0
 
-	if c.isTokenValid(tokenRefreshBufferPeriod) {
+	if c.isTokenValid() {
 		c.Logger.Info("Authentication token is valid", zap.Bool("IsTokenValid", true))
 		return true, nil
 	}
 
-	for !c.isTokenValid(tokenRefreshBufferPeriod) {
+	for !c.isTokenValid() {
 		c.Logger.Debug("Token found to be invalid or close to expiry, handling token acquisition or refresh.")
 		if err := c.obtainNewToken(); err != nil {
 			c.Logger.Error("Failed to obtain new token", zap.Error(err))
@@ -33,20 +32,20 @@ func (c *Client) CheckAndRefreshAuthToken(httpClient *http.Client, tokenRefreshB
 				"exceeded maximum consecutive token refresh attempts (%d): access token lifetime (%s) is likely too short compared to the buffer period (%s) configured for token refresh",
 				maxConsecutiveRefreshAttempts,
 				c.AuthTokenExpiry.Sub(time.Now()).String(), // Access token lifetime
-				tokenRefreshBufferPeriod.String(),          // Configured buffer period
+				c.config.TokenRefreshBufferPeriod.String(), // Configured buffer period
 			)
 		}
 	}
 
-	isValid := c.isTokenValid(tokenRefreshBufferPeriod)
+	isValid := c.isTokenValid()
 	c.Logger.Info("Authentication token status check completed", zap.Bool("IsTokenValid", isValid))
 	return isValid, nil
 }
 
 // isTokenValid checks if the current token is non-empty and not about to expire.
 // It considers a token valid if it exists and the time until its expiration is greater than the provided buffer period.
-func (c *Client) isTokenValid(tokenRefreshBufferPeriod time.Duration) bool {
-	isValid := c.AuthToken != "" && time.Until(c.AuthTokenExpiry) >= tokenRefreshBufferPeriod
+func (c *Client) isTokenValid() bool {
+	isValid := c.AuthToken != "" && time.Until(c.AuthTokenExpiry) >= c.config.TokenRefreshBufferPeriod
 	c.Logger.Debug("Checking token validity", zap.Bool("IsValid", isValid), zap.Duration("TimeUntilExpiry", time.Until(c.AuthTokenExpiry)))
 	return isValid
 }
@@ -87,8 +86,8 @@ func (c *Client) obtainNewToken() error {
 
 // refreshTokenIfNeeded refreshes the token if it's close to expiration.
 // This function decides on the method based on the credentials type available.
-func (c *Client) refreshTokenIfNeeded(httpClient *http.Client, tokenRefreshBufferPeriod time.Duration) error {
-	if time.Until(c.AuthTokenExpiry) < tokenRefreshBufferPeriod {
+func (c *Client) refreshTokenIfNeeded() error {
+	if time.Until(c.AuthTokenExpiry) < c.config.TokenRefreshBufferPeriod {
 		c.Logger.Info("Token is close to expiry and will be refreshed", zap.Duration("TimeUntilExpiry", time.Until(c.AuthTokenExpiry)))
 		var err error
 		if c.config.BasicAuthUsername != "" && c.config.BasicAuthPassword != "" {

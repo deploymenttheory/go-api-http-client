@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/httpmethod"
 	"github.com/deploymenttheory/go-api-http-client/ratehandler"
 	"github.com/deploymenttheory/go-api-http-client/response"
@@ -228,15 +227,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 	log := c.Logger
 
-	// Authenticate the client using the provided credentials and refresh the auth token if necessary.
-	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     c.config.BasicAuthUsername,
-		Password:     c.config.BasicAuthPassword,
-		ClientID:     c.config.ClientID,
-		ClientSecret: c.config.ClientSecret,
-	}
-
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.http, clientCredentials, c.config.TokenRefreshBufferPeriod)
+	valid, err := c.CheckAndRefreshAuthToken()
 	if err != nil || !valid {
 		return nil, err
 	}
