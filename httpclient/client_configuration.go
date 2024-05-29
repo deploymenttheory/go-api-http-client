@@ -10,7 +10,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/helpers"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 )
 
@@ -19,9 +18,9 @@ const (
 	DefaultMaxRetryAttempts          = 3
 	DefaultEnableDynamicRateLimiting = true
 	DefaultMaxConcurrentRequests     = 5
-	DefaultTokenBufferPeriod         = helpers.JSONDuration(5 * time.Minute)
-	DefaultTotalRetryDuration        = helpers.JSONDuration(5 * time.Minute)
-	DefaultTimeout                   = helpers.JSONDuration(10 * time.Second)
+	DefaultTokenBufferPeriod         = 5 * time.Minute
+	DefaultTotalRetryDuration        = 5 * time.Minute
+	DefaultTimeout                   = 10 * time.Second
 	FollowRedirects                  = true
 	MaxRedirects                     = 10
 	ConfigFileExtension              = ".json"
@@ -32,7 +31,6 @@ const (
 // into the ClientConfig struct. It's designed to initialize the client configuration with values
 // from a file, complementing or overriding defaults and environment variable settings.
 func LoadConfigFromFile(filepath string) (*ClientConfig, error) {
-
 	filepath, err := validateFilePath(filepath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to clean/validate filepath (%s): %v", filepath, err)
@@ -48,17 +46,19 @@ func LoadConfigFromFile(filepath string) (*ClientConfig, error) {
 		return nil, fmt.Errorf("failed to unmarshal the configuration file: %s, error: %w", filepath, err)
 	}
 
-	// TODO Set default values if necessary and validate the configuration
-
 	return &config, nil
+}
+
+func LoadConfigFromEnv() (*ClientConfig, error) {
+	// TODO this whole function with settable env keys
+	return nil, nil
 }
 
 // TODO try to get all the "valid list of x" strings out. Can't make them constants though? (and this func string)
 func validateClientConfig(config ClientConfig) error {
 	var err error
-	config.CustomTimeout = time.Second * 10
-	// region Auth
 
+	// region Auth
 	// Method
 	validAuthMethods := []string{"oauth2", "basic"}
 	if !slices.Contains(validAuthMethods, config.AuthMethod) {
@@ -86,11 +86,6 @@ func validateClientConfig(config ClientConfig) error {
 		if err != nil {
 			return err
 		}
-
-	// Theoretically unreachable?
-	default:
-		return errors.New("you shouldn't be here")
-
 	}
 
 	// endregion
