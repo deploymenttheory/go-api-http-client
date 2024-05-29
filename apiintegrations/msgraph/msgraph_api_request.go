@@ -8,7 +8,6 @@ import (
 	"mime/multipart"
 	"path/filepath"
 
-	"github.com/deploymenttheory/go-api-http-client/helpers"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
@@ -45,7 +44,7 @@ func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, file
 
 	// Add the files to the form data, using safeOpenFile to ensure secure file access
 	for formField, filePath := range files {
-		file, err := helpers.SafeOpenFile(filePath)
+		file, err := SafeOpenFile(filePath)
 		if err != nil {
 			log.Error("Failed to open file securely", zap.String("file", filePath), zap.Error(err))
 			return nil, "", err
