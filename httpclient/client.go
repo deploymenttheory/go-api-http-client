@@ -40,21 +40,27 @@ type Client struct {
 
 // Setup Options for Client
 type ClientConfig struct {
-	Auth          AuthConfig
-	Environment   EnvironmentConfig
-	ClientOptions ClientOptions
-}
-
-//endregion
-
-// region authconfig
-
-// Struct to map auth config from JSON.
-type AuthConfig struct {
-	Username     string `json:"Username,omitempty"`
-	Password     string `json:"Password,omitempty"`
-	ClientID     string `json:"ClientID,omitempty"`
-	ClientSecret string `json:"ClientSecret,omitempty"`
+	BasicAuthUsername         string               `json:"Username,omitempty"`
+	BasicAuthPassword         string               `json:"Password,omitempty"`
+	ClientID                  string               `json:"ClientID,omitempty"`
+	ClientSecret              string               `json:"ClientSecret,omitempty"`
+	LogLevel                  string               // Tiered logging level.
+	LogOutputFormat           string               // Output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
+	LogConsoleSeparator       string               // Separator in console output format.
+	LogExportPath             string               // Path to output logs to.
+	HideSensitiveData         bool                 // Whether sensitive fields should be hidden in logs.
+	EnableCookieJar           bool                 // Enable or disable cookie jar
+	CustomCookies             map[string]string    `json:"CustomCookies,omitempty"` // Key-value pairs for setting specific cookies
+	MaxRetryAttempts          int                  // Maximum number of retry request attempts for retryable HTTP methods.
+	EnableDynamicRateLimiting bool                 // Whether dynamic rate limiting should be enabled.
+	MaxConcurrentRequests     int                  // Maximum number of concurrent requests allowed.
+	CustomTimeout             helpers.JSONDuration // Custom timeout for the HTTP client
+	TokenRefreshBufferPeriod  helpers.JSONDuration // Buffer period before token expiry to attempt token refresh
+	TotalRetryDuration        helpers.JSONDuration // Total duration to attempt retries
+	FollowRedirects           bool                 // Enable or disable following redirects
+	MaxRedirects              int                  // Maximum number of redirects to follow
+	////////
+	Environment EnvironmentConfig
 }
 
 //endregion
@@ -68,77 +74,6 @@ type EnvironmentConfig struct {
 	OverrideBaseDomain string `json:"OverrideBaseDomain,omitempty"` // Base domain override used when the default in the api handler isn't suitable // NOTE ??
 	TenantID           string `json:"TenantID,omitempty"`           // TenantID is the unique identifier for the tenant // QUERY what tenant?
 	TenantName         string `json:"TenantName,omitempty"`         // TenantName is the name of the tenant // QUERY ?!?!
-}
-
-//endregion
-
-// region clientoptions
-
-// ClientOptions holds optional configuration options for the HTTP Client. // NOTE how is this difference from ClientConfig?!
-type ClientOptions struct {
-	Logging     LoggingConfig     // Configuration related to logging
-	Cookies     CookieConfig      // Cookie handling settings
-	Retry       RetryConfig       // Retry behavior configuration
-	Concurrency ConcurrencyConfig // Concurrency configuration
-	Timeout     TimeoutConfig     // Custom timeout settings
-	Redirect    RedirectConfig    // Redirect handling settings
-}
-
-//endregion
-
-// region loggingconfig
-
-type LoggingConfig struct {
-	LogLevel            string // Tiered logging level.
-	LogOutputFormat     string // Output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
-	LogConsoleSeparator string // Separator in console output format.
-	LogExportPath       string // Path to output logs to.
-	HideSensitiveData   bool   // Whether sensitive fields should be hidden in logs.
-}
-
-//endregion
-
-// region cookieconfig
-// CookieConfig holds configuration related to cookie handling. // QUERY is this needed?
-type CookieConfig struct {
-	EnableCookieJar bool              // Enable or disable cookie jar
-	CustomCookies   map[string]string `json:"CustomCookies,omitempty"` // Key-value pairs for setting specific cookies
-}
-
-//endregion
-
-// region retryconfig
-// RetryConfig holds configuration related to retry behavior. // QUERY is this needed?!
-type RetryConfig struct {
-	MaxRetryAttempts          int  // Maximum number of retry request attempts for retryable HTTP methods.
-	EnableDynamicRateLimiting bool // Whether dynamic rate limiting should be enabled.
-}
-
-//endregion
-
-// region concurrencyconfig
-// ConcurrencyConfig holds configuration related to concurrency management. // QUERY and this?!
-type ConcurrencyConfig struct {
-	MaxConcurrentRequests int // Maximum number of concurrent requests allowed.
-}
-
-//endregion
-
-// region timeoutconfig
-
-type TimeoutConfig struct {
-	CustomTimeout            helpers.JSONDuration // Custom timeout for the HTTP client
-	TokenRefreshBufferPeriod helpers.JSONDuration // Buffer period before token expiry to attempt token refresh
-	TotalRetryDuration       helpers.JSONDuration // Total duration to attempt retries
-}
-
-//endregion
-
-// region redirectconfig
-// RedirectConfig holds configuration related to redirect handling. // QUERY is this needed?!
-type RedirectConfig struct {
-	FollowRedirects bool // Enable or disable following redirects
-	MaxRedirects    int  // Maximum number of redirects to follow
 }
 
 //endregion
