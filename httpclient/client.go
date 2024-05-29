@@ -10,9 +10,9 @@ package httpclient
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
@@ -27,16 +27,19 @@ type Client struct {
 	http   *http.Client
 
 	// Exported
-	AuthToken          string
-	AuthTokenExpiry    time.Time
-	Logger             logger.Logger
-	ConcurrencyHandler *concurrency.ConcurrencyHandler
-	APIHandler         APIHandler
-	AuthTokenHandler   *authenticationhandler.AuthTokenHandler
+	lock            sync.Mutex
+	AuthToken       string
+	AuthTokenExpiry time.Time
+	Logger          logger.Logger
+	Concurrency     *concurrency.ConcurrencyHandler
+	API             APIHandler
 }
 
 // Options/Variables for Client
 type ClientConfig struct {
+	// Main
+	Handler APIHandler
+
 	// Auth
 	AuthMethod        string `json:"AuthMethod,omitempty"`
 	BasicAuthUsername string `json:"Username,omitempty"`
@@ -102,39 +105,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	//endregion
 
 	//////////////////////////////////////////////////////////////////////////////////////////
-
-	//region API Handler
-
-	// Not going down this one either
-	apiHandler, err := getAPIHandler(config.Environment.APIType, config.Environment.InstanceName, config.Environment.TenantID, config.Environment.TenantName, log)
-	if err != nil {
-		log.Error("Failed to load API handler", zap.String("APIType", config.Environment.APIType), zap.Error(err))
-		return nil, err
-	}
-
-	//endregion
-
 	//////////////////////////////////////////////////////////////////////////////////////////
-
-	//region Auth
-
-	// Initialize AuthTokenHandler
-	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     config.BasicAuthUsername,
-		Password:     config.BasicAuthPassword,
-		ClientID:     config.ClientID,
-		ClientSecret: config.ClientSecret,
-	}
-
-	authTokenHandler := authenticationhandler.NewAuthTokenHandler(
-		log,
-		config.AuthMethod,
-		clientCredentials,
-		config.Environment.InstanceName,
-		config.HideSensitiveData,
-	)
-
-	//endregion
 
 	//////////////////////////////////////////////////////////////////////////////////////////
 
@@ -193,12 +164,11 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
-		APIHandler:         apiHandler,
-		http:               httpClient,
-		config:             config,
-		Logger:             log,
-		ConcurrencyHandler: concurrencyHandler,
-		AuthTokenHandler:   authTokenHandler,
+		API:         config.Handler,
+		http:        httpClient,
+		config:      config,
+		Logger:      log,
+		Concurrency: concurrencyHandler,
 	}
 
 	//endregion

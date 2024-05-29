@@ -3,7 +3,7 @@
 /* The http_client_auth package focuses on authentication mechanisms for an HTTP client.
 It provides structures and methods for handling OAuth-based authentication */
 
-package authenticationhandler
+package httpclient
 
 import (
 	"bytes"
@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
 	"github.com/deploymenttheory/go-api-http-client/headers/redact"
 	"go.uber.org/zap"
 )
@@ -31,41 +30,37 @@ type OAuthResponse struct {
 
 // OAuth2TokenAcquisition fetches an OAuth access token using the provided client ID and client secret.
 // It updates the AuthTokenHandler's Token and Expires fields with the obtained values.
-func (h *AuthTokenHandler) OAuth2TokenAcquisition(apiHandler apihandler.APIHandler, httpClient *http.Client, clientID, clientSecret string) error {
-	// Get the OAuth token endpoint from the APIHandler
-	oauthTokenEndpoint := apiHandler.GetOAuthTokenEndpoint()
-
-	// Construct the full authentication endpoint URL
-	authenticationEndpoint := apiHandler.ConstructAPIAuthEndpoint(oauthTokenEndpoint, h.Logger)
+func (c *Client) OAuth2TokenAcquisition() error {
+	endpoint := c.API.GetOAuthTokenEndpoint()
 
 	// Get the OAuth token scope from the APIHandler
-	oauthTokenScope := apiHandler.GetOAuthTokenScope()
+	oauthTokenScope := c.API.GetOAuthTokenScope()
 
 	data := url.Values{}
-	data.Set("client_id", clientID)
-	data.Set("client_secret", clientSecret)
+	data.Set("client_id", c.config.ClientID)
+	data.Set("client_secret", c.config.ClientID)
 	data.Set("scope", oauthTokenScope)
 	data.Set("grant_type", "client_credentials")
 
-	h.Logger.Debug("Attempting to obtain OAuth token", zap.String("ClientID", clientID), zap.String("Scope", oauthTokenScope))
+	c.Logger.Debug("Attempting to obtain OAuth token", zap.String("ClientID", c.config.ClientID), zap.String("Scope", oauthTokenScope))
 
-	req, err := http.NewRequest("POST", authenticationEndpoint, strings.NewReader(data.Encode()))
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
-		h.Logger.Error("Failed to create request for OAuth token", zap.Error(err))
+		c.Logger.Error("Failed to create request for OAuth token", zap.Error(err))
 		return err
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := httpClient.Do(req)
+	resp, err := c.http.Do(req)
 	if err != nil {
-		h.Logger.Error("Failed to execute request for OAuth token", zap.Error(err))
+		c.Logger.Error("Failed to execute request for OAuth token", zap.Error(err))
 		return err
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		h.Logger.Error("Failed to read response body", zap.Error(err))
+		c.Logger.Error("Failed to read response body", zap.Error(err))
 		return err
 	}
 
@@ -75,17 +70,17 @@ func (h *AuthTokenHandler) OAuth2TokenAcquisition(apiHandler apihandler.APIHandl
 	oauthResp := &OAuthResponse{}
 	err = json.Unmarshal(bodyBytes, oauthResp)
 	if err != nil {
-		h.Logger.Error("Failed to decode OAuth response", zap.Error(err))
+		c.Logger.Error("Failed to decode OAuth response", zap.Error(err))
 		return fmt.Errorf("failed to decode OAuth response: %w", err)
 	}
 
 	if oauthResp.Error != "" {
-		h.Logger.Error("Error obtaining OAuth token", zap.String("Error", oauthResp.Error))
+		c.Logger.Error("Error obtaining OAuth token", zap.String("Error", oauthResp.Error))
 		return fmt.Errorf("error obtaining OAuth token: %s", oauthResp.Error)
 	}
 
 	if oauthResp.AccessToken == "" {
-		h.Logger.Error("Empty access token received")
+		c.Logger.Error("Empty access token received")
 		return fmt.Errorf("empty access token received")
 	}
 
@@ -93,11 +88,11 @@ func (h *AuthTokenHandler) OAuth2TokenAcquisition(apiHandler apihandler.APIHandl
 	expirationTime := time.Now().Add(expiresIn)
 
 	// Modified log call using the helper function
-	redactedAccessToken := redact.RedactSensitiveHeaderData(h.HideSensitiveData, "AccessToken", oauthResp.AccessToken)
-	h.Logger.Info("OAuth token obtained successfully", zap.String("AccessToken", redactedAccessToken), zap.Duration("ExpiresIn", expiresIn), zap.Time("ExpirationTime", expirationTime))
+	redactedAccessToken := redact.RedactSensitiveHeaderData(c.config.HideSensitiveData, "AccessToken", oauthResp.AccessToken)
+	c.Logger.Info("OAuth token obtained successfully", zap.String("AccessToken", redactedAccessToken), zap.Duration("ExpiresIn", expiresIn), zap.Time("ExpirationTime", expirationTime))
 
-	h.Token = oauthResp.AccessToken
-	h.Expires = expirationTime
+	c.AuthToken = oauthResp.AccessToken
+	c.AuthTokenExpiry = expirationTime
 
 	return nil
 }

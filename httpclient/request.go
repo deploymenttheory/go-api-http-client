@@ -242,29 +242,29 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	}
 
 	// Acquire a concurrency permit to control the number of concurrent requests.
-	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyPermit(ctx)
+	ctx, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
 	if err != nil {
 		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
 	}
 
 	// Ensure the concurrency permit is released after the function exits.
 	defer func() {
-		c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
+		c.Concurrency.ReleaseConcurrencyPermit(requestID)
 	}()
 
 	// Increment the total request counter within the ConcurrencyHandler's metrics.
-	c.ConcurrencyHandler.Metrics.Lock.Lock()
-	c.ConcurrencyHandler.Metrics.TotalRequests++
-	c.ConcurrencyHandler.Metrics.Lock.Unlock()
+	c.Concurrency.Metrics.Lock.Lock()
+	c.Concurrency.Metrics.TotalRequests++
+	c.Concurrency.Metrics.Lock.Unlock()
 
 	// Marshal the request data based on the provided api handler
-	requestData, err := c.APIHandler.MarshalRequest(body, method, endpoint, log)
+	requestData, err := c.API.MarshalRequest(body, method, endpoint, log)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct the full URL for the API endpoint.
-	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
+	url := c.API.ConstructAPIResourceEndpoint(endpoint, log)
 
 	// Create the HTTP request and apply custom cookies and headers.
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
@@ -274,7 +274,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	ApplyCustomCookies(req, c.config.CustomCookies, log)
 
-	headerHandler := NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler := NewHeaderHandler(req, c.Logger, c.API, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.config.HideSensitiveData)
 

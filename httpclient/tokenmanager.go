@@ -1,5 +1,5 @@
 // authenticationhandler/tokenmanager.go
-package authenticationhandler
+package httpclient
 
 import (
 	"fmt"
