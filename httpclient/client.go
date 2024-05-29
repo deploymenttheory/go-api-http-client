@@ -8,6 +8,7 @@ like the baseURL, authentication details, and an embedded standard HTTP client. 
 package httpclient
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -22,11 +23,13 @@ import (
 
 // Master struct/object
 type Client struct {
-	AuthMethod         string
+	// Private
+	config ClientConfig
+	http   *http.Client
+
+	// Exported
 	AuthToken          string
 	AuthTokenExpiry    time.Time
-	http               *http.Client
-	config             ClientConfig
 	Logger             logger.Logger
 	ConcurrencyHandler *concurrency.ConcurrencyHandler
 	APIHandler         APIHandler
@@ -36,6 +39,7 @@ type Client struct {
 // Options/Variables for Client
 type ClientConfig struct {
 	// Auth
+	AuthMethod        string `json:"AuthMethod,omitempty"`
 	BasicAuthUsername string `json:"Username,omitempty"`
 	BasicAuthPassword string `json:"Password,omitempty"`
 	ClientID          string `json:"ClientID,omitempty"`
@@ -83,6 +87,13 @@ type EnvironmentConfig struct {
 // BuildClient creates a new HTTP client with the provided configuration.
 func BuildClient(config ClientConfig) (*Client, error) {
 
+	// region validation
+	err := validateClientConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("invalid configuration: %v", err)
+	}
+	// endregion
+
 	//region Logging
 
 	parsedLogLevel := logger.ParseLogLevelFromString(config.LogLevel)
@@ -108,16 +119,9 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	//region Auth
 
-	// Determine the authentication method using the helper function
-	authMethod, err := GetAuthMethod(config.Auth)
-	if err != nil {
-		log.Error("Failed to determine authentication method", zap.Error(err))
-		return nil, err
-	}
-
 	// Initialize AuthTokenHandler
 	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     config.basicAuthUsername,
+		Username:     config.BasicAuthUsername,
 		Password:     config.basicAuthPassword,
 		ClientID:     config.clientID,
 		ClientSecret: config.clientSecret,
