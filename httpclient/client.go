@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// region main
 // Master struct/object
 type Client struct {
 	AuthMethod         string
@@ -34,23 +33,26 @@ type Client struct {
 	AuthTokenHandler   *authenticationhandler.AuthTokenHandler
 }
 
-//endregion
-
-// region clientconfig
-
-// Setup Options for Client
+// Options/Variables for Client
 type ClientConfig struct {
-	BasicAuthUsername         string               `json:"Username,omitempty"`
-	BasicAuthPassword         string               `json:"Password,omitempty"`
-	ClientID                  string               `json:"ClientID,omitempty"`
-	ClientSecret              string               `json:"ClientSecret,omitempty"`
-	LogLevel                  string               // Tiered logging level.
-	LogOutputFormat           string               // Output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
-	LogConsoleSeparator       string               // Separator in console output format.
-	LogExportPath             string               // Path to output logs to.
-	HideSensitiveData         bool                 // Whether sensitive fields should be hidden in logs.
-	EnableCookieJar           bool                 // Enable or disable cookie jar
-	CustomCookies             map[string]string    `json:"CustomCookies,omitempty"` // Key-value pairs for setting specific cookies
+	// Auth
+	basicAuthUsername string `json:"Username,omitempty"`
+	basicAuthPassword string `json:"Password,omitempty"`
+	clientID          string `json:"ClientID,omitempty"`
+	clientSecret      string `json:"ClientSecret,omitempty"`
+
+	// Log
+	LogLevel            string // Tiered logging level.
+	LogOutputFormat     string // Output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
+	LogConsoleSeparator string // Separator in console output format.
+	LogExportPath       string // Path to output logs to.
+	HideSensitiveData   bool   // Whether sensitive fields should be hidden in logs.
+
+	// Cookies
+	CookieJar     bool              // Enable or disable cookie jar
+	CustomCookies map[string]string `json:"CustomCookies,omitempty"` // Key-value pairs for setting specific cookies
+
+	// Misc
 	MaxRetryAttempts          int                  // Maximum number of retry request attempts for retryable HTTP methods.
 	EnableDynamicRateLimiting bool                 // Whether dynamic rate limiting should be enabled.
 	MaxConcurrentRequests     int                  // Maximum number of concurrent requests allowed.
@@ -59,11 +61,10 @@ type ClientConfig struct {
 	TotalRetryDuration        helpers.JSONDuration // Total duration to attempt retries
 	FollowRedirects           bool                 // Enable or disable following redirects
 	MaxRedirects              int                  // Maximum number of redirects to follow
-	////////
+
+	// TODO env
 	Environment EnvironmentConfig
 }
-
-//endregion
 
 // region envconfig
 
@@ -83,8 +84,8 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	//region Logging
 	// I'm not going down this rabbit hole yet.
-	parsedLogLevel := logger.ParseLogLevelFromString(config.ClientOptions.Logging.LogLevel)
-	log := logger.BuildLogger(parsedLogLevel, config.ClientOptions.Logging.LogOutputFormat, config.ClientOptions.Logging.LogConsoleSeparator, config.ClientOptions.Logging.LogExportPath)
+	parsedLogLevel := logger.ParseLogLevelFromString(config.LogLevel)
+	log := logger.BuildLogger(parsedLogLevel, config.LogOutputFormat, config.LogConsoleSeparator, config.LogExportPath)
 	log.SetLevel(parsedLogLevel)
 
 	//endregion
@@ -111,10 +112,10 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Initialize AuthTokenHandler
 	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     config.Auth.Username,
-		Password:     config.Auth.Password,
-		ClientID:     config.Auth.ClientID,
-		ClientSecret: config.Auth.ClientSecret,
+		Username:     config.basicAuthUsername,
+		Password:     config.basicAuthPassword,
+		ClientID:     config.clientID,
+		ClientSecret: config.clientSecret,
 	}
 
 	authTokenHandler := authenticationhandler.NewAuthTokenHandler(
@@ -122,7 +123,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		authMethod,
 		clientCredentials,
 		config.Environment.InstanceName,
-		config.ClientOptions.Logging.HideSensitiveData,
+		config.HideSensitiveData,
 	)
 
 	//endregion
@@ -133,7 +134,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Initialize the internal HTTP client
 	httpClient := &http.Client{
-		Timeout: config.ClientOptions.Timeout.CustomTimeout.Duration(),
+		Timeout: config.CustomTimeout.Duration(),
 	}
 
 	//endregion
@@ -151,7 +152,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	//region Redirect?
 
 	// Conditionally setup redirect handling
-	if err := redirecthandler.SetupRedirectHandler(httpClient, config.ClientOptions.Redirect.FollowRedirects, config.ClientOptions.Redirect.MaxRedirects, log); err != nil {
+	if err := redirecthandler.SetupRedirectHandler(httpClient, config.FollowRedirects, config.MaxRedirects, log); err != nil {
 		log.Error("Failed to set up redirect handler", zap.Error(err))
 		return nil, err
 	}
@@ -165,7 +166,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Initialize the ConcurrencyHandler with the newly created ConcurrencyMetrics
 	concurrencyHandler := concurrency.NewConcurrencyHandler(
-		config.ClientOptions.Concurrency.MaxConcurrentRequests,
+		config.MaxConcurrentRequests,
 		log,
 		concurrencyMetrics,
 	)

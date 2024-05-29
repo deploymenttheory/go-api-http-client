@@ -15,7 +15,7 @@ import (
 )
 
 // BasicAuthTokenAcquisition fetches and sets an authentication token using the stored basic authentication credentials.
-func (h *AuthTokenHandler) BasicAuthTokenAcquisition(apiHandler apihandler.APIHandler, httpClient *http.Client, username string, password string) error {
+func (h *AuthTokenHandler) BasicAuthTokenAcquisition(apiHandler APIHandler, httpClient *http.Client, username string, password string) error {
 
 	// Use the APIHandler's method to get the bearer token endpoint
 	bearerTokenEndpoint := apiHandler.GetBearerTokenEndpoint()

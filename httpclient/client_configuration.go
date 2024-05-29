@@ -122,59 +122,59 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 	// ClientOptions
 
 	// Logging
-	config.ClientOptions.Logging.LogLevel = getEnvOrDefault("LOG_LEVEL", config.ClientOptions.Logging.LogLevel)
-	log.Printf("LogLevel env value found and set to: %s", config.ClientOptions.Logging.LogLevel)
+	config.LogLevel = getEnvOrDefault("LOG_LEVEL", config.LogLevel)
+	log.Printf("LogLevel env value found and set to: %s", config.LogLevel)
 
-	config.ClientOptions.Logging.LogOutputFormat = getEnvOrDefault("LOG_OUTPUT_FORMAT", config.ClientOptions.Logging.LogOutputFormat)
-	log.Printf("LogOutputFormat env value found and set to: %s", config.ClientOptions.Logging.LogOutputFormat)
+	config.LogOutputFormat = getEnvOrDefault("LOG_OUTPUT_FORMAT", config.LogOutputFormat)
+	log.Printf("LogOutputFormat env value found and set to: %s", config.LogOutputFormat)
 
-	config.ClientOptions.Logging.LogConsoleSeparator = getEnvOrDefault("LOG_CONSOLE_SEPARATOR", config.ClientOptions.Logging.LogConsoleSeparator)
-	log.Printf("LogConsoleSeparator env value found and set to: %s", config.ClientOptions.Logging.LogConsoleSeparator)
+	config.LogConsoleSeparator = getEnvOrDefault("LOG_CONSOLE_SEPARATOR", config.LogConsoleSeparator)
+	log.Printf("LogConsoleSeparator env value found and set to: %s", config.LogConsoleSeparator)
 
-	config.ClientOptions.Logging.LogExportPath = getEnvOrDefault("LOG_EXPORT_PATH", config.ClientOptions.Logging.LogExportPath)
-	log.Printf("LogExportPath env value found and set to: %s", config.ClientOptions.Logging.LogExportPath)
+	config.LogExportPath = getEnvOrDefault("LOG_EXPORT_PATH", config.LogExportPath)
+	log.Printf("LogExportPath env value found and set to: %s", config.LogExportPath)
 
-	config.ClientOptions.Logging.HideSensitiveData = parseBool(getEnvOrDefault("HIDE_SENSITIVE_DATA", strconv.FormatBool(config.ClientOptions.Logging.HideSensitiveData)))
-	log.Printf("HideSensitiveData env value found and set to: %t", config.ClientOptions.Logging.HideSensitiveData)
+	config.HideSensitiveData = parseBool(getEnvOrDefault("HIDE_SENSITIVE_DATA", strconv.FormatBool(config.HideSensitiveData)))
+	log.Printf("HideSensitiveData env value found and set to: %t", config.HideSensitiveData)
 
 	// Cookies
-	config.ClientOptions.Cookies.EnableCookieJar = parseBool(getEnvOrDefault("ENABLE_COOKIE_JAR", strconv.FormatBool(config.ClientOptions.Cookies.EnableCookieJar)))
-	log.Printf("EnableCookieJar env value found and set to: %t", config.ClientOptions.Cookies.EnableCookieJar)
+	config.EnableCookieJar = parseBool(getEnvOrDefault("ENABLE_COOKIE_JAR", strconv.FormatBool(config.EnableCookieJar)))
+	log.Printf("EnableCookieJar env value found and set to: %t", config.EnableCookieJar)
 
 	// Load specific cookies from environment variable
 	cookieStr := getEnvOrDefault("CUSTOM_COOKIES", "")
 	if cookieStr != "" {
-		config.ClientOptions.Cookies.CustomCookies = parseCookiesFromString(cookieStr)
+		config.CustomCookies = parseCookiesFromString(cookieStr)
 		log.Printf("CustomCookies env value found and set")
 	}
 
 	// Retry
-	config.ClientOptions.Retry.MaxRetryAttempts = parseInt(getEnvOrDefault("MAX_RETRY_ATTEMPTS", strconv.Itoa(config.ClientOptions.Retry.MaxRetryAttempts)), DefaultMaxRetryAttempts)
-	log.Printf("MaxRetryAttempts env value found and set to: %d", config.ClientOptions.Retry.MaxRetryAttempts)
+	config.MaxRetryAttempts = parseInt(getEnvOrDefault("MAX_RETRY_ATTEMPTS", strconv.Itoa(config.MaxRetryAttempts)), DefaultMaxRetryAttempts)
+	log.Printf("MaxRetryAttempts env value found and set to: %d", config.MaxRetryAttempts)
 
-	config.ClientOptions.Retry.EnableDynamicRateLimiting = parseBool(getEnvOrDefault("ENABLE_DYNAMIC_RATE_LIMITING", strconv.FormatBool(config.ClientOptions.Retry.EnableDynamicRateLimiting)))
-	log.Printf("EnableDynamicRateLimiting env value found and set to: %t", config.ClientOptions.Retry.EnableDynamicRateLimiting)
+	config.EnableDynamicRateLimiting = parseBool(getEnvOrDefault("ENABLE_DYNAMIC_RATE_LIMITING", strconv.FormatBool(config.EnableDynamicRateLimiting)))
+	log.Printf("EnableDynamicRateLimiting env value found and set to: %t", config.EnableDynamicRateLimiting)
 
 	// Concurrency
-	config.ClientOptions.Concurrency.MaxConcurrentRequests = parseInt(getEnvOrDefault("MAX_CONCURRENT_REQUESTS", strconv.Itoa(config.ClientOptions.Concurrency.MaxConcurrentRequests)), DefaultMaxConcurrentRequests)
-	log.Printf("MaxConcurrentRequests env value found and set to: %d", config.ClientOptions.Concurrency.MaxConcurrentRequests)
+	config.MaxConcurrentRequests = parseInt(getEnvOrDefault("MAX_CONCURRENT_REQUESTS", strconv.Itoa(config.MaxConcurrentRequests)), DefaultMaxConcurrentRequests)
+	log.Printf("MaxConcurrentRequests env value found and set to: %d", config.MaxConcurrentRequests)
 
 	// timeouts
-	config.ClientOptions.Timeout.TokenRefreshBufferPeriod = helpers.ParseJSONDuration(getEnvOrDefault("TOKEN_REFRESH_BUFFER_PERIOD", config.ClientOptions.Timeout.TokenRefreshBufferPeriod.String()), DefaultTokenBufferPeriod)
-	log.Printf("TokenRefreshBufferPeriod env value found and set to: %s", config.ClientOptions.Timeout.TokenRefreshBufferPeriod)
+	config.TokenRefreshBufferPeriod = helpers.ParseJSONDuration(getEnvOrDefault("TOKEN_REFRESH_BUFFER_PERIOD", config.TokenRefreshBufferPeriod.String()), DefaultTokenBufferPeriod)
+	log.Printf("TokenRefreshBufferPeriod env value found and set to: %s", config.TokenRefreshBufferPeriod)
 
-	config.ClientOptions.Timeout.TotalRetryDuration = helpers.ParseJSONDuration(getEnvOrDefault("TOTAL_RETRY_DURATION", config.ClientOptions.Timeout.TotalRetryDuration.String()), DefaultTotalRetryDuration)
-	log.Printf("TotalRetryDuration env value found and set to: %s", config.ClientOptions.Timeout.TotalRetryDuration)
+	config.TotalRetryDuration = helpers.ParseJSONDuration(getEnvOrDefault("TOTAL_RETRY_DURATION", config.TotalRetryDuration.String()), DefaultTotalRetryDuration)
+	log.Printf("TotalRetryDuration env value found and set to: %s", config.TotalRetryDuration)
 
-	config.ClientOptions.Timeout.CustomTimeout = helpers.ParseJSONDuration(getEnvOrDefault("CUSTOM_TIMEOUT", config.ClientOptions.Timeout.CustomTimeout.String()), DefaultTimeout)
-	log.Printf("CustomTimeout env value found and set to: %s", config.ClientOptions.Timeout.CustomTimeout)
+	config.CustomTimeout = helpers.ParseJSONDuration(getEnvOrDefault("CUSTOM_TIMEOUT", config.CustomTimeout.String()), DefaultTimeout)
+	log.Printf("CustomTimeout env value found and set to: %s", config.CustomTimeout)
 
 	// Redirects
-	config.ClientOptions.Redirect.FollowRedirects = parseBool(getEnvOrDefault("FOLLOW_REDIRECTS", strconv.FormatBool(config.ClientOptions.Redirect.FollowRedirects)))
-	log.Printf("FollowRedirects env value set to: %t", config.ClientOptions.Redirect.FollowRedirects)
+	config.FollowRedirects = parseBool(getEnvOrDefault("FOLLOW_REDIRECTS", strconv.FormatBool(config.FollowRedirects)))
+	log.Printf("FollowRedirects env value set to: %t", config.FollowRedirects)
 
-	config.ClientOptions.Redirect.MaxRedirects = parseInt(getEnvOrDefault("MAX_REDIRECTS", strconv.Itoa(config.ClientOptions.Redirect.MaxRedirects)), MaxRedirects)
-	log.Printf("MaxRedirects env value set to: %d", config.ClientOptions.Redirect.MaxRedirects)
+	config.MaxRedirects = parseInt(getEnvOrDefault("MAX_REDIRECTS", strconv.Itoa(config.MaxRedirects)), MaxRedirects)
+	log.Printf("MaxRedirects env value set to: %d", config.MaxRedirects)
 
 	// Set default values if necessary
 	setLoggerDefaultValues(config)
@@ -203,13 +203,13 @@ func validateMandatoryConfiguration(config *ClientConfig) error {
 	}
 
 	// Check for mandatory fields related to the client options
-	if config.ClientOptions.Logging.LogLevel == "" {
+	if config.LogLevel == "" {
 		missingFields = append(missingFields, "ClientOptions.Logging.LogLevel")
 	}
-	if config.ClientOptions.Logging.LogOutputFormat == "" {
+	if config.LogOutputFormat == "" {
 		missingFields = append(missingFields, "ClientOptions.Logging.LogOutputFormat")
 	}
-	if config.ClientOptions.Logging.LogConsoleSeparator == "" {
+	if config.LogConsoleSeparator == "" {
 		missingFields = append(missingFields, "ClientOptions.Logging.LogConsoleSeparator")
 	}
 
@@ -233,8 +233,8 @@ func validateMandatoryConfiguration(config *ClientConfig) error {
 	}
 
 	// Default setting for MaxRedirects
-	if config.ClientOptions.Redirect.MaxRedirects <= 0 {
-		config.ClientOptions.Redirect.MaxRedirects = MaxRedirects
+	if config.MaxRedirects <= 0 {
+		config.MaxRedirects = MaxRedirects
 		log.Printf("MaxRedirects not set or invalid, set to default value: %d", MaxRedirects)
 	}
 
@@ -254,48 +254,48 @@ func validateMandatoryConfiguration(config *ClientConfig) error {
 // enhancing robustness and fault tolerance. It uses the standard log package for logging, ensuring that
 // default value settings are transparent before the zap logger is initialized.
 func setClientDefaultValues(config *ClientConfig) {
-	if config.ClientOptions.Retry.MaxRetryAttempts < 0 {
-		config.ClientOptions.Retry.MaxRetryAttempts = DefaultMaxRetryAttempts
+	if config.MaxRetryAttempts < 0 {
+		config.MaxRetryAttempts = DefaultMaxRetryAttempts
 		log.Printf("MaxRetryAttempts was negative, set to default value: %d", DefaultMaxRetryAttempts)
 	}
 
-	if config.ClientOptions.Concurrency.MaxConcurrentRequests <= 0 {
-		config.ClientOptions.Concurrency.MaxConcurrentRequests = DefaultMaxConcurrentRequests
+	if config.MaxConcurrentRequests <= 0 {
+		config.MaxConcurrentRequests = DefaultMaxConcurrentRequests
 		log.Printf("MaxConcurrentRequests was negative or zero, set to default value: %d", DefaultMaxConcurrentRequests)
 	}
 
-	if config.ClientOptions.Timeout.TokenRefreshBufferPeriod < 0 {
-		config.ClientOptions.Timeout.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
+	if config.TokenRefreshBufferPeriod < 0 {
+		config.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
 		log.Printf("TokenRefreshBufferPeriod was negative, set to default value: %s", DefaultTokenBufferPeriod)
 	}
 
-	if config.ClientOptions.Timeout.TotalRetryDuration <= 0 {
-		config.ClientOptions.Timeout.TotalRetryDuration = DefaultTotalRetryDuration
+	if config.TotalRetryDuration <= 0 {
+		config.TotalRetryDuration = DefaultTotalRetryDuration
 		log.Printf("TotalRetryDuration was negative or zero, set to default value: %s", DefaultTotalRetryDuration)
 	}
 
-	if config.ClientOptions.Timeout.TokenRefreshBufferPeriod == 0 {
-		config.ClientOptions.Timeout.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
+	if config.TokenRefreshBufferPeriod == 0 {
+		config.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
 		log.Printf("TokenRefreshBufferPeriod not set, set to default value: %s", DefaultTokenBufferPeriod)
 	}
 
-	if config.ClientOptions.Timeout.TotalRetryDuration == 0 {
-		config.ClientOptions.Timeout.TotalRetryDuration = DefaultTotalRetryDuration
+	if config.TotalRetryDuration == 0 {
+		config.TotalRetryDuration = DefaultTotalRetryDuration
 		log.Printf("TotalRetryDuration not set, set to default value: %s", DefaultTotalRetryDuration)
 	}
 
-	if config.ClientOptions.Timeout.CustomTimeout == 0 {
-		config.ClientOptions.Timeout.CustomTimeout = DefaultTimeout
+	if config.CustomTimeout == 0 {
+		config.CustomTimeout = DefaultTimeout
 		log.Printf("CustomTimeout not set, set to default value: %s", DefaultTimeout)
 	}
 
-	if !config.ClientOptions.Redirect.FollowRedirects {
-		config.ClientOptions.Redirect.FollowRedirects = FollowRedirects
+	if !config.FollowRedirects {
+		config.FollowRedirects = FollowRedirects
 		log.Printf("FollowRedirects not set, set to default value: %t", FollowRedirects)
 	}
 
-	if config.ClientOptions.Redirect.MaxRedirects <= 0 {
-		config.ClientOptions.Redirect.MaxRedirects = MaxRedirects
+	if config.MaxRedirects <= 0 {
+		config.MaxRedirects = MaxRedirects
 		log.Printf("MaxRedirects not set or invalid, set to default value: %d", MaxRedirects)
 	}
 
@@ -343,8 +343,8 @@ func parseDuration(value string, defaultVal time.Duration) time.Duration {
 // or not set. It also logs each default value being set.
 func setLoggerDefaultValues(config *ClientConfig) {
 	// Set default value if none is provided
-	if config.ClientOptions.Logging.LogConsoleSeparator == "" {
-		config.ClientOptions.Logging.LogConsoleSeparator = ","
+	if config.LogConsoleSeparator == "" {
+		config.LogConsoleSeparator = ","
 		log.Println("LogConsoleSeparator not set, set to default value: ,")
 	}
 
