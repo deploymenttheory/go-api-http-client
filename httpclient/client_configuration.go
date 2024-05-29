@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -33,48 +32,24 @@ const (
 // This function opens the specified configuration file, reads its content, and unmarshals the JSON data
 // into the ClientConfig struct. It's designed to initialize the client configuration with values
 // from a file, complementing or overriding defaults and environment variable settings.
-func LoadConfigFromFile(filePath string) (*ClientConfig, error) {
-	// Clean up the file path to prevent directory traversal
-	cleanPath := filepath.Clean(filePath)
+func LoadConfigFromFile(filepath string) (*ClientConfig, error) {
 
-	// Resolve the cleanPath to an absolute path to ensure it resolves any symbolic links
-	absPath, err := filepath.EvalSymlinks(cleanPath)
+	filepath, err := validateFilePath(filepath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to resolve the absolute path of the configuration file: %s, error: %w", filePath, err)
+		return nil, fmt.Errorf("failed to clean/validate filepath (%s): %v", filepath, err)
 	}
 
-	// Check for suspicious patterns in the resolved path
-	if strings.Contains(absPath, "..") {
-		return nil, fmt.Errorf("invalid path, path traversal patterns detected: %s", filePath)
-	}
-
-	// Ensure the file has the correct extension
-	if filepath.Ext(absPath) != ConfigFileExtension {
-		return nil, fmt.Errorf("invalid file extension for configuration file: %s, expected .json", filePath)
-	}
-
-	// Read the entire file
-	fileBytes, err := os.ReadFile(absPath)
+	fileBytes, err := os.ReadFile(filepath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the configuration file: %s, error: %w", filePath, err)
+		return nil, fmt.Errorf("failed to read the configuration file: %s, error: %w", filepath, err)
 	}
 
-	// Initialize an instance of ClientConfig
 	var config ClientConfig
-
-	// Unmarshal the file content into the ClientConfig struct
 	if err := json.Unmarshal(fileBytes, &config); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal the configuration file: %s, error: %w", filePath, err)
+		return nil, fmt.Errorf("failed to unmarshal the configuration file: %s, error: %w", filepath, err)
 	}
 
-	log.Printf("Configuration successfully loaded from file: %s", filePath)
-
-	// Set default values if necessary and validate the configuration
-	setLoggerDefaultValues(&config)
-	setClientDefaultValues(&config)
-	if err := validateMandatoryConfiguration(&config); err != nil {
-		return nil, fmt.Errorf("configuration validation failed: %w", err)
-	}
+	// TODO Set default values if necessary and validate the configuration
 
 	return &config, nil
 }
@@ -191,117 +166,12 @@ func LoadConfigFromEnv(config *ClientConfig) (*ClientConfig, error) {
 // validateMandatoryConfiguration checks if any essential configuration fields are missing,
 // and returns an error with details about the missing configurations.
 // This ensures the caller can understand what specific configurations need attention.
-func validateMandatoryConfiguration(config *ClientConfig) error {
-	var missingFields []string
-
-	// Check for mandatory fields related to the environment
-	if config.Environment.InstanceName == "" {
-		missingFields = append(missingFields, "Environment.InstanceName")
-	}
-	if config.Environment.APIType == "" {
-		missingFields = append(missingFields, "Environment.APIType")
-	}
-
-	// Check for mandatory fields related to the client options
-	if config.LogLevel == "" {
-		missingFields = append(missingFields, "ClientOptions.Logging.LogLevel")
-	}
-	if config.LogOutputFormat == "" {
-		missingFields = append(missingFields, "ClientOptions.Logging.LogOutputFormat")
-	}
-	if config.LogConsoleSeparator == "" {
-		missingFields = append(missingFields, "ClientOptions.Logging.LogConsoleSeparator")
-	}
-
-	// Check for either OAuth credentials pair or Username and Password pair
-	usingOAuth := config.Auth.ClientID != "" && config.Auth.ClientSecret != ""
-	usingBasicAuth := config.Auth.Username != "" && config.Auth.Password != ""
-
-	if !(usingOAuth || usingBasicAuth) {
-		if config.Auth.ClientID == "" {
-			missingFields = append(missingFields, "Auth.ClientID")
-		}
-		if config.Auth.ClientSecret == "" {
-			missingFields = append(missingFields, "Auth.ClientSecret")
-		}
-		if config.Auth.Username == "" {
-			missingFields = append(missingFields, "Auth.Username")
-		}
-		if config.Auth.Password == "" {
-			missingFields = append(missingFields, "Auth.Password")
-		}
-	}
-
-	// Default setting for MaxRedirects
-	if config.MaxRedirects <= 0 {
-		config.MaxRedirects = MaxRedirects
-		log.Printf("MaxRedirects not set or invalid, set to default value: %d", MaxRedirects)
-	}
-
-	// If there are missing fields, construct and return an error message detailing what is missing
-	if len(missingFields) > 0 {
-		errorMessage := fmt.Sprintf("Mandatory configuration missing: %s. Ensure that either OAuth credentials (ClientID and ClientSecret) or Basic Auth credentials (Username and Password) are fully provided.", strings.Join(missingFields, ", "))
-		return fmt.Errorf(errorMessage)
-	}
-
-	// If no fields are missing, return nil indicating the configuration is complete
-	return nil
-}
 
 // setClientDefaultValues sets default values for the client configuration options if none are provided.
 // It checks each configuration option and sets it to the default value if it is either negative, zero,
 // or not set. This function ensures that the configuration adheres to expected minimums or defaults,
 // enhancing robustness and fault tolerance. It uses the standard log package for logging, ensuring that
 // default value settings are transparent before the zap logger is initialized.
-func setClientDefaultValues(config *ClientConfig) {
-	if config.MaxRetryAttempts < 0 {
-		config.MaxRetryAttempts = DefaultMaxRetryAttempts
-		log.Printf("MaxRetryAttempts was negative, set to default value: %d", DefaultMaxRetryAttempts)
-	}
-
-	if config.MaxConcurrentRequests <= 0 {
-		config.MaxConcurrentRequests = DefaultMaxConcurrentRequests
-		log.Printf("MaxConcurrentRequests was negative or zero, set to default value: %d", DefaultMaxConcurrentRequests)
-	}
-
-	if config.TokenRefreshBufferPeriod < 0 {
-		config.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
-		log.Printf("TokenRefreshBufferPeriod was negative, set to default value: %s", DefaultTokenBufferPeriod)
-	}
-
-	if config.TotalRetryDuration <= 0 {
-		config.TotalRetryDuration = DefaultTotalRetryDuration
-		log.Printf("TotalRetryDuration was negative or zero, set to default value: %s", DefaultTotalRetryDuration)
-	}
-
-	if config.TokenRefreshBufferPeriod == 0 {
-		config.TokenRefreshBufferPeriod = DefaultTokenBufferPeriod
-		log.Printf("TokenRefreshBufferPeriod not set, set to default value: %s", DefaultTokenBufferPeriod)
-	}
-
-	if config.TotalRetryDuration == 0 {
-		config.TotalRetryDuration = DefaultTotalRetryDuration
-		log.Printf("TotalRetryDuration not set, set to default value: %s", DefaultTotalRetryDuration)
-	}
-
-	if config.CustomTimeout == 0 {
-		config.CustomTimeout = DefaultTimeout
-		log.Printf("CustomTimeout not set, set to default value: %s", DefaultTimeout)
-	}
-
-	if !config.FollowRedirects {
-		config.FollowRedirects = FollowRedirects
-		log.Printf("FollowRedirects not set, set to default value: %t", FollowRedirects)
-	}
-
-	if config.MaxRedirects <= 0 {
-		config.MaxRedirects = MaxRedirects
-		log.Printf("MaxRedirects not set or invalid, set to default value: %d", MaxRedirects)
-	}
-
-	// Log completion of setting default values
-	log.Println("Default values set for client configuration")
-}
 
 // Helper function to get environment variable or default value
 func getEnvOrDefault(envKey string, defaultValue string) string {
@@ -336,20 +206,6 @@ func parseDuration(value string, defaultVal time.Duration) time.Duration {
 		return defaultVal
 	}
 	return result
-}
-
-// setLoggerDefaultValues sets default values for the client logger configuration options if none are provided.
-// It checks each configuration option and sets it to the default value if it is either negative, zero,
-// or not set. It also logs each default value being set.
-func setLoggerDefaultValues(config *ClientConfig) {
-	// Set default value if none is provided
-	if config.LogConsoleSeparator == "" {
-		config.LogConsoleSeparator = ","
-		log.Println("LogConsoleSeparator not set, set to default value: ,")
-	}
-
-	// Log completion of setting default values
-	log.Println("Default values set for logger configuration")
 }
 
 // parseCookiesFromString parses a semi-colon separated string of key=value pairs into a map.

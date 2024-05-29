@@ -36,31 +36,32 @@ type Client struct {
 // Options/Variables for Client
 type ClientConfig struct {
 	// Auth
-	basicAuthUsername string `json:"Username,omitempty"`
-	basicAuthPassword string `json:"Password,omitempty"`
-	clientID          string `json:"ClientID,omitempty"`
-	clientSecret      string `json:"ClientSecret,omitempty"`
+	BasicAuthUsername string `json:"Username,omitempty"`
+	BasicAuthPassword string `json:"Password,omitempty"`
+	ClientID          string `json:"ClientID,omitempty"`
+	ClientSecret      string `json:"ClientSecret,omitempty"`
 
 	// Log
-	LogLevel            string // Tiered logging level.
+	LogLevel            string
 	LogOutputFormat     string // Output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
-	LogConsoleSeparator string // Separator in console output format.
-	LogExportPath       string // Path to output logs to.
-	HideSensitiveData   bool   // Whether sensitive fields should be hidden in logs.
+	LogConsoleSeparator string
+	ExportLogs          bool
+	LogExportPath       string
+	HideSensitiveData   bool
 
 	// Cookies
 	CookieJar     bool              // Enable or disable cookie jar
 	CustomCookies map[string]string `json:"CustomCookies,omitempty"` // Key-value pairs for setting specific cookies
 
 	// Misc
-	MaxRetryAttempts          int                  // Maximum number of retry request attempts for retryable HTTP methods.
-	EnableDynamicRateLimiting bool                 // Whether dynamic rate limiting should be enabled.
-	MaxConcurrentRequests     int                  // Maximum number of concurrent requests allowed.
-	CustomTimeout             helpers.JSONDuration // Custom timeout for the HTTP client
-	TokenRefreshBufferPeriod  helpers.JSONDuration // Buffer period before token expiry to attempt token refresh
-	TotalRetryDuration        helpers.JSONDuration // Total duration to attempt retries
-	FollowRedirects           bool                 // Enable or disable following redirects
-	MaxRedirects              int                  // Maximum number of redirects to follow
+	MaxRetryAttempts          int
+	EnableDynamicRateLimiting bool
+	MaxConcurrentRequests     int
+	CustomTimeout             helpers.JSONDuration
+	TokenRefreshBufferPeriod  helpers.JSONDuration
+	TotalRetryDuration        helpers.JSONDuration
+	FollowRedirects           bool
+	MaxRedirects              int
 
 	// TODO env
 	Environment EnvironmentConfig
