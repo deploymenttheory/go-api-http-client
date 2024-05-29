@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
-	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/httpmethod"
 	"github.com/deploymenttheory/go-api-http-client/ratehandler"
 	"github.com/deploymenttheory/go-api-http-client/response"
@@ -275,7 +274,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	ApplyCustomCookies(req, c.config.CustomCookies, log)
 
-	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler := NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.config.HideSensitiveData)
 
@@ -294,7 +293,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	duration := time.Since(startTime)
 	c.ConcurrencyHandler.EvaluateAndAdjustConcurrency(resp, duration)
 	log.LogCookies("incoming", req, method, endpoint)
-	headers.CheckDeprecationHeader(resp, log)
+	CheckDeprecationHeader(resp, log)
 
 	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
 

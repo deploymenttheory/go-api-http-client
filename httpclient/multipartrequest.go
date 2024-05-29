@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
-	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"go.uber.org/zap"
 )
@@ -71,7 +70,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 
 	// Initialize HeaderManager
 	//log.Debug("Setting Authorization header with token", zap.String("Token", c.Token))
-	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler := NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 
 	// Use HeaderManager to set headers
 	headerHandler.SetContentType(contentType)

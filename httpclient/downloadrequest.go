@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
-	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"go.uber.org/zap"
 )
@@ -60,7 +59,7 @@ func (client *Client) DoDownloadRequest(method, endpoint string, out io.Writer) 
 	}
 
 	// Initialize HeaderManager
-	headerHandler := headers.NewHeaderHandler(req, client.Logger, client.APIHandler, client.AuthTokenHandler)
+	headerHandler := NewHeaderHandler(req, client.Logger, client.APIHandler, client.AuthTokenHandler)
 
 	// Use HeaderManager to set headers
 	headerHandler.SetRequestHeaders(endpoint)

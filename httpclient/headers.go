@@ -1,12 +1,11 @@
 // headers/headers.go
-package headers
+package httpclient
 
 import (
 	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/deploymenttheory/go-api-http-client/apiintegrations/apihandler"
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/headers/redact"
 	"github.com/deploymenttheory/go-api-http-client/version"
@@ -19,12 +18,12 @@ import (
 type HeaderHandler struct {
 	req              *http.Request                           // The http.Request for which headers are being managed
 	log              logger.Logger                           // The logger to use for logging headers
-	apiHandler       apihandler.APIHandler                   // The APIHandler to use for retrieving standard headers
+	apiHandler       APIHandler                              // The APIHandler to use for retrieving standard headers
 	authTokenHandler *authenticationhandler.AuthTokenHandler // The token to use for setting the Authorization header
 }
 
 // NewHeaderHandler creates a new instance of HeaderHandler for a given http.Request, logger, and APIHandler.
-func NewHeaderHandler(req *http.Request, log logger.Logger, apiHandler apihandler.APIHandler, authTokenHandler *authenticationhandler.AuthTokenHandler) *HeaderHandler {
+func NewHeaderHandler(req *http.Request, log logger.Logger, apiHandler APIHandler, authTokenHandler *authenticationhandler.AuthTokenHandler) *HeaderHandler {
 	return &HeaderHandler{
 		req:              req,
 		log:              log,

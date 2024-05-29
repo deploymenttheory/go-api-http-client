@@ -1,5 +1,5 @@
 // helpers/helpers.go
-package helpers
+package httpclient
 
 import (
 	"fmt"
