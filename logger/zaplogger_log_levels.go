@@ -5,32 +5,17 @@ import (
 	"go.uber.org/zap"
 )
 
-// LogLevel represents the level of logging. Higher values denote more severe log messages.
 type LogLevel int
 
 const (
-	// LogLevelDebug is for messages that are useful during software debugging.
-	LogLevelDebug LogLevel = -1 // Zap's DEBUG level
-
-	// LogLevelInfo is for informational messages, indicating normal operation.
-	LogLevelInfo LogLevel = 0 // Zap's INFO level
-
-	// LogLevelWarn is for messages that highlight potential issues in the system.
-	LogLevelWarn LogLevel = 1 // Zap's WARN level
-
-	// LogLevelError is for messages that highlight errors in the application's execution.
-	LogLevelError LogLevel = 2 // Zap's ERROR level
-
-	// LogLevelDPanic is for severe error conditions that are actionable in development.
-	LogLevelDPanic LogLevel = 3 // Zap's DPANIC level
-
-	// LogLevelPanic is for severe error conditions that should cause the program to panic.
-	LogLevelPanic LogLevel = 4 // Zap's PANIC level
-
-	// LogLevelFatal is for errors that require immediate program termination.
-	LogLevelFatal LogLevel = 5 // Zap's FATAL level
-
-	LogLevelNone = 0
+	LogLevelDebug  LogLevel = -1
+	LogLevelInfo   LogLevel = 0
+	LogLevelWarn   LogLevel = 1
+	LogLevelError  LogLevel = 2
+	LogLevelDPanic LogLevel = 3
+	LogLevelPanic  LogLevel = 4
+	LogLevelFatal  LogLevel = 5
+	LogLevelNone            = 0
 )
 
 // ParseLogLevelFromString takes a string representation of the log level and returns the corresponding LogLevel.

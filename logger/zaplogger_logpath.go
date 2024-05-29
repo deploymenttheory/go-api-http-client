@@ -12,7 +12,8 @@ import (
 // If the path is a directory, it appends a timestamp-based filename.
 // If the path includes a filename, it checks for the existence of the file.
 // If no path is provided, it defaults to creating a log file in the current directory with a timestamp-based name.
-func EnsureLogFilePath(logPath string) (string, error) {
+// TODO refactor this it's very confusing.
+func GetLogFilepath(logPath string) (string, error) {
 	if logPath == "" {
 		// Default to the current directory with a timestamp-based filename if no path is provided
 		logPath = filepath.Join(".", "log_"+time.Now().Format("20060102_150405")+".log")
@@ -32,6 +33,7 @@ func EnsureLogFilePath(logPath string) (string, error) {
 	// Ensure the directory exists
 	dir := filepath.Dir(logPath)
 
+	// TODO does this work for every OS?
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return "", err
 	}
