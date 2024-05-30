@@ -122,9 +122,11 @@ func validateClientConfig(config ClientConfig) error {
 	// bool
 
 	// Log Export Path
-	_, err = validateFilePath(config.LogExportPath)
-	if err != nil {
-		return err
+	if config.ExportLogs {
+		_, err = validateFilePath(config.LogExportPath)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Hide Sensitive Data
