@@ -30,7 +30,7 @@ func validateFilePath(path string) (string, error) {
 
 func validateValidClientID(clientID string) error {
 	uuidRegex := `^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`
-	if !regexp.MustCompile(uuidRegex).MatchString(clientID) {
+	if regexp.MustCompile(uuidRegex).MatchString(clientID) {
 		return nil
 	}
 	return errors.New("clientID failed regex check")
