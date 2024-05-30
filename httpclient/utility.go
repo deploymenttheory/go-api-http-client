@@ -38,19 +38,19 @@ func validateValidClientID(clientID string) error {
 
 func validateClientSecret(clientSecret string) error {
 	if len(clientSecret) < 16 {
-		return errors.New("Client secret must be at least 16 characters long.")
+		return errors.New("client secret must be at least 16 characters long.")
 	}
 
 	if matched, _ := regexp.MatchString(`[a-z]`, clientSecret); !matched {
-		return errors.New("Client secret must contain at least one lowercase letter.")
+		return errors.New("client secret must contain at least one lowercase letter.")
 	}
 
 	if matched, _ := regexp.MatchString(`[A-Z]`, clientSecret); !matched {
-		return errors.New("Client secret must contain at least one uppercase letter.")
+		return errors.New("client secret must contain at least one uppercase letter.")
 	}
 
 	if matched, _ := regexp.MatchString(`\d`, clientSecret); !matched {
-		return errors.New("Client secret must contain at least one digit.")
+		return errors.New("client secret must contain at least one digit.")
 	}
 
 	return nil

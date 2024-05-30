@@ -94,7 +94,7 @@ func validateClientConfig(config ClientConfig) error {
 
 	// Level
 	validLogLevels := []string{
-		"LogLeveDebug",
+		"LogLevelDebug",
 		"LogLevelInfo",
 		"LogLevelWarn",
 		"LogLevelError",
