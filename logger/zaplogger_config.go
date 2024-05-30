@@ -15,6 +15,8 @@ func BuildLogger(logLevel LogLevel, encoding string, logConsoleSeparator string,
 
 	if encoding == "" {
 		encoding = "console"
+	} else if encoding == "pretty" {
+		encoding = "console"
 	}
 
 	logFilepath, err := GetLogFilepath(logFilepath)
