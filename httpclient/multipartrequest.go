@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"net/http"
 
-	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"go.uber.org/zap"
 )
@@ -40,27 +39,19 @@ import (
 func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]string, files map[string]string, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
-	// Auth Token validation check
-	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     c.config.BasicAuthUsername,
-		Password:     c.config.BasicAuthPassword,
-		ClientID:     c.config.ClientID,
-		ClientSecret: c.config.ClientSecret,
-	}
-
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.http, clientCredentials, c.config.TokenRefreshBufferPeriod)
+	valid, err := c.CheckAndRefreshAuthToken()
 	if err != nil || !valid {
 		return nil, err
 	}
 
 	// Marshal the multipart form data
-	requestData, contentType, err := c.APIHandler.MarshalMultipartRequest(fields, files, log)
+	requestData, _, err := c.API.MarshalMultipartRequest(fields, files, log)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
+	url := c.API.ConstructAPIResourceEndpoint(endpoint, log)
 
 	// Create the request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
@@ -68,14 +59,10 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 		return nil, err
 	}
 
-	// Initialize HeaderManager
-	//log.Debug("Setting Authorization header with token", zap.String("Token", c.Token))
-	headerHandler := NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
-
 	// Use HeaderManager to set headers
-	headerHandler.SetContentType(contentType)
-	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.config.HideSensitiveData)
+	// headerHandler.SetContentType(contentType)
+	// headerHandler.SetRequestHeaders(endpoint)
+	// headerHandler.LogHeaders(c.config.HideSensitiveData)
 
 	// Execute the request
 	resp, err := c.http.Do(req)
