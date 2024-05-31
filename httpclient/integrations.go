@@ -9,7 +9,7 @@ import (
 
 // APIHandler is an interface for encoding, decoding, and implenting contexual api functions for different API implementations.
 // It encapsulates behavior for encoding and decoding requests and responses.
-type APIHandler interface {
+type APIIntegration interface {
 	// Auth Endpoints
 	GetBearerAuthEndpoint(log logger.Logger) string
 	GetOAuthEndpoint(log logger.Logger) string
@@ -42,4 +42,13 @@ type APIHandler interface {
 type TokenResponse struct {
 	Token   string    `json:"token"`
 	Expires time.Time `json:"expires"`
+}
+
+type AuthInterface interface {
+	TokenExists() bool
+	TokenExpired() bool
+	TokenInBuffer() bool
+	GetNewToken() (string, string, error)
+	KeepAlive() (string, string, error)
+	Descriptor() string
 }

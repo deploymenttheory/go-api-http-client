@@ -13,18 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// HeaderHandler is responsible for managing and setting headers on HTTP requests.
-
-// NewHeaderHandler creates a new instance of HeaderHandler for a given http.Request, logger, and APIHandler.
-// func NewHeaderHandler(req *http.Request, log logger.Logger, apiHandler APIHandler, authTokenHandler *authenticationhandler.AuthTokenHandler) *HeaderHandler {
-// 	return &HeaderHandler{
-// 		req:              req,
-// 		log:              log,
-// 		apiHandler:       apiHandler,
-// 		authTokenHandler: authTokenHandler,
-// 	}
-// }
-
 // SetAuthorization sets the Authorization header for the request.
 func (c *Client) SetAuthorizationHeader(req *http.Request) {
 	token := c.AuthToken

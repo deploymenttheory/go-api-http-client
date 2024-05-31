@@ -25,14 +25,15 @@ type Client struct {
 	// Private
 	config ClientConfig
 	http   *http.Client
+	lock   sync.Mutex
 
 	// Exported
-	lock            sync.Mutex
 	AuthToken       string
 	AuthTokenExpiry time.Time
 	Logger          logger.Logger
 	Concurrency     *concurrency.ConcurrencyHandler
-	API             APIHandler
+	API             APIIntegration
+	AuthInterface   AuthInterface `json:"AuthMethod,omitempty"`
 }
 
 // Options/Variables for Client
@@ -41,7 +42,7 @@ type ClientConfig struct {
 	Handler APIHandler
 
 	// Auth
-	AuthMethod        string `json:"AuthMethod,omitempty"`
+
 	BasicAuthUsername string `json:"Username,omitempty"`
 	BasicAuthPassword string `json:"Password,omitempty"`
 	ClientID          string `json:"ClientID,omitempty"`
@@ -184,7 +185,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 		zap.String("Override Base Domain", config.Environment.OverrideBaseDomain),
 		zap.String("Tenant ID", config.Environment.TenantID),
 		zap.String("Tenant Name", config.Environment.TenantName),
-		zap.String("Authentication Method", config.AuthMethod),
+		zap.String("Authentication Method", client.AuthInterface.Descriptor()),
 		zap.String("Logging Level", config.LogLevel),
 		zap.String("Log Encoding Format", config.LogOutputFormat),
 		zap.String("Log Separator", config.LogConsoleSeparator),

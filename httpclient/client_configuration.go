@@ -106,6 +106,7 @@ func validateClientConfig(config ClientConfig) error {
 	}
 
 	// Console Format
+	// TODO migrate these strings
 	validLogFormats := []string{
 		"json",
 		"pretty",
