@@ -32,7 +32,7 @@ type Client struct {
 	AuthTokenExpiry time.Time
 	Logger          logger.Logger
 	Concurrency     *concurrency.ConcurrencyHandler
-	integration     *APIIntegration
+	Integration     *APIIntegration
 }
 
 // Options/Variables for Client

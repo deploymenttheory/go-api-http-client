@@ -4,6 +4,7 @@ package httpclient
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -226,51 +227,39 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 	log := c.Logger
 
-	valid, err := c.CheckAndRefreshAuthToken()
-	if err != nil || !valid {
+	_, err := (*c.Integration).Token()
+	if err != nil {
 		return nil, err
 	}
 
-	// Acquire a concurrency permit to control the number of concurrent requests.
+	// region concurrency
 	ctx, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
 	if err != nil {
 		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
+
 	}
 
-	// Ensure the concurrency permit is released after the function exits.
-	defer func() {
-		c.Concurrency.ReleaseConcurrencyPermit(requestID)
-	}()
+	defer c.Concurrency.ReleaseConcurrencyPermit(requestID)
 
-	// Increment the total request counter within the ConcurrencyHandler's metrics.
 	c.Concurrency.Metrics.Lock.Lock()
 	c.Concurrency.Metrics.TotalRequests++
 	c.Concurrency.Metrics.Lock.Unlock()
 
 	// Marshal the request data based on the provided api handler
-	requestData, err := (*c.integration).MarshalRequest(body, method, endpoint, log)
+	requestData, err := (*c.Integration).MarshalRequest(body, method, endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	// Construct the full URL for the API endpoint.
-	url := (*c.integration).ConstructAPIResourceEndpoint(endpoint, log)
-
-	// Create the HTTP request and apply custom cookies and headers.
+	url := fmt.Sprintf((*c.Integration).Domain(), endpoint)
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
 	if err != nil {
 		return nil, err
 	}
 
-	ApplyCustomCookies(req, c.config.CustomCookies, log)
-
-	c.SetRequestHeaders(req, endpoint)
-	c.LogHeaders(req, c.config.HideSensitiveData)
-
+	(*c.Integration).SetRequestHeaders(req)
 	req = req.WithContext(ctx)
-	log.LogCookies("outgoing", req, method, endpoint)
 
-	// Execute the HTTP request and log relevant information.
 	startTime := time.Now()
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -278,7 +267,6 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 		return nil, err
 	}
 
-	// Adjust concurrency settings based on the response and log the response details.
 	duration := time.Since(startTime)
 	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
 	log.LogCookies("incoming", req, method, endpoint)

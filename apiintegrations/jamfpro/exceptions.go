@@ -24,7 +24,7 @@ var configMap ConfigMap
 
 // Embedded Resources
 //
-//go:embed jamfpro_api_exceptions_configuration.json
+//go:embed exception_config.json
 var jamfpro_api_exceptions_configuration []byte
 
 // init is invoked automatically on package initialization and is responsible for

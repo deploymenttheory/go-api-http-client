@@ -4,7 +4,6 @@ package jamfpro
 import (
 	"strings"
 
-	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
@@ -16,7 +15,7 @@ import (
 // - For url endpoints starting with "/api", it defaults to "application/json" for the JamfPro API.
 // If the endpoint does not match any of the predefined patterns, "application/json" is used as a fallback.
 // This method logs the decision process at various stages for debugging purposes.
-func (j *JamfAPIHandler) GetContentTypeHeader(endpoint string, log logger.Logger) string {
+func (j *JamfAPIHandler) getContentTypeHeader(endpoint string) string {
 	// Dynamic lookup from configuration should be the first priority
 	for key, config := range configMap {
 		if strings.HasPrefix(endpoint, key) {
@@ -73,10 +72,10 @@ func (j *JamfAPIHandler) GetAcceptHeader() string {
 // GetAPIRequestHeaders returns a map of standard headers required for making API requests.
 func (j *JamfAPIHandler) GetAPIRequestHeaders(endpoint string) map[string]string {
 	headers := map[string]string{
-		"Accept":        j.GetAcceptHeader(),                        // Dynamically set based on API requirements.
-		"Content-Type":  j.GetContentTypeHeader(endpoint, j.Logger), // Dynamically set based on the endpoint.
-		"Authorization": "",                                         // To be set by the client with the actual token.
-		"User-Agent":    "go-api-http-client-jamfpro-handler",       // To be set by the client, usually with application info.
+		"Accept":        j.GetAcceptHeader(),                  // Dynamically set based on API requirements.
+		"Content-Type":  j.getContentTypeHeader(endpoint),     // Dynamically set based on the endpoint.
+		"Authorization": "",                                   // To be set by the client with the actual token.
+		"User-Agent":    "go-api-http-client-jamfpro-handler", // To be set by the client, usually with application info.
 	}
 	return headers
 }

@@ -8,9 +8,9 @@ import (
 // APIHandler is an interface for encoding, decoding, and implenting contexual api functions for different API implementations.
 // It encapsulates behavior for encoding and decoding requests and responses.
 type APIIntegration interface {
-	Token() string
-	Domain()
-	SetRequestHeaders(method string, req http.Request) http.Request
+	Token() (string, error)
+	Domain() string
+	SetRequestHeaders(req *http.Request)
 
 	// Utilities
 	MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error)
