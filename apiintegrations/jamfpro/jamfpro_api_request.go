@@ -56,6 +56,7 @@ func (j *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoin
 	return data, nil
 }
 
+// MarshalMultipartRequest creates a multipart request body for sending files and form fields in a single request.
 func (j *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -68,7 +69,7 @@ func (j *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files
 		}
 	}
 
-	// Add the files to the form data, using safeOpenFile to ensure secure file access
+	// Add the files to the form data
 	for formField, filePath := range files {
 		file, err := helpers.SafeOpenFile(filePath)
 		if err != nil {
