@@ -30,6 +30,12 @@ func (j *JamfAPIHandler) GetContentTypeHeader(endpoint string, log logger.Logger
 		}
 	}
 
+	// Special case for package upload endpoint
+	if strings.HasPrefix(endpoint, "/api/v1/packages") && strings.HasSuffix(endpoint, "/upload") {
+		j.Logger.Debug("Content-Type for package upload endpoint defaulting to multipart/form-data", zap.String("endpoint", endpoint))
+		return "multipart/form-data"
+	}
+
 	// If no specific configuration is found, then check for standard URL patterns.
 	if strings.Contains(endpoint, "/JSSResource") {
 		j.Logger.Debug("Content-Type for endpoint defaulting to XML for Classic API", zap.String("endpoint", endpoint))
