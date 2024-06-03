@@ -32,48 +32,40 @@ type Client struct {
 	AuthTokenExpiry time.Time
 	Logger          logger.Logger
 	Concurrency     *concurrency.ConcurrencyHandler
-	API             *APIIntegration
-	AuthInterface   *AuthInterface
+	integration     *APIIntegration
 }
 
 // Options/Variables for Client
 type ClientConfig struct {
-
-	// Auth
-	AuthInterface     AuthInterface
-	API               APIIntegration
-	BasicAuthUsername string
-	BasicAuthPassword string
-	ClientID          string
-	ClientSecret      string
+	Integration APIIntegration
 
 	// Log
 	LogLevel            string
 	LogOutputFormat     string // Output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
 	LogConsoleSeparator string
-	ExportLogs          bool
+	ExportLogs          *bool
 	LogExportPath       string
-	HideSensitiveData   bool
+	HideSensitiveData   *bool
 
 	// Cookies
 	CookieJarEnabled bool              // Enable or disable cookie jar
 	CustomCookies    map[string]string // Key-value pairs for setting specific cookies
 
 	// Misc
-	MaxRetryAttempts          int
-	EnableDynamicRateLimiting bool
-	MaxConcurrentRequests     int
-	CustomTimeout             time.Duration
-	TokenRefreshBufferPeriod  time.Duration
-	TotalRetryDuration        time.Duration
-	FollowRedirects           bool
-	MaxRedirects              int
+	MaxRetryAttempts          *int
+	MaxConcurrentRequests     *int
+	EnableDynamicRateLimiting *bool
+	CustomTimeout             *time.Duration
+	TokenRefreshBufferPeriod  *time.Duration
+	TotalRetryDuration        *time.Duration
+	FollowRedirects           *bool
+	MaxRedirects              *int
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
-func BuildClient(config ClientConfig) (*Client, error) {
+func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, error) {
 
-	err := validateClientConfig(config)
+	err := validateClientConfig(config, populateDefaultValues)
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
@@ -92,7 +84,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Initialize the internal HTTP client
 	httpClient := &http.Client{
-		Timeout: config.CustomTimeout,
+		Timeout: *config.CustomTimeout,
 		// Jar: cookiejar
 	}
 
@@ -103,7 +95,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	//region Redirect
 
 	// Conditionally setup redirect handling
-	if err := redirecthandler.SetupRedirectHandler(httpClient, config.FollowRedirects, config.MaxRedirects, log); err != nil {
+	if err := redirecthandler.SetupRedirectHandler(httpClient, *config.FollowRedirects, *config.MaxRedirects, log); err != nil {
 		log.Error("Failed to set up redirect handler", zap.Error(err))
 		return nil, err
 	}
@@ -119,7 +111,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Initialize the ConcurrencyHandler with the newly created ConcurrencyMetrics
 	concurrencyHandler := concurrency.NewConcurrencyHandler(
-		config.MaxConcurrentRequests,
+		*config.MaxConcurrentRequests,
 		log,
 		concurrencyMetrics,
 	)
@@ -132,12 +124,11 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
-		API:           &config.API,
-		AuthInterface: &config.AuthInterface,
-		http:          httpClient,
-		config:        config,
-		Logger:        log,
-		Concurrency:   concurrencyHandler,
+		integration: &config.Integration,
+		http:        httpClient,
+		config:      config,
+		Logger:      log,
+		Concurrency: concurrencyHandler,
 	}
 
 	//endregion
@@ -148,20 +139,20 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Log the client's configuration.
 	log.Debug("New API client initialized",
-		zap.String("Authentication Method", (*client.AuthInterface).Descriptor()),
+		zap.String("Authentication Method", (*client.integration).AuthMethodDescriptor()),
 		zap.String("Logging Level", config.LogLevel),
 		zap.String("Log Encoding Format", config.LogOutputFormat),
 		zap.String("Log Separator", config.LogConsoleSeparator),
-		zap.Bool("Hide Sensitive Data In Logs", config.HideSensitiveData),
+		zap.Bool("Hide Sensitive Data In Logs", *config.HideSensitiveData),
 		zap.Bool("Cookie Jar Enabled", config.CookieJarEnabled),
-		zap.Int("Max Retry Attempts", config.MaxRetryAttempts),
-		zap.Bool("Enable Dynamic Rate Limiting", config.EnableDynamicRateLimiting),
-		zap.Int("Max Concurrent Requests", config.MaxConcurrentRequests),
-		zap.Bool("Follow Redirects", config.FollowRedirects),
-		zap.Int("Max Redirects", config.MaxRedirects),
-		zap.Duration("Token Refresh Buffer Period", config.TokenRefreshBufferPeriod),
-		zap.Duration("Total Retry Duration", config.TotalRetryDuration),
-		zap.Duration("Custom Timeout", config.CustomTimeout),
+		zap.Int("Max Retry Attempts", *config.MaxRetryAttempts),
+		zap.Bool("Enable Dynamic Rate Limiting", *config.EnableDynamicRateLimiting),
+		zap.Int("Max Concurrent Requests", *config.MaxConcurrentRequests),
+		zap.Bool("Follow Redirects", *config.FollowRedirects),
+		zap.Int("Max Redirects", *config.MaxRedirects),
+		zap.Duration("Token Refresh Buffer Period", *config.TokenRefreshBufferPeriod),
+		zap.Duration("Total Retry Duration", *config.TotalRetryDuration),
+		zap.Duration("Custom Timeout", *config.CustomTimeout),
 	)
 
 	//endregion

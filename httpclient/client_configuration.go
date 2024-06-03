@@ -3,27 +3,27 @@
 package httpclient
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"time"
-
-	"github.com/deploymenttheory/go-api-http-client/logger"
 )
 
 const (
-	DefaultLogLevel                  = logger.LogLevelInfo
+	DefaultLogLevelString            = "LogLevelInfo"
+	DefaultLogOutputFormatString     = "pretty"
+	DefaultLogConsoleSeparator       = "	"
+	DefaultLogExportPath             = "/defaultlogs"
 	DefaultMaxRetryAttempts          = 3
-	DefaultEnableDynamicRateLimiting = true
-	DefaultMaxConcurrentRequests     = 5
-	DefaultTokenBufferPeriod         = 5 * time.Minute
+	DefaultMaxConcurrentRequests     = 1
+	DefaultExportLogs                = false
+	DefaultHideSensitiveData         = false
+	DefaultEnableDynamicRateLimiting = false
+	DefaultCustomTimeout             = 5 * time.Second
+	DefaultTokenRefreshBufferPeriod  = 2 * time.Minute
 	DefaultTotalRetryDuration        = 5 * time.Minute
-	DefaultTimeout                   = 10 * time.Second
-	FollowRedirects                  = true
-	MaxRedirects                     = 10
-	ConfigFileExtension              = ".json"
+	DefaultFollowRedirects           = false
+	DefaultMaxRedirects              = 5
 )
 
 // LoadConfigFromFile loads configuration values from a JSON file into the ClientConfig struct.
@@ -31,22 +31,8 @@ const (
 // into the ClientConfig struct. It's designed to initialize the client configuration with values
 // from a file, complementing or overriding defaults and environment variable settings.
 func LoadConfigFromFile(filepath string) (*ClientConfig, error) {
-	filepath, err := validateFilePath(filepath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to clean/validate filepath (%s): %v", filepath, err)
-	}
-
-	fileBytes, err := os.ReadFile(filepath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the configuration file: %s, error: %w", filepath, err)
-	}
-
-	var config ClientConfig
-	if err := json.Unmarshal(fileBytes, &config); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal the configuration file: %s, error: %w", filepath, err)
-	}
-
-	return &config, nil
+	// TODO this whole function
+	return nil, nil
 }
 
 func LoadConfigFromEnv() (*ClientConfig, error) {
@@ -55,37 +41,20 @@ func LoadConfigFromEnv() (*ClientConfig, error) {
 }
 
 // TODO try to get all the "valid list of x" strings out. Can't make them constants though? (and this func string)
-func validateClientConfig(config ClientConfig) error {
+func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	var err error
 
-	// region Auth
-	// Method
-	validAuthMethods := []string{"oauth2", "basic"}
-	if !slices.Contains(validAuthMethods, config.AuthMethod) {
-		return fmt.Errorf("auth method not valid: %s", config.AuthMethod)
+	if populateDefaults {
+		config, err = SetDefaultValuesClientConfig(config)
+		if err != nil {
+			return fmt.Errorf("failed to populate default values: %v", err)
+		}
 	}
 
-	// Creds per Method
-	switch config.AuthMethod {
-	case "oauth2":
-		err = validateValidClientID(config.ClientID)
-		if err != nil {
-			return err
-		}
-		err = validateClientSecret(config.ClientSecret)
-		if err != nil {
-			return err
-		}
-	case "basic":
-		err = validateUsername(config.BasicAuthUsername)
-		if err != nil {
-			return err
-		}
-
-		err = validatePassword(config.BasicAuthPassword)
-		if err != nil {
-			return err
-		}
+	// region Interfaces
+	// TODO adjust these strings to have links to documentation
+	if config.Integration == nil {
+		return errors.New("no api integration supplied, please see documentation")
 	}
 
 	// endregion
@@ -123,7 +92,7 @@ func validateClientConfig(config ClientConfig) error {
 	// bool
 
 	// Log Export Path
-	if config.ExportLogs {
+	if *config.ExportLogs {
 		_, err = validateFilePath(config.LogExportPath)
 		if err != nil {
 			return err
@@ -146,16 +115,20 @@ func validateClientConfig(config ClientConfig) error {
 	// region Misc
 
 	// Max Retry Attempts
-	if config.MaxRetryAttempts < 0 {
-		return errors.New("max retry attempts cannot be less than 0")
+	if config.MaxRetryAttempts == nil {
+		return errors.New("Max retry cannot be empty")
+	} else if *config.MaxRetryAttempts < 0 {
+		return errors.New("Max retry cannot be less than 0")
 	}
 
 	// Dynamic Rate Limiting
 	// bool
 
 	// Max Concurrent Requests
-	if config.MaxConcurrentRequests < 0 {
-		return errors.New("max concurrent requests cannot be less than 0")
+	if config.MaxConcurrentRequests == nil {
+		return errors.New("Max retry cannot be empty")
+	} else if *config.MaxConcurrentRequests < 0 {
+		return errors.New("Max retry cannot be less than 0")
 	}
 
 	// CustomTimeout
@@ -176,8 +149,8 @@ func validateClientConfig(config ClientConfig) error {
 	// bool
 
 	// MaxRedirects
-	if config.FollowRedirects {
-		if MaxRedirects < 1 {
+	if config.FollowRedirects != nil && *config.FollowRedirects {
+		if DefaultMaxRedirects < 1 {
 			return errors.New("max redirects cannot be less than 1")
 		}
 	}
@@ -185,4 +158,75 @@ func validateClientConfig(config ClientConfig) error {
 	// endregion
 
 	return nil
+}
+
+func SetDefaultValuesClientConfig(config ClientConfig) (ClientConfig, error) {
+
+	if config.LogLevel == "" {
+		config.LogLevel = DefaultLogLevelString
+	}
+
+	if config.LogOutputFormat == "" {
+		config.LogOutputFormat = DefaultLogOutputFormatString
+	}
+
+	if config.LogConsoleSeparator == "" {
+		config.LogConsoleSeparator = DefaultLogConsoleSeparator
+	}
+
+	if &config.ExportLogs == nil {
+		defaultVal := DefaultExportLogs
+		config.ExportLogs = &defaultVal
+	}
+
+	if config.LogExportPath == "" {
+		config.LogExportPath = DefaultLogExportPath
+	}
+
+	if config.HideSensitiveData == nil {
+		defaultVal := DefaultHideSensitiveData
+		config.HideSensitiveData = &defaultVal
+	}
+
+	if config.MaxRetryAttempts == nil {
+		defaultVal := DefaultMaxRetryAttempts
+		config.MaxRetryAttempts = &defaultVal
+	}
+
+	if config.MaxConcurrentRequests == nil {
+		defaultVal := DefaultMaxConcurrentRequests
+		config.MaxRetryAttempts = &defaultVal
+	}
+
+	if config.EnableDynamicRateLimiting == nil {
+		defaultVal := DefaultEnableDynamicRateLimiting
+		config.EnableDynamicRateLimiting = &defaultVal
+	}
+
+	if config.CustomTimeout == nil {
+		defaultVal := DefaultCustomTimeout
+		config.CustomTimeout = &defaultVal
+	}
+
+	if config.TokenRefreshBufferPeriod == nil {
+		defaultVal := DefaultTokenRefreshBufferPeriod
+		config.TokenRefreshBufferPeriod = &defaultVal
+	}
+
+	if config.TotalRetryDuration == nil {
+		defaultVal := DefaultTotalRetryDuration
+		config.TotalRetryDuration = &defaultVal
+	}
+
+	if config.FollowRedirects == nil {
+		defaultVal := DefaultFollowRedirects
+		config.FollowRedirects = &defaultVal
+	}
+
+	if config.MaxRedirects == nil {
+		defaultVal := DefaultMaxRedirects
+		config.MaxRedirects = &defaultVal
+	}
+
+	return config, nil
 }
