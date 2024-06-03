@@ -84,7 +84,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 
 	// Initialize the internal HTTP client
 	httpClient := &http.Client{
-		Timeout: *config.CustomTimeout,
+		Timeout: config.CustomTimeout,
 		// Jar: cookiejar
 	}
 
@@ -95,7 +95,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 	//region Redirect
 
 	// Conditionally setup redirect handling
-	if err := redirecthandler.SetupRedirectHandler(httpClient, *config.FollowRedirects, *config.MaxRedirects, log); err != nil {
+	if err := redirecthandler.SetupRedirectHandler(httpClient, config.FollowRedirects, config.MaxRedirects, log); err != nil {
 		log.Error("Failed to set up redirect handler", zap.Error(err))
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 
 	// Initialize the ConcurrencyHandler with the newly created ConcurrencyMetrics
 	concurrencyHandler := concurrency.NewConcurrencyHandler(
-		*config.MaxConcurrentRequests,
+		config.MaxConcurrentRequests,
 		log,
 		concurrencyMetrics,
 	)
@@ -143,16 +143,16 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 		zap.String("Logging Level", config.LogLevel),
 		zap.String("Log Encoding Format", config.LogOutputFormat),
 		zap.String("Log Separator", config.LogConsoleSeparator),
-		zap.Bool("Hide Sensitive Data In Logs", *config.HideSensitiveData),
+		zap.Bool("Hide Sensitive Data In Logs", config.HideSensitiveData),
 		zap.Bool("Cookie Jar Enabled", config.CookieJarEnabled),
-		zap.Int("Max Retry Attempts", *config.MaxRetryAttempts),
-		zap.Bool("Enable Dynamic Rate Limiting", *config.EnableDynamicRateLimiting),
-		zap.Int("Max Concurrent Requests", *config.MaxConcurrentRequests),
-		zap.Bool("Follow Redirects", *config.FollowRedirects),
-		zap.Int("Max Redirects", *config.MaxRedirects),
-		zap.Duration("Token Refresh Buffer Period", *config.TokenRefreshBufferPeriod),
-		zap.Duration("Total Retry Duration", *config.TotalRetryDuration),
-		zap.Duration("Custom Timeout", *config.CustomTimeout),
+		zap.Int("Max Retry Attempts", config.MaxRetryAttempts),
+		zap.Bool("Enable Dynamic Rate Limiting", config.EnableDynamicRateLimiting),
+		zap.Int("Max Concurrent Requests", config.MaxConcurrentRequests),
+		zap.Bool("Follow Redirects", config.FollowRedirects),
+		zap.Int("Max Redirects", config.MaxRedirects),
+		zap.Duration("Token Refresh Buffer Period", config.TokenRefreshBufferPeriod),
+		zap.Duration("Total Retry Duration", config.TotalRetryDuration),
+		zap.Duration("Custom Timeout", config.CustomTimeout),
 	)
 
 	//endregion

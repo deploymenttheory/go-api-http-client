@@ -108,7 +108,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 	ctx := context.Background()
-	totalRetryDeadline := time.Now().Add(*c.config.TotalRetryDuration)
+	totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
 
 	var resp *http.Response
 	var err error
@@ -148,7 +148,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 
 		if status.IsTransientError(resp) {
 			retryCount++
-			if retryCount > *c.config.MaxRetryAttempts {
+			if retryCount > c.config.MaxRetryAttempts {
 				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
 				break
 			}
