@@ -86,11 +86,15 @@ func (j *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files
 		}
 	}
 
-	// Close the writer to finish writing the multipart message
+	// set the content type for the form data
 	contentType := writer.FormDataContentType()
+
+	// Close the writer to finish writing the multipart message
 	if err := writer.Close(); err != nil {
 		return nil, "", err
 	}
+
+	log.Debug("Multipart request body", zap.String("Body", body.String()))
 
 	return body.Bytes(), contentType, nil
 }
