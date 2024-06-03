@@ -32,21 +32,20 @@ type Client struct {
 	AuthTokenExpiry time.Time
 	Logger          logger.Logger
 	Concurrency     *concurrency.ConcurrencyHandler
-	API             APIIntegration
-	AuthInterface   AuthInterface `json:"AuthMethod,omitempty"`
+	API             *APIIntegration
+	AuthInterface   *AuthInterface
 }
 
 // Options/Variables for Client
 type ClientConfig struct {
-	// Main
-	Handler APIHandler
 
 	// Auth
-
-	BasicAuthUsername string `json:"Username,omitempty"`
-	BasicAuthPassword string `json:"Password,omitempty"`
-	ClientID          string `json:"ClientID,omitempty"`
-	ClientSecret      string `json:"ClientSecret,omitempty"`
+	AuthInterface     AuthInterface
+	API               APIIntegration
+	BasicAuthUsername string
+	BasicAuthPassword string
+	ClientID          string
+	ClientSecret      string
 
 	// Log
 	LogLevel            string
@@ -58,7 +57,7 @@ type ClientConfig struct {
 
 	// Cookies
 	CookieJarEnabled bool              // Enable or disable cookie jar
-	CustomCookies    map[string]string `json:"CustomCookies,omitempty"` // Key-value pairs for setting specific cookies
+	CustomCookies    map[string]string // Key-value pairs for setting specific cookies
 
 	// Misc
 	MaxRetryAttempts          int
@@ -69,33 +68,15 @@ type ClientConfig struct {
 	TotalRetryDuration        time.Duration
 	FollowRedirects           bool
 	MaxRedirects              int
-
-	// TODO env
-	Environment EnvironmentConfig
 }
-
-// region envconfig
-
-// Struct to map environment config from JSON
-type EnvironmentConfig struct {
-	APIType            string `json:"APIType,omitempty"`            // APIType specifies the type of API integration to use // QUERY what are the types?!
-	InstanceName       string `json:"InstanceName,omitempty"`       // Website Instance name without the root domain // NOTE Jamf specific
-	OverrideBaseDomain string `json:"OverrideBaseDomain,omitempty"` // Base domain override used when the default in the api handler isn't suitable // NOTE ??
-	TenantID           string `json:"TenantID,omitempty"`           // TenantID is the unique identifier for the tenant // QUERY what tenant?
-	TenantName         string `json:"TenantName,omitempty"`         // TenantName is the name of the tenant // QUERY ?!?!
-}
-
-//endregion
 
 // BuildClient creates a new HTTP client with the provided configuration.
 func BuildClient(config ClientConfig) (*Client, error) {
 
-	// region validation
 	err := validateClientConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
-	// endregion
 
 	//region Logging
 	// TODO refactor logging. It's very confusing
@@ -105,11 +86,6 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	//endregion
 
-	//////////////////////////////////////////////////////////////////////////////////////////
-	//////////////////////////////////////////////////////////////////////////////////////////
-
-	//////////////////////////////////////////////////////////////////////////////////////////
-
 	//region HTTP
 
 	log.Info("Initializing new HTTP client with the provided configuration")
@@ -117,23 +93,14 @@ func BuildClient(config ClientConfig) (*Client, error) {
 	// Initialize the internal HTTP client
 	httpClient := &http.Client{
 		Timeout: config.CustomTimeout,
+		// Jar: cookiejar
 	}
 
 	//endregion
 
 	//////////////////////////////////////////////////////////////////////////////////////////
 
-	// region COOKIES
-
-	// Conditionally setup cookie jar
-	// if err := SetupCookieJar(httpClient, config, log); err != nil {
-	// 	log.Error("Error setting up cookie jar", zap.Error(err))
-	// 	return nil, err
-	// }
-
-	//endregion
-
-	//region Redirect?
+	//region Redirect
 
 	// Conditionally setup redirect handling
 	if err := redirecthandler.SetupRedirectHandler(httpClient, config.FollowRedirects, config.MaxRedirects, log); err != nil {
@@ -165,11 +132,12 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
-		API:         config.Handler,
-		http:        httpClient,
-		config:      config,
-		Logger:      log,
-		Concurrency: concurrencyHandler,
+		API:           &config.API,
+		AuthInterface: &config.AuthInterface,
+		http:          httpClient,
+		config:        config,
+		Logger:        log,
+		Concurrency:   concurrencyHandler,
 	}
 
 	//endregion
@@ -180,12 +148,7 @@ func BuildClient(config ClientConfig) (*Client, error) {
 
 	// Log the client's configuration.
 	log.Debug("New API client initialized",
-		zap.String("API Type", config.Environment.APIType),
-		zap.String("Instance Name", config.Environment.InstanceName),
-		zap.String("Override Base Domain", config.Environment.OverrideBaseDomain),
-		zap.String("Tenant ID", config.Environment.TenantID),
-		zap.String("Tenant Name", config.Environment.TenantName),
-		zap.String("Authentication Method", client.AuthInterface.Descriptor()),
+		zap.String("Authentication Method", (*client.AuthInterface).Descriptor()),
 		zap.String("Logging Level", config.LogLevel),
 		zap.String("Log Encoding Format", config.LogOutputFormat),
 		zap.String("Log Separator", config.LogConsoleSeparator),

@@ -16,8 +16,6 @@ import (
 // TokenResponse represents the structure of a token response from the API.
 
 func (c *Client) GetBasicToken() error {
-
-	// NOTE this must return the correct full auth enpoint, figuring out which one to return depending on client config
 	endpoint := c.API.GetBearerAuthEndpoint(c.Logger)
 
 	c.Logger.Debug("Attempting to obtain token for user", zap.String("Username", c.config.BasicAuthUsername))

@@ -30,4 +30,6 @@ func (c *Client) CheckAndRefreshAuthToken() (bool, error) {
 	// False
 	// Return Token
 
+	return false, nil
+
 }
