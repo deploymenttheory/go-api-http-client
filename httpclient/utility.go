@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const ConfigFileExtension = ".json"
+
 func validateFilePath(path string) (string, error) {
 	cleanPath := filepath.Clean(path)
 

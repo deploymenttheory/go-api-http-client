@@ -124,7 +124,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 
 	// Create a new HTTP client with the provided configuration.
 	client := &Client{
-		integration: &config.Integration,
+		Integration: &config.Integration,
 		http:        httpClient,
 		config:      config,
 		Logger:      log,
@@ -139,7 +139,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 
 	// Log the client's configuration.
 	log.Debug("New API client initialized",
-		zap.String("Authentication Method", (*client.integration).AuthMethodDescriptor()),
+		zap.String("Authentication Method", (*client.Integration).AuthMethodDescriptor()),
 		zap.String("Logging Level", config.LogLevel),
 		zap.String("Log Encoding Format", config.LogOutputFormat),
 		zap.String("Log Separator", config.LogConsoleSeparator),
