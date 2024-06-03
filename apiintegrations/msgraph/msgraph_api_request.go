@@ -28,7 +28,7 @@ func (g *GraphAPIHandler) MarshalRequest(body interface{}, method string, endpoi
 }
 
 // MarshalMultipartRequest handles multipart form data encoding with secure file handling and returns the encoded body and content type.
-func (g *GraphAPIHandler) MarshalMultipartRequest(formFields map[string]string, fileContents map[string][]byte, log *zap.Logger) ([]byte, string, string, error) {
+func (g *GraphAPIHandler) MarshalMultipartRequest(formFields map[string]string, fileContents map[string][]byte, log logger.Logger) ([]byte, string, string, error) {
 	const snippetLength = 20
 	var b bytes.Buffer
 	writer := multipart.NewWriter(&b)

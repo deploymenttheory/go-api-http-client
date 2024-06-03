@@ -55,7 +55,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Marshal the multipart form data
-	requestData, contentType, err := c.APIHandler.MarshalMultipartRequest(fields, files, log)
+	requestData, contentType, snippet, err := c.APIHandler.MarshalMultipartRequest(fields, files, log)
 	if err != nil {
 		return nil, err
 	}
@@ -70,13 +70,14 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Initialize HeaderManager
-	//log.Debug("Setting Authorization header with token", zap.String("Token", c.Token))
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 
 	// Use HeaderManager to set headers
 	headerHandler.SetContentType(contentType)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+
+	log.Debug("Multipart request details", zap.String("URL", url), zap.String("Method", method), zap.String("Snippet", snippet))
 
 	// Execute the request
 	resp, err := c.httpClient.Do(req)

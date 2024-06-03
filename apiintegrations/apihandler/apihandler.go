@@ -14,7 +14,7 @@ type APIHandler interface {
 	ConstructAPIResourceEndpoint(endpointPath string, log logger.Logger) string
 	ConstructAPIAuthEndpoint(endpointPath string, log logger.Logger) string
 	MarshalRequest(body interface{}, method string, endpoint string, log logger.Logger) ([]byte, error)
-	MarshalMultipartRequest(formFields map[string]string, fileContents map[string][]byte, log *zap.Logger) ([]byte, string, string, error)
+	MarshalMultipartRequest(formFields map[string]string, fileContents map[string][]byte, log logger.Logger) ([]byte, string, string, error)
 	GetContentTypeHeader(method string, log logger.Logger) string
 	GetAcceptHeader() string
 	GetDefaultBaseDomain() string
