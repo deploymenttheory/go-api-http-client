@@ -19,7 +19,7 @@ import (
 // - method: The HTTP method to use (e.g., POST, PUT).
 // - endpoint: The API endpoint to which the request will be sent.
 // - fields: A map of form fields and their values to include in the multipart message.
-// - files: A map of file field names to file paths that will be included as file attachments.
+// - files: A map of file field names to file content that will be included as file attachments (as byte slices).
 // - out: A pointer to a variable where the unmarshaled response will be stored.
 //
 // Returns:
@@ -38,7 +38,7 @@ import (
 //
 // Note:
 // The caller should handle closing the response body when successful.
-func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]string, files map[string]string, out interface{}) (*http.Response, error) {
+func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]string, files map[string][]byte, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
 	// Auth Token validation check
