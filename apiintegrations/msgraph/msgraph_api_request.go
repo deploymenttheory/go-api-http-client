@@ -30,16 +30,16 @@ func (g *GraphAPIHandler) MarshalRequest(body interface{}, method string, endpoi
 	return data, nil
 }
 
-// MarshalMultipartRequest encodes the request body as a multipart message for the Microsoft Graph API.
-func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, string, error) {
+// MarshalMultipartRequest handles multipart form data encoding with secure file handling and returns the encoded body and content type.
+func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error) {
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
 	// Add the simple fields to the form data
 	for field, value := range fields {
-		log.Debug("Adding field to multipart request", zap.String("Field", field), zap.String("Value", value))
 		if err := writer.WriteField(field, value); err != nil {
-			return nil, "", "", err
+			return nil, "", err
 		}
 	}
 
@@ -48,42 +48,24 @@ func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, file
 		file, err := helpers.SafeOpenFile(filePath)
 		if err != nil {
 			log.Error("Failed to open file securely", zap.String("file", filePath), zap.Error(err))
-			return nil, "", "", err
+			return nil, "", err
 		}
 		defer file.Close()
 
 		part, err := writer.CreateFormFile(formField, filepath.Base(filePath))
 		if err != nil {
-			return nil, "", "", err
+			return nil, "", err
 		}
-		log.Debug("Adding file to multipart request", zap.String("FormField", formField), zap.String("FilePath", filePath))
 		if _, err := io.Copy(part, file); err != nil {
-			return nil, "", "", err
+			return nil, "", err
 		}
 	}
 
 	// Close the writer to finish writing the multipart message
-	if err := writer.Close(); err != nil {
-		return nil, "", "", err
-	}
-
 	contentType := writer.FormDataContentType()
-	bodyBytes := body.Bytes()
-
-	// Extract the first and last parts of the body for logging
-	const logSegmentSize = 1024 // 1 KB
-	bodyLen := len(bodyBytes)
-	var logBody string
-	if bodyLen <= 2*logSegmentSize {
-		logBody = string(bodyBytes)
-	} else {
-		logBody = string(bodyBytes[:logSegmentSize]) + "..." + string(bodyBytes[bodyLen-logSegmentSize:])
+	if err := writer.Close(); err != nil {
+		return nil, "", err
 	}
 
-	// Log the boundary and a partial body for debugging
-	boundary := writer.Boundary()
-	log.Debug("Multipart boundary", zap.String("Boundary", boundary))
-	log.Debug("Multipart request body (partial)", zap.String("Body", logBody))
-
-	return bodyBytes, contentType, logBody, nil
+	return body.Bytes(), contentType, nil
 }

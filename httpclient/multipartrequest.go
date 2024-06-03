@@ -3,14 +3,10 @@ package httpclient
 
 import (
 	"bytes"
-	"io"
-	"mime/multipart"
 	"net/http"
-	"path/filepath"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/headers"
-	"github.com/deploymenttheory/go-api-http-client/helpers"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"go.uber.org/zap"
 )
@@ -58,70 +54,23 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 		return nil, err
 	}
 
-	// Create a buffer to hold the multipart form data
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// Add the simple fields to the form data
-	for field, value := range fields {
-		log.Debug("Adding field to multipart request", zap.String("Field", field), zap.String("Value", value))
-		if err := writer.WriteField(field, value); err != nil {
-			return nil, err
-		}
-	}
-
-	// Add the files to the form data
-	for formField, filePath := range files {
-		file, err := helpers.SafeOpenFile(filePath)
-		if err != nil {
-			log.Error("Failed to open file securely", zap.String("file", filePath), zap.Error(err))
-			return nil, err
-		}
-		defer file.Close()
-
-		part, err := writer.CreateFormFile(formField, filepath.Base(filePath))
-		if err != nil {
-			return nil, err
-		}
-		log.Debug("Adding file to multipart request", zap.String("FormField", formField), zap.String("FilePath", filePath))
-		if _, err := io.Copy(part, file); err != nil {
-			return nil, err
-		}
-	}
-
-	// Close the writer to finish writing the multipart message
-	if err := writer.Close(); err != nil {
+	// Marshal the multipart form data
+	requestData, contentType, err := c.APIHandler.MarshalMultipartRequest(fields, files, log)
+	if err != nil {
 		return nil, err
 	}
-
-	contentType := writer.FormDataContentType()
-	bodyBytes := body.Bytes()
-
-	// Extract the first and last parts of the body for logging
-	const logSegmentSize = 1024 // 1 KB
-	bodyLen := len(bodyBytes)
-	var logBody string
-	if bodyLen <= 2*logSegmentSize {
-		logBody = string(bodyBytes)
-	} else {
-		logBody = string(bodyBytes[:logSegmentSize]) + "..." + string(bodyBytes[bodyLen-logSegmentSize:])
-	}
-
-	// Log the boundary and a partial body for debugging
-	boundary := writer.Boundary()
-	log.Debug("Multipart boundary", zap.String("Boundary", boundary))
-	log.Debug("Multipart request body (partial)", zap.String("Body", logBody))
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
 	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
 	// Create the request
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(bodyBytes))
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
 	if err != nil {
 		return nil, err
 	}
 
 	// Initialize HeaderManager
+	//log.Debug("Setting Authorization header with token", zap.String("Token", c.Token))
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 
 	// Use HeaderManager to set headers
