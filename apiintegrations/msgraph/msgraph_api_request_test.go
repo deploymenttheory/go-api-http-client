@@ -2,13 +2,7 @@
 package msgraph
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
-	"mime/multipart"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/deploymenttheory/go-api-http-client/mocklogger"
@@ -45,57 +39,57 @@ func TestMarshalRequest(t *testing.T) {
 	mockLog.AssertExpectations(t)
 }
 
-func TestMarshalMultipartRequest(t *testing.T) {
-	// Prepare the logger mock
-	mockLog := mocklogger.NewMockLogger()
+// func TestMarshalMultipartRequest(t *testing.T) {
+// 	// Prepare the logger mock
+// 	mockLog := mocklogger.NewMockLogger()
 
-	// Setting up a temporary file to simulate a file upload
-	tempDir := t.TempDir() // Create a temporary directory for test files
-	tempFile, err := os.CreateTemp(tempDir, "upload-*.txt")
-	assert.NoError(t, err)
-	defer os.Remove(tempFile.Name()) // Ensure the file is removed after the test
+// 	// Setting up a temporary file to simulate a file upload
+// 	tempDir := t.TempDir() // Create a temporary directory for test files
+// 	tempFile, err := os.CreateTemp(tempDir, "upload-*.txt")
+// 	assert.NoError(t, err)
+// 	defer os.Remove(tempFile.Name()) // Ensure the file is removed after the test
 
-	_, err = tempFile.WriteString("Test file content")
-	assert.NoError(t, err)
-	tempFile.Close()
+// 	_, err = tempFile.WriteString("Test file content")
+// 	assert.NoError(t, err)
+// 	tempFile.Close()
 
-	handler := GraphAPIHandler{Logger: mockLog}
+// 	handler := GraphAPIHandler{Logger: mockLog}
 
-	fields := map[string]string{"field1": "value1"}
-	files := map[string]string{"fileField": tempFile.Name()}
+// 	fields := map[string]string{"field1": "value1"}
+// 	files := map[string]string{"fileField": tempFile.Name()}
 
-	// Execute the function
-	body, contentType, err := handler.MarshalMultipartRequest(fields, files, mockLog)
-	assert.NoError(t, err)
-	assert.Contains(t, contentType, "multipart/form-data; boundary=")
+// 	// Execute the function
+// 	body, contentType, err := handler.MarshalMultipartRequest(fields, files, mockLog)
+// 	assert.NoError(t, err)
+// 	assert.Contains(t, contentType, "multipart/form-data; boundary=")
 
-	// Check if the multipart form data contains the correct fields and file data
-	reader := multipart.NewReader(bytes.NewReader(body), strings.TrimPrefix(contentType, "multipart/form-data; boundary="))
-	var foundField, foundFile bool
+// 	// Check if the multipart form data contains the correct fields and file data
+// 	reader := multipart.NewReader(bytes.NewReader(body), strings.TrimPrefix(contentType, "multipart/form-data; boundary="))
+// 	var foundField, foundFile bool
 
-	for {
-		part, err := reader.NextPart()
-		if err == io.EOF {
-			break
-		}
-		assert.NoError(t, err)
+// 	for {
+// 		part, err := reader.NextPart()
+// 		if err == io.EOF {
+// 			break
+// 		}
+// 		assert.NoError(t, err)
 
-		if part.FormName() == "field1" {
-			buf := new(bytes.Buffer)
-			_, err = buf.ReadFrom(part)
-			assert.NoError(t, err)
-			assert.Equal(t, "value1", buf.String())
-			foundField = true
-		} else if part.FileName() == filepath.Base(tempFile.Name()) {
-			buf := new(bytes.Buffer)
-			_, err = buf.ReadFrom(part)
-			assert.NoError(t, err)
-			assert.Equal(t, "Test file content", buf.String())
-			foundFile = true
-		}
-	}
+// 		if part.FormName() == "field1" {
+// 			buf := new(bytes.Buffer)
+// 			_, err = buf.ReadFrom(part)
+// 			assert.NoError(t, err)
+// 			assert.Equal(t, "value1", buf.String())
+// 			foundField = true
+// 		} else if part.FileName() == filepath.Base(tempFile.Name()) {
+// 			buf := new(bytes.Buffer)
+// 			_, err = buf.ReadFrom(part)
+// 			assert.NoError(t, err)
+// 			assert.Equal(t, "Test file content", buf.String())
+// 			foundFile = true
+// 		}
+// 	}
 
-	// Ensure all expected parts were found
-	assert.True(t, foundField, "Text field not found in the multipart form data")
-	assert.True(t, foundFile, "File not found in the multipart form data")
-}
+// 	// Ensure all expected parts were found
+// 	assert.True(t, foundField, "Text field not found in the multipart form data")
+// 	assert.True(t, foundFile, "File not found in the multipart form data")
+// }

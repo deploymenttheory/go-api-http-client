@@ -55,7 +55,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Marshal the multipart form data
-	requestData, contentType, err := c.APIHandler.MarshalMultipartRequest(fields, files, log)
+	requestData, contentType, logBody, err := c.APIHandler.MarshalMultipartRequest(fields, files, log)
 	if err != nil {
 		return nil, err
 	}
@@ -77,15 +77,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
-	// Log request details
-	const logSegmentSize = 1024 // 1 KB
-	bodyLen := len(requestData)
-	var logBody string
-	if bodyLen <= 2*logSegmentSize {
-		logBody = string(requestData)
-	} else {
-		logBody = string(requestData[:logSegmentSize]) + "..." + string(requestData[bodyLen-logSegmentSize:])
-	}
+	// Log request details with the partial body
 	log.Debug("HTTP Request Details (partial body)", zap.String("Method", method), zap.String("URL", url), zap.String("Content-Type", contentType), zap.String("Body", logBody))
 
 	// Execute the request

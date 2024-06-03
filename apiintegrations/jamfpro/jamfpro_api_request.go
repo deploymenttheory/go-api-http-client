@@ -56,15 +56,15 @@ func (j *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoin
 	return data, nil
 }
 
-// MarshalMultipartRequest handles multipart form data encoding with secure file handling and returns the encoded body and content type.
-func (j *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, error) {
+// MarshalMultipartRequest creates a multipart request body with the provided form fields and files.
+func (j *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
 	// Add the simple fields to the form data
 	for field, value := range fields {
 		if err := writer.WriteField(field, value); err != nil {
-			return nil, "", err
+			return nil, "", "", err
 		}
 	}
 
@@ -73,28 +73,36 @@ func (j *JamfAPIHandler) MarshalMultipartRequest(fields map[string]string, files
 		file, err := helpers.SafeOpenFile(filePath)
 		if err != nil {
 			log.Error("Failed to open file securely", zap.String("file", filePath), zap.Error(err))
-			return nil, "", err
+			return nil, "", "", err
 		}
 		defer file.Close()
 
 		part, err := writer.CreateFormFile(formField, filepath.Base(filePath))
 		if err != nil {
-			return nil, "", err
+			return nil, "", "", err
 		}
 		if _, err := io.Copy(part, file); err != nil {
-			return nil, "", err
+			return nil, "", "", err
 		}
 	}
-
-	// set the content type for the form data
-	contentType := writer.FormDataContentType()
 
 	// Close the writer to finish writing the multipart message
 	if err := writer.Close(); err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 
-	log.Debug("Multipart request body", zap.String("Body", body.String()))
+	contentType := writer.FormDataContentType()
+	bodyBytes := body.Bytes()
 
-	return body.Bytes(), contentType, nil
+	// Extract the first and last parts of the body
+	const logSegmentSize = 1024 // 1 KB
+	bodyLen := len(bodyBytes)
+	var logBody string
+	if bodyLen <= 2*logSegmentSize {
+		logBody = string(bodyBytes)
+	} else {
+		logBody = string(bodyBytes[:logSegmentSize]) + "..." + string(bodyBytes[bodyLen-logSegmentSize:])
+	}
+
+	return bodyBytes, contentType, logBody, nil
 }
