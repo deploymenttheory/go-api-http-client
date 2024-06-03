@@ -1,5 +1,5 @@
 // httpmethod/httpmethod.go
-package httpmethod
+package httpclient
 
 /* Ref: https://www.rfc-editor.org/rfc/rfc7231#section-8.1.3
 

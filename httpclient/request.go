@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/httpmethod"
 	"github.com/deploymenttheory/go-api-http-client/ratehandler"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"github.com/deploymenttheory/go-api-http-client/status"
@@ -64,9 +63,9 @@ import (
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
-	if httpmethod.IsIdempotentHTTPMethod(method) {
+	if IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out)
-	} else if httpmethod.IsNonIdempotentHTTPMethod(method) {
+	} else if IsNonIdempotentHTTPMethod(method) {
 		return c.executeRequest(method, endpoint, body, out)
 	} else {
 		return nil, log.Error("HTTP method not supported", zap.String("method", method))
@@ -108,7 +107,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 	ctx := context.Background()
-	totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
+	totalRetryDeadline := time.Now().Add(*c.config.TotalRetryDuration)
 
 	var resp *http.Response
 	var err error
@@ -148,7 +147,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 
 		if status.IsTransientError(resp) {
 			retryCount++
-			if retryCount > c.config.MaxRetryAttempts {
+			if retryCount > *c.config.MaxRetryAttempts {
 				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
 				break
 			}
@@ -249,13 +248,13 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	c.Concurrency.Metrics.Lock.Unlock()
 
 	// Marshal the request data based on the provided api handler
-	requestData, err := c.API.MarshalRequest(body, method, endpoint, log)
+	requestData, err := (*c.integration).MarshalRequest(body, method, endpoint, log)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct the full URL for the API endpoint.
-	url := c.API.ConstructAPIResourceEndpoint(endpoint, log)
+	url := (*c.integration).ConstructAPIResourceEndpoint(endpoint, log)
 
 	// Create the HTTP request and apply custom cookies and headers.
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"io"
 	"mime/multipart"
 	"path/filepath"
@@ -40,6 +41,8 @@ func (j *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoin
 			j.Logger.Debug("XML Request Body", zap.String("Body", string(data)))
 		}
 
+		return data, nil
+
 	case "json":
 		data, err = json.Marshal(body)
 		if err != nil {
@@ -50,9 +53,12 @@ func (j *JamfAPIHandler) MarshalRequest(body interface{}, method string, endpoin
 		if method == "POST" || method == "PUT" || method == "PATCH" {
 			j.Logger.Debug("JSON Request Body", zap.String("Body", string(data)))
 		}
-	}
 
-	return data, nil
+		return data, nil
+
+	default:
+		return nil, errors.New("invalid marshal format")
+	}
 }
 
 // MarshalMultipartRequest handles multipart form data encoding with secure file handling and returns the encoded body and content type.
