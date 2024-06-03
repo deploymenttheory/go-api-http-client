@@ -30,13 +30,14 @@ func (g *GraphAPIHandler) MarshalRequest(body interface{}, method string, endpoi
 	return data, nil
 }
 
-// MarshalMultipartRequest creates a multipart request body with the provided form fields and files.
+// MarshalMultipartRequest encodes the request body as a multipart message for the Microsoft Graph API.
 func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, files map[string]string, log logger.Logger) ([]byte, string, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
 	// Add the simple fields to the form data
 	for field, value := range fields {
+		log.Debug("Adding field to multipart request", zap.String("Field", field), zap.String("Value", value))
 		if err := writer.WriteField(field, value); err != nil {
 			return nil, "", "", err
 		}
@@ -55,6 +56,7 @@ func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, file
 		if err != nil {
 			return nil, "", "", err
 		}
+		log.Debug("Adding file to multipart request", zap.String("FormField", formField), zap.String("FilePath", filePath))
 		if _, err := io.Copy(part, file); err != nil {
 			return nil, "", "", err
 		}
@@ -68,7 +70,7 @@ func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, file
 	contentType := writer.FormDataContentType()
 	bodyBytes := body.Bytes()
 
-	// Extract the first and last parts of the body
+	// Extract the first and last parts of the body for logging
 	const logSegmentSize = 1024 // 1 KB
 	bodyLen := len(bodyBytes)
 	var logBody string
@@ -77,6 +79,11 @@ func (g *GraphAPIHandler) MarshalMultipartRequest(fields map[string]string, file
 	} else {
 		logBody = string(bodyBytes[:logSegmentSize]) + "..." + string(bodyBytes[bodyLen-logSegmentSize:])
 	}
+
+	// Log the boundary and a partial body for debugging
+	boundary := writer.Boundary()
+	log.Debug("Multipart boundary", zap.String("Boundary", boundary))
+	log.Debug("Multipart request body (partial)", zap.String("Body", logBody))
 
 	return bodyBytes, contentType, logBody, nil
 }
