@@ -18,5 +18,5 @@ type APIIntegration interface {
 	GetContentTypeHeader(method string) string
 
 	// Info
-	AuthMethodDescriptor() string
+	GetAuthMethodDescriptor() string
 }
