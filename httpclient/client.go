@@ -43,23 +43,23 @@ type ClientConfig struct {
 	LogLevel            string
 	LogOutputFormat     string // Output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
 	LogConsoleSeparator string
-	ExportLogs          *bool
+	ExportLogs          bool
 	LogExportPath       string
-	HideSensitiveData   *bool
+	HideSensitiveData   bool
 
 	// Cookies
 	CookieJarEnabled bool              // Enable or disable cookie jar
 	CustomCookies    map[string]string // Key-value pairs for setting specific cookies
 
 	// Misc
-	MaxRetryAttempts          *int
-	MaxConcurrentRequests     *int
-	EnableDynamicRateLimiting *bool
-	CustomTimeout             *time.Duration
-	TokenRefreshBufferPeriod  *time.Duration
-	TotalRetryDuration        *time.Duration
-	FollowRedirects           *bool
-	MaxRedirects              *int
+	MaxRetryAttempts          int
+	MaxConcurrentRequests     int
+	EnableDynamicRateLimiting bool
+	CustomTimeout             time.Duration
+	TokenRefreshBufferPeriod  time.Duration
+	TotalRetryDuration        time.Duration
+	FollowRedirects           bool
+	MaxRedirects              int
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.

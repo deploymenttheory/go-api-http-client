@@ -92,7 +92,7 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	// bool
 
 	// Log Export Path
-	if *config.ExportLogs {
+	if config.ExportLogs {
 		_, err = validateFilePath(config.LogExportPath)
 		if err != nil {
 			return err
@@ -115,9 +115,7 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	// region Misc
 
 	// Max Retry Attempts
-	if config.MaxRetryAttempts == nil {
-		return errors.New("Max retry cannot be empty")
-	} else if *config.MaxRetryAttempts < 0 {
+	if config.MaxRetryAttempts < 0 {
 		return errors.New("Max retry cannot be less than 0")
 	}
 
@@ -125,9 +123,7 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	// bool
 
 	// Max Concurrent Requests
-	if config.MaxConcurrentRequests == nil {
-		return errors.New("Max retry cannot be empty")
-	} else if *config.MaxConcurrentRequests < 0 {
+	if config.MaxConcurrentRequests < 0 {
 		return errors.New("Max retry cannot be less than 0")
 	}
 
@@ -149,7 +145,7 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	// bool
 
 	// MaxRedirects
-	if config.FollowRedirects != nil && *config.FollowRedirects {
+	if &config.FollowRedirects != nil && config.FollowRedirects {
 		if DefaultMaxRedirects < 1 {
 			return errors.New("max redirects cannot be less than 1")
 		}
@@ -175,57 +171,47 @@ func SetDefaultValuesClientConfig(config ClientConfig) (ClientConfig, error) {
 	}
 
 	if &config.ExportLogs == nil {
-		defaultVal := DefaultExportLogs
-		config.ExportLogs = &defaultVal
+		config.ExportLogs = DefaultExportLogs
 	}
 
 	if config.LogExportPath == "" {
 		config.LogExportPath = DefaultLogExportPath
 	}
 
-	if config.HideSensitiveData == nil {
-		defaultVal := DefaultHideSensitiveData
-		config.HideSensitiveData = &defaultVal
+	if &config.HideSensitiveData == nil {
+		config.HideSensitiveData = DefaultHideSensitiveData
 	}
 
-	if config.MaxRetryAttempts == nil {
-		defaultVal := DefaultMaxRetryAttempts
-		config.MaxRetryAttempts = &defaultVal
+	if &config.MaxRetryAttempts == nil {
+		config.MaxRetryAttempts = DefaultMaxRetryAttempts
 	}
 
-	if config.MaxConcurrentRequests == nil {
-		defaultVal := DefaultMaxConcurrentRequests
-		config.MaxRetryAttempts = &defaultVal
+	if &config.MaxConcurrentRequests == nil {
+		config.MaxRetryAttempts = DefaultMaxConcurrentRequests
 	}
 
-	if config.EnableDynamicRateLimiting == nil {
-		defaultVal := DefaultEnableDynamicRateLimiting
-		config.EnableDynamicRateLimiting = &defaultVal
+	if &config.EnableDynamicRateLimiting == nil {
+		config.EnableDynamicRateLimiting = DefaultEnableDynamicRateLimiting
 	}
 
-	if config.CustomTimeout == nil {
-		defaultVal := DefaultCustomTimeout
-		config.CustomTimeout = &defaultVal
+	if &config.CustomTimeout == nil {
+		config.CustomTimeout = DefaultCustomTimeout
 	}
 
-	if config.TokenRefreshBufferPeriod == nil {
-		defaultVal := DefaultTokenRefreshBufferPeriod
-		config.TokenRefreshBufferPeriod = &defaultVal
+	if &config.TokenRefreshBufferPeriod == nil {
+		config.TokenRefreshBufferPeriod = DefaultTokenRefreshBufferPeriod
 	}
 
-	if config.TotalRetryDuration == nil {
-		defaultVal := DefaultTotalRetryDuration
-		config.TotalRetryDuration = &defaultVal
+	if &config.TotalRetryDuration == nil {
+		config.TotalRetryDuration = DefaultTotalRetryDuration
 	}
 
-	if config.FollowRedirects == nil {
-		defaultVal := DefaultFollowRedirects
-		config.FollowRedirects = &defaultVal
+	if &config.FollowRedirects == nil {
+		config.FollowRedirects = DefaultFollowRedirects
 	}
 
-	if config.MaxRedirects == nil {
-		defaultVal := DefaultMaxRedirects
-		config.MaxRedirects = &defaultVal
+	if &config.MaxRedirects == nil {
+		config.MaxRedirects = DefaultMaxRedirects
 	}
 
 	return config, nil
