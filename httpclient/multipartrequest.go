@@ -70,13 +70,23 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 	}
 
 	// Initialize HeaderManager
-	//log.Debug("Setting Authorization header with token", zap.String("Token", c.Token))
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 
 	// Use HeaderManager to set headers
-	headerHandler.SetContentType(contentType)
+	headerHandler.SetContentType(contentType) // Set correct content type with boundary
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+
+	// Log request details
+	const logSegmentSize = 1024 // 1 KB
+	bodyLen := len(requestData)
+	var logBody string
+	if bodyLen <= 2*logSegmentSize {
+		logBody = string(requestData)
+	} else {
+		logBody = string(requestData[:logSegmentSize]) + "..." + string(requestData[bodyLen-logSegmentSize:])
+	}
+	log.Debug("HTTP Request Details (partial body)", zap.String("Method", method), zap.String("URL", url), zap.String("Content-Type", contentType), zap.String("Body", logBody))
 
 	// Execute the request
 	resp, err := c.httpClient.Do(req)
