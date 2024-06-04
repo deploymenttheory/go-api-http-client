@@ -254,7 +254,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	c.Concurrency.Metrics.Lock.Unlock()
 
 	// Marshal the request data based on the provided api handler
-	requestData, err := (*c.Integration).MarshalRequest(body, method, endpoint)
+	requestData, err := (*c.Integration).PrepRequestBodyForIntergration(body, method, endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -267,9 +267,14 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 		return nil, err
 	}
 
-	(*c.Integration).SetRequestHeaders(req)
+	err = (*c.Integration).PrepRequestParamsForIntegration(req)
+	if err != nil {
+		return nil, err
+	}
+
 	req = req.WithContext(ctx)
 	log.Debug(fmt.Sprintf("%+v", req))
+
 	startTime := time.Now()
 	resp, err := c.http.Do(req)
 	if err != nil {

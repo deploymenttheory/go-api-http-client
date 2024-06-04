@@ -10,10 +10,10 @@ import (
 type APIIntegration interface {
 	Token() (string, error)
 	Domain() string
-	SetRequestHeaders(req *http.Request)
+	PrepRequestParamsForIntegration(req *http.Request) error
 
 	// Utilities
-	MarshalRequest(body interface{}, method string, endpoint string) ([]byte, error)
+	PrepRequestBodyForIntergration(body interface{}, method string, endpoint string) ([]byte, error)
 	MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error)
 	GetContentTypeHeader(method string) string
 
