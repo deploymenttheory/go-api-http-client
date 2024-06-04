@@ -252,11 +252,15 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	c.Concurrency.Metrics.TotalRequests++
 	c.Concurrency.Metrics.Lock.Unlock()
 
+	log.Debug("flag 1")
+
 	// Marshal the request data based on the provided api handler
 	requestData, err := (*c.Integration).MarshalRequest(body, method, endpoint)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Debug("flag 2")
 
 	url := fmt.Sprintf((*c.Integration).Domain(), endpoint)
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
@@ -264,8 +268,12 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 		return nil, err
 	}
 
+	log.Debug("flag 3")
+
 	(*c.Integration).SetRequestHeaders(req)
 	req = req.WithContext(ctx)
+
+	log.Debug("flag 4")
 
 	startTime := time.Now()
 	resp, err := c.http.Do(req)
@@ -274,10 +282,14 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 		return nil, err
 	}
 
+	log.Debug("flag 5")
+
 	duration := time.Since(startTime)
 	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
 	log.LogCookies("incoming", req, method, endpoint)
 	CheckDeprecationHeader(resp, log)
+
+	log.Debug("flag 6")
 
 	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
 
