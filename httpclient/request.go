@@ -240,9 +240,13 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	}
 
+	log.Debug("before conc")
+
 	defer func() {
 		c.Concurrency.ReleaseConcurrencyPermit(requestID)
 	}()
+
+	log.Debug("after conc")
 
 	c.Concurrency.Metrics.Lock.Lock()
 	c.Concurrency.Metrics.TotalRequests++
