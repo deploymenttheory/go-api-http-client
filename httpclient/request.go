@@ -233,10 +233,10 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	log := c.Logger
 	log.Debug("start of doRequest")
 
-	_, err := (*c.Integration).Token()
-	if err != nil {
-		return nil, err
-	}
+	// _, err := (*c.Integration).Token()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// region concurrency
 	ctx, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
