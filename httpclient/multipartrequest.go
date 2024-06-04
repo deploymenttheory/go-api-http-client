@@ -103,7 +103,6 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 	return resp, response.HandleAPIErrorResponse(resp, log)
 }
 
-// createMultipartRequestBody creates a multipart request body with the provided files and form fields.
 func createMultipartRequestBody(files map[string]string, params map[string]string, log logger.Logger) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -128,15 +127,18 @@ func createMultipartRequestBody(files map[string]string, params map[string]strin
 			return nil, "", err
 		}
 
-		// Start logging the progress in a separate goroutine
-		go logUploadProgress(file, fileSize.Size(), log)
+		// Start logging the progress
+		progressLogger := logUploadProgress(fileSize.Size(), log)
 
-		// Chunk the file upload
-		err = chunkFileUpload(file, part)
+		// Chunk the file upload and log the progress
+		err = chunkFileUpload(file, part, log)
 		if err != nil {
 			log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
 			return nil, "", err
 		}
+
+		// Log final progress
+		progressLogger(fileSize.Size())
 	}
 
 	for key, val := range params {
@@ -153,8 +155,9 @@ func createMultipartRequestBody(files map[string]string, params map[string]strin
 }
 
 // chunkFileUpload reads the file in chunks and writes it to the writer.
-func chunkFileUpload(file *os.File, writer io.Writer) error {
+func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger) error {
 	buffer := make([]byte, 4096)
+	totalWritten := int64(0)
 
 	for {
 		n, err := file.Read(buffer)
@@ -165,32 +168,26 @@ func chunkFileUpload(file *os.File, writer io.Writer) error {
 			break
 		}
 
-		_, err = writer.Write(buffer[:n])
+		written, err := writer.Write(buffer[:n])
 		if err != nil {
 			return err
 		}
+
+		totalWritten += int64(written)
+		log.Debug("Chunk written", zap.Int("bytes_written", written), zap.Int64("total_written", totalWritten))
 	}
 
 	return nil
 }
 
-// trackUploadProgress logs the upload progress based on the percentage of the total upload.
-func logUploadProgress(file *os.File, totalSize int64, log logger.Logger) error {
-	buffer := make([]byte, 4096)
+// logUploadProgress logs the upload progress based on the percentage of the total upload.
+func logUploadProgress(totalSize int64, log logger.Logger) func(bytesWritten int64) {
 	var uploadedSize int64
 	var lastLoggedPercentage float64
 	startTime := time.Now()
 
-	for {
-		n, err := file.Read(buffer)
-		if err != nil && err != io.EOF {
-			return err
-		}
-		if n == 0 {
-			break
-		}
-
-		uploadedSize += int64(n)
+	return func(bytesWritten int64) {
+		uploadedSize += bytesWritten
 		percentage := math.Floor(float64(uploadedSize) / float64(totalSize) * 100)
 		uploadedMB := float64(uploadedSize) / (1024 * 1024)
 
@@ -201,14 +198,14 @@ func logUploadProgress(file *os.File, totalSize int64, log logger.Logger) error 
 				zap.Duration("elapsed_time", time.Since(startTime)))
 			lastLoggedPercentage = percentage
 		}
+
+		if uploadedSize == totalSize {
+			totalTime := time.Since(startTime)
+			log.Info("File upload completed",
+				zap.Float64("total_uploaded_megabytes", float64(uploadedSize)/(1024*1024)),
+				zap.Duration("total_upload_time", totalTime))
+		}
 	}
-
-	totalTime := time.Since(startTime)
-	log.Info("File upload completed",
-		zap.Float64("total_uploaded_megabytes", float64(uploadedSize)/(1024*1024)),
-		zap.Duration("total_upload_time", totalTime))
-
-	return nil
 }
 
 // logRequestBody logs the constructed request body for debugging purposes.
