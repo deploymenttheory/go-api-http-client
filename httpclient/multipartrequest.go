@@ -186,7 +186,7 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 
 	// Log any remaining bytes that were written but didn't reach the log threshold
 	if chunkWritten > 0 {
-		log.Debug("Chunk written", zap.Int64("bytes_written", chunkWritten), zap.Int64("total_written", totalWritten))
+		log.Debug("Final chunk written", zap.Int64("bytes_written", chunkWritten), zap.Int64("total_written", totalWritten))
 	}
 
 	return nil
