@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -175,8 +176,10 @@ func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log l
 		}
 
 		uploadedSize += int64(n)
-		percentage := float64(uploadedSize) / float64(totalSize) * 100
-		log.Debug("File upload progress", zap.Float64("percentage", percentage))
+		percentage := math.Round(float64(uploadedSize) / float64(totalSize) * 100)
+		uploadedKB := float64(uploadedSize) / 1024
+
+		log.Debug("File upload progress", zap.Float64("percentage", percentage), zap.Float64("uploaded_kilobytes", uploadedKB))
 
 		_, err = writer.Write(buffer[:n])
 		if err != nil {
