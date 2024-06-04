@@ -253,6 +253,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	c.Concurrency.Metrics.Lock.Unlock()
 
 	log.Debug("flag 1")
+	log.Debug(fmt.Sprintf("client: %+v", c))
 
 	// Marshal the request data based on the provided api handler
 	requestData, err := (*c.Integration).MarshalRequest(body, method, endpoint)
