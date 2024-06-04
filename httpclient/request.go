@@ -261,6 +261,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	}
 
 	log.Debug("flag 2")
+	log.Debug((*c.Integration).Domain())
 
 	url := fmt.Sprintf((*c.Integration).Domain(), endpoint)
 	log.Debug("flag 2.1")

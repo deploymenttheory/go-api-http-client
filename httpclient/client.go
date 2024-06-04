@@ -80,7 +80,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 
 	//region HTTP
 
-	log.Info("initializing new http client")
+	log.Info(fmt.Sprintf("initializing new http client, auth: %s", config.Integration.Domain()))
 
 	// Initialize the internal HTTP client
 	httpClient := &http.Client{
