@@ -119,7 +119,6 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 	//endregion
 
 	//////////////////////////////////////////////////////////////////////////////////////////
-	log.Debug("create")
 	//region Create
 
 	// Create a new HTTP client with the provided configuration.
@@ -156,6 +155,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 	)
 
 	//endregion
+	log.Debug("end of build client")
 
 	return client, nil
 
