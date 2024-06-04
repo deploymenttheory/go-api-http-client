@@ -215,9 +215,6 @@ func logRequestBody(body *bytes.Buffer, log logger.Logger) {
 			zap.String("after_first_boundary", afterFirstBoundary),
 			zap.String("before_last_boundary", beforeLastBoundary),
 			zap.String("post_boundary", postBoundary))
-	} else {
-		log.Info("Request body preview",
-			zap.String("body", bodyStr))
 	}
 }
 
