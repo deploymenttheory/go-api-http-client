@@ -15,7 +15,6 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/cookiejar"
 	"github.com/deploymenttheory/go-api-http-client/headers"
-	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"go.uber.org/zap"
 )
@@ -162,7 +161,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 }
 
 // trackUploadProgress logs the upload progress based on the percentage of the total upload.
-func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log logger.Logger) error {
+func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log *zap.Logger) error {
 	buffer := make([]byte, 4096)
 	var uploadedSize int64
 	var lastLoggedPercentage float64
@@ -183,7 +182,7 @@ func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log l
 
 		if percentage != lastLoggedPercentage {
 			log.Debug("File upload progress",
-				zap.Float64("percentage", percentage),
+				zap.String("completed", fmt.Sprintf("%.0f%%", percentage)),
 				zap.Float64("uploaded_megabytes", uploadedMB),
 				zap.Duration("elapsed_time", time.Since(startTime)))
 			lastLoggedPercentage = percentage
