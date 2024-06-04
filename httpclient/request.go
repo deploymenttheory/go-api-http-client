@@ -254,24 +254,17 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 		return nil, err
 	}
 
-	log.Debug("flag 2")
-	log.Debug(fmt.Sprintf("%s%s", (*c.Integration).Domain(), endpoint))
-
 	url := fmt.Sprintf("%s%s", (*c.Integration).Domain(), endpoint)
-	log.Debug("flag 2.1")
+
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
-	log.Debug("flag 2.2")
+
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debug("flag 3")
-
 	(*c.Integration).SetRequestHeaders(req)
 	req = req.WithContext(ctx)
-
-	log.Debug("flag 4")
-
+	log.Debug(fmt.Sprintf("%+v", req))
 	startTime := time.Now()
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -279,14 +272,10 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 		return nil, err
 	}
 
-	log.Debug("flag 5")
-
 	duration := time.Since(startTime)
 	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
 	log.LogCookies("incoming", req, method, endpoint)
 	CheckDeprecationHeader(resp, log)
-
-	log.Debug("flag 6")
 
 	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
 
