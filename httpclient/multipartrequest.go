@@ -165,6 +165,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log logger.Logger) error {
 	buffer := make([]byte, 4096)
 	var uploadedSize int64
+	var lastLoggedPercentage float64
 
 	for {
 		n, err := file.Read(buffer)
@@ -179,7 +180,10 @@ func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log l
 		percentage := math.Round(float64(uploadedSize) / float64(totalSize) * 100)
 		uploadedKB := float64(uploadedSize) / 1024
 
-		log.Debug("File upload progress", zap.Float64("percentage", percentage), zap.Float64("uploaded_kilobytes", uploadedKB))
+		if percentage != lastLoggedPercentage {
+			log.Debug("File upload progress", zap.Float64("percentage", percentage), zap.Float64("uploaded_kilobytes", uploadedKB))
+			lastLoggedPercentage = percentage
+		}
 
 		_, err = writer.Write(buffer[:n])
 		if err != nil {
