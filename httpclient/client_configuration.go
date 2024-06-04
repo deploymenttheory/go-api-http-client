@@ -5,6 +5,7 @@ package httpclient
 import (
 	"errors"
 	"fmt"
+	"log"
 	"slices"
 	"time"
 )
@@ -45,10 +46,11 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	var err error
 
 	if populateDefaults {
-		config, err = SetDefaultValuesClientConfig(config)
-		if err != nil {
-			return fmt.Errorf("failed to populate default values: %v", err)
-		}
+		log.Println("FEATURE PENDING")
+		// config, err = SetDefaultValuesClientConfig(config)
+		// if err != nil {
+		// 	return fmt.Errorf("failed to populate default values: %v", err)
+		// }
 	}
 
 	// region Interfaces
@@ -145,7 +147,7 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	// bool
 
 	// MaxRedirects
-	if &config.FollowRedirects != nil && config.FollowRedirects {
+	if config.FollowRedirects {
 		if DefaultMaxRedirects < 1 {
 			return errors.New("max redirects cannot be less than 1")
 		}
@@ -156,63 +158,63 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	return nil
 }
 
-func SetDefaultValuesClientConfig(config ClientConfig) (ClientConfig, error) {
+// func SetDefaultValuesClientConfig(config ClientConfig) (ClientConfig, error) {
 
-	if config.LogLevel == "" {
-		config.LogLevel = DefaultLogLevelString
-	}
+// 	if config.LogLevel == "" {
+// 		config.LogLevel = DefaultLogLevelString
+// 	}
 
-	if config.LogOutputFormat == "" {
-		config.LogOutputFormat = DefaultLogOutputFormatString
-	}
+// 	if config.LogOutputFormat == "" {
+// 		config.LogOutputFormat = DefaultLogOutputFormatString
+// 	}
 
-	if config.LogConsoleSeparator == "" {
-		config.LogConsoleSeparator = DefaultLogConsoleSeparator
-	}
+// 	if config.LogConsoleSeparator == "" {
+// 		config.LogConsoleSeparator = DefaultLogConsoleSeparator
+// 	}
 
-	if &config.ExportLogs == nil {
-		config.ExportLogs = DefaultExportLogs
-	}
+// 	if &config.ExportLogs == nil {
+// 		config.ExportLogs = DefaultExportLogs
+// 	}
 
-	if config.LogExportPath == "" {
-		config.LogExportPath = DefaultLogExportPath
-	}
+// 	if config.LogExportPath == "" {
+// 		config.LogExportPath = DefaultLogExportPath
+// 	}
 
-	if &config.HideSensitiveData == nil {
-		config.HideSensitiveData = DefaultHideSensitiveData
-	}
+// 	if &config.HideSensitiveData == nil {
+// 		config.HideSensitiveData = DefaultHideSensitiveData
+// 	}
 
-	if &config.MaxRetryAttempts == nil {
-		config.MaxRetryAttempts = DefaultMaxRetryAttempts
-	}
+// 	if &config.MaxRetryAttempts == nil {
+// 		config.MaxRetryAttempts = DefaultMaxRetryAttempts
+// 	}
 
-	if &config.MaxConcurrentRequests == nil {
-		config.MaxRetryAttempts = DefaultMaxConcurrentRequests
-	}
+// 	if &config.MaxConcurrentRequests == nil {
+// 		config.MaxRetryAttempts = DefaultMaxConcurrentRequests
+// 	}
 
-	if &config.EnableDynamicRateLimiting == nil {
-		config.EnableDynamicRateLimiting = DefaultEnableDynamicRateLimiting
-	}
+// 	if &config.EnableDynamicRateLimiting == nil {
+// 		config.EnableDynamicRateLimiting = DefaultEnableDynamicRateLimiting
+// 	}
 
-	if &config.CustomTimeout == nil {
-		config.CustomTimeout = DefaultCustomTimeout
-	}
+// 	if &config.CustomTimeout == nil {
+// 		config.CustomTimeout = DefaultCustomTimeout
+// 	}
 
-	if &config.TokenRefreshBufferPeriod == nil {
-		config.TokenRefreshBufferPeriod = DefaultTokenRefreshBufferPeriod
-	}
+// 	if &config.TokenRefreshBufferPeriod == nil {
+// 		config.TokenRefreshBufferPeriod = DefaultTokenRefreshBufferPeriod
+// 	}
 
-	if &config.TotalRetryDuration == nil {
-		config.TotalRetryDuration = DefaultTotalRetryDuration
-	}
+// 	if &config.TotalRetryDuration == nil {
+// 		config.TotalRetryDuration = DefaultTotalRetryDuration
+// 	}
 
-	if &config.FollowRedirects == nil {
-		config.FollowRedirects = DefaultFollowRedirects
-	}
+// 	if &config.FollowRedirects == nil {
+// 		config.FollowRedirects = DefaultFollowRedirects
+// 	}
 
-	if &config.MaxRedirects == nil {
-		config.MaxRedirects = DefaultMaxRedirects
-	}
+// 	if &config.MaxRedirects == nil {
+// 		config.MaxRedirects = DefaultMaxRedirects
+// 	}
 
-	return config, nil
-}
+// 	return config, nil
+// }
