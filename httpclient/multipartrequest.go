@@ -14,6 +14,7 @@ import (
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
 	"github.com/deploymenttheory/go-api-http-client/cookiejar"
+	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"go.uber.org/zap"
@@ -76,6 +77,10 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 
 	// Apply custom cookies and headers
 	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
+
+	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler.SetRequestHeaders(endpoint)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
 	// Log headers for debugging
 	logHeaders(req, log)
