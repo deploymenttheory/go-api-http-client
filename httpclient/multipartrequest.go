@@ -160,7 +160,7 @@ func createMultipartRequestBody(files map[string]string, params map[string]strin
 		}
 		defer file.Close()
 
-		part, err := writer.CreateFormFile(fieldName, filePath)
+		part, err := writer.CreateFormFile(fieldName, file.Name()) // Use file.Name() to only include the file name
 		if err != nil {
 			log.Error("Failed to create form file", zap.String("fieldName", fieldName), zap.Error(err))
 			return nil, "", err
