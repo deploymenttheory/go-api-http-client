@@ -73,7 +73,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 	//region Logging
 	// TODO refactor logging. It's very confusing
 	parsedLogLevel := logger.ParseLogLevelFromString(config.LogLevel)
-	log := logger.BuildLogger(parsedLogLevel, config.LogOutputFormat, config.LogConsoleSeparator, config.LogExportPath)
+	log := logger.BuildLogger(parsedLogLevel, config.LogOutputFormat, config.LogConsoleSeparator, config.LogExportPath, config.ExportLogs)
 	log.SetLevel(parsedLogLevel)
 
 	//endregion

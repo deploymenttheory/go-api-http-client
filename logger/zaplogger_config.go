@@ -11,7 +11,7 @@ import (
 // BuildLogger creates and returns a new zap logger instance.
 // It configures the logger with JSON formatting and a custom encoder to ensure the 'pid', 'application', and 'timestamp' fields
 // appear at the end of each log message. The function panics if the logger cannot be initialized.
-func BuildLogger(logLevel LogLevel, encoding string, logConsoleSeparator string, logFilepath string) Logger {
+func BuildLogger(logLevel LogLevel, encoding string, logConsoleSeparator string, logFilepath string, exportLogs bool) Logger {
 
 	if encoding == "" {
 		encoding = "console"
@@ -74,8 +74,10 @@ func BuildLogger(logLevel LogLevel, encoding string, logConsoleSeparator string,
 	}
 
 	// Conditionally set the OutputPaths to include the log export path if provided
-	if logFilepath != "" {
-		config.OutputPaths = append(config.OutputPaths, logFilepath)
+	if exportLogs {
+		if logFilepath != "" {
+			config.OutputPaths = append(config.OutputPaths, logFilepath)
+		}
 	}
 
 	// Build the logger from the configuration
