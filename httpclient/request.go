@@ -73,6 +73,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	}
 }
 
+// region comment
 // executeRequestWithRetries executes an HTTP request using the specified method, endpoint, request body, and output variable.
 // It is designed for idempotent HTTP methods (GET, PUT, DELETE), where the request can be safely retried in case of
 // transient errors or rate limiting. The function implements a retry mechanism that respects the client's configuration
@@ -105,6 +106,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // - The function respects the client's concurrency token, acquiring and releasing it as needed to ensure safe concurrent
 // operations.
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
+// endregion
 func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 	ctx := context.Background()
@@ -174,6 +176,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	return resp, response.HandleAPIErrorResponse(resp, log)
 }
 
+// region comment
 // executeRequest executes an HTTP request using the specified method, endpoint, and request body without implementing
 // retry logic. It is primarily designed for non-idempotent HTTP methods like POST and PATCH, where the request should
 // not be automatically retried within this function due to the potential side effects of re-submitting the same data.
@@ -203,6 +206,8 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 //     execution.
 //   - The function logs detailed information about the request execution, including the method, endpoint, status code, and
 //     any errors encountered.
+//
+// endregion
 func (c *Client) executeRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 	ctx := context.Background()
