@@ -80,7 +80,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 
 	//region HTTP
 
-	log.Info("Initializing new HTTP client with the provided configuration")
+	log.Info("initializing new http client")
 
 	// Initialize the internal HTTP client
 	httpClient := &http.Client{
@@ -119,7 +119,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 	//endregion
 
 	//////////////////////////////////////////////////////////////////////////////////////////
-
+	log.Debug("create")
 	//region Create
 
 	// Create a new HTTP client with the provided configuration.
