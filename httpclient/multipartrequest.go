@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -117,7 +118,8 @@ func createMultipartRequestBody(files map[string]string, params map[string]strin
 		}
 		defer file.Close()
 
-		part, err := writer.CreateFormFile(fieldName, file.Name())
+		// Use only the filename in the Content-Disposition header
+		part, err := writer.CreateFormFile(fieldName, filepath.Base(filePath))
 		if err != nil {
 			log.Error("Failed to create form file", zap.String("fieldName", fieldName), zap.Error(err))
 			return nil, "", err
