@@ -1,4 +1,3 @@
-// httpclient/multipart_request.go
 package httpclient
 
 import (
@@ -23,7 +22,8 @@ import (
 // DoMultiPartRequest creates and executes a multipart/form-data HTTP request for file uploads and form fields.
 func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]string, params map[string]string, out interface{}) (*http.Response, error) {
 	log := c.Logger
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // Ensure the context is canceled when the function returns
 
 	// Ensure the method is supported
 	if method != http.MethodPost && method != http.MethodPut {
@@ -50,57 +50,17 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 		log.Error("Failed to acquire concurrency permit", zap.Error(err))
 		return nil, err
 	}
-
-	// Ensure the concurrency permit is released after the function exits.
-	defer func() {
-		c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
-	}()
+	defer c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
 
 	log.Debug("Executing multipart request", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	// Create a new multipart writer to construct the request body.
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// Add files to the request
-	for fieldName, filePath := range files {
-		file, err := os.Open(filePath)
-		if err != nil {
-			log.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
-			return nil, err
-		}
-		defer file.Close()
-
-		part, err := writer.CreateFormFile(fieldName, filePath)
-		if err != nil {
-			log.Error("Failed to create form file", zap.String("fieldName", fieldName), zap.Error(err))
-			return nil, err
-		}
-
-		fileSize, err := file.Stat()
-		if err != nil {
-			log.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
-			return nil, err
-		}
-
-		// Track upload progress
-		err = trackUploadProgress(file, part, fileSize.Size(), log)
-		if err != nil {
-			log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
-			return nil, err
-		}
-	}
-
-	// Add additional parameters to the request
-	for key, val := range params {
-		_ = writer.WriteField(key, val)
-	}
-
-	err = writer.Close()
+	body, contentType, err := createMultipartRequestBody(files, params, log)
 	if err != nil {
-		log.Error("Failed to close writer", zap.Error(err))
 		return nil, err
 	}
+
+	// Log the constructed request body for debugging
+	logRequestBody(body, log)
 
 	// Construct the full URL for the API endpoint.
 	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
@@ -111,13 +71,16 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 		log.Error("Failed to create HTTP request", zap.Error(err))
 		return nil, err
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", contentType)
 
 	// Apply custom cookies and headers
 	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+
+	// Log headers for debugging
+	logHeaders(req, log)
 
 	req = req.WithContext(ctx)
 
@@ -136,6 +99,53 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 	}
 
 	return resp, response.HandleAPIErrorResponse(resp, log)
+}
+
+// createMultipartRequestBody creates a multipart request body with the provided files and form fields.
+func createMultipartRequestBody(files map[string]string, params map[string]string, log logger.Logger) (*bytes.Buffer, string, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Add files to the request
+	for fieldName, filePath := range files {
+		file, err := os.Open(filePath)
+		if err != nil {
+			log.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
+			return nil, "", err
+		}
+		defer file.Close()
+
+		part, err := writer.CreateFormFile(fieldName, filePath)
+		if err != nil {
+			log.Error("Failed to create form file", zap.String("fieldName", fieldName), zap.Error(err))
+			return nil, "", err
+		}
+
+		fileSize, err := file.Stat()
+		if err != nil {
+			log.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
+			return nil, "", err
+		}
+
+		err = trackUploadProgress(file, part, fileSize.Size(), log)
+		if err != nil {
+			log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
+			return nil, "", err
+		}
+	}
+
+	// Add additional parameters to the request
+	for key, val := range params {
+		_ = writer.WriteField(key, val)
+	}
+
+	err := writer.Close()
+	if err != nil {
+		log.Error("Failed to close writer", zap.Error(err))
+		return nil, "", err
+	}
+
+	return body, writer.FormDataContentType(), nil
 }
 
 // trackUploadProgress logs the upload progress based on the percentage of the total upload.
@@ -178,4 +188,32 @@ func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log l
 		zap.Duration("total_upload_time", totalTime))
 
 	return nil
+}
+
+// logRequestBody logs the constructed request body for debugging purposes.
+func logRequestBody(body *bytes.Buffer, log logger.Logger) {
+	bodyBytes := body.Bytes()
+	bodyLen := len(bodyBytes)
+
+	if bodyLen > 20 {
+		firstPart := string(bodyBytes[:10])
+		lastPart := string(bodyBytes[bodyLen-10:])
+		fullBodyPreview := string(bodyBytes[10 : bodyLen-10])
+		log.Info("Request body preview",
+			zap.String("first_10_characters", firstPart),
+			zap.String("trailing_10_characters", lastPart),
+			zap.String("full_body_preview", fullBodyPreview))
+	} else {
+		log.Info("Request body preview",
+			zap.String("body", string(bodyBytes)))
+	}
+}
+
+// logHeaders logs the request headers for debugging purposes.
+func logHeaders(req *http.Request, log logger.Logger) {
+	for key, values := range req.Header {
+		for _, value := range values {
+			log.Info("Request header", zap.String("key", key), zap.String("value", value))
+		}
+	}
 }
