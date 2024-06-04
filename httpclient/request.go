@@ -240,20 +240,13 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	}
 
-	log.Debug("before conc")
-
 	defer func() {
 		c.Concurrency.ReleaseConcurrencyPermit(requestID)
 	}()
 
-	log.Debug("after conc")
-
 	c.Concurrency.Metrics.Lock.Lock()
 	c.Concurrency.Metrics.TotalRequests++
 	c.Concurrency.Metrics.Lock.Unlock()
-
-	log.Debug("flag 1")
-	log.Debug(fmt.Sprintf("client: %+v", *c.Integration))
 
 	// Marshal the request data based on the provided api handler
 	requestData, err := (*c.Integration).MarshalRequest(body, method, endpoint)
@@ -262,7 +255,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	}
 
 	log.Debug("flag 2")
-	log.Debug((*c.Integration).Domain())
+	log.Debug(fmt.Sprintf((*c.Integration).Domain(), endpoint))
 
 	url := fmt.Sprintf((*c.Integration).Domain(), endpoint)
 	log.Debug("flag 2.1")
