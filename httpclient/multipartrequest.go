@@ -103,6 +103,114 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 	return resp, response.HandleAPIErrorResponse(resp, log)
 }
 
+// createMultipartRequestBody creates a multipart request body with the provided files and form fields.
+func createMultipartRequestBody(files map[string]string, params map[string]string, log logger.Logger) (*bytes.Buffer, string, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	for fieldName, filePath := range files {
+		file, err := os.Open(filePath)
+		if err != nil {
+			log.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
+			return nil, "", err
+		}
+		defer file.Close()
+
+		part, err := writer.CreateFormFile(fieldName, file.Name())
+		if err != nil {
+			log.Error("Failed to create form file", zap.String("fieldName", fieldName), zap.Error(err))
+			return nil, "", err
+		}
+
+		fileSize, err := file.Stat()
+		if err != nil {
+			log.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
+			return nil, "", err
+		}
+
+		// Start logging the progress in a separate goroutine
+		go logUploadProgress(file, fileSize.Size(), log)
+
+		// Chunk the file upload
+		err = chunkFileUpload(file, part)
+		if err != nil {
+			log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
+			return nil, "", err
+		}
+	}
+
+	for key, val := range params {
+		_ = writer.WriteField(key, val)
+	}
+
+	err := writer.Close()
+	if err != nil {
+		log.Error("Failed to close writer", zap.Error(err))
+		return nil, "", err
+	}
+
+	return body, writer.FormDataContentType(), nil
+}
+
+// chunkFileUpload reads the file in chunks and writes it to the writer.
+func chunkFileUpload(file *os.File, writer io.Writer) error {
+	buffer := make([]byte, 4096)
+
+	for {
+		n, err := file.Read(buffer)
+		if err != nil && err != io.EOF {
+			return err
+		}
+		if n == 0 {
+			break
+		}
+
+		_, err = writer.Write(buffer[:n])
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// trackUploadProgress logs the upload progress based on the percentage of the total upload.
+func logUploadProgress(file *os.File, totalSize int64, log logger.Logger) error {
+	buffer := make([]byte, 4096)
+	var uploadedSize int64
+	var lastLoggedPercentage float64
+	startTime := time.Now()
+
+	for {
+		n, err := file.Read(buffer)
+		if err != nil && err != io.EOF {
+			return err
+		}
+		if n == 0 {
+			break
+		}
+
+		uploadedSize += int64(n)
+		percentage := math.Floor(float64(uploadedSize) / float64(totalSize) * 100)
+		uploadedMB := float64(uploadedSize) / (1024 * 1024)
+
+		if percentage != lastLoggedPercentage {
+			log.Debug("File upload progress",
+				zap.String("completed", fmt.Sprintf("%.0f%%", percentage)),
+				zap.Float64("uploaded_megabytes", uploadedMB),
+				zap.Duration("elapsed_time", time.Since(startTime)))
+			lastLoggedPercentage = percentage
+		}
+	}
+
+	totalTime := time.Since(startTime)
+	log.Info("File upload completed",
+		zap.Float64("total_uploaded_megabytes", float64(uploadedSize)/(1024*1024)),
+		zap.Duration("total_upload_time", totalTime))
+
+	return nil
+}
+
 // logRequestBody logs the constructed request body for debugging purposes.
 func logRequestBody(body *bytes.Buffer, log logger.Logger) {
 	bodyBytes := body.Bytes()
@@ -144,95 +252,6 @@ func logRequestBody(body *bytes.Buffer, log logger.Logger) {
 	loggedBody := boundary + "\r\n" + strings.Join(loggedParts, "\r\n"+boundary+"\r\n") + "\r\n" + boundary + "--"
 
 	log.Info("Request body preview", zap.String("body", loggedBody))
-}
-
-// createMultipartRequestBody creates a multipart request body with the provided files and form fields.
-func createMultipartRequestBody(files map[string]string, params map[string]string, log logger.Logger) (*bytes.Buffer, string, error) {
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// Add files to the request
-	for fieldName, filePath := range files {
-		file, err := os.Open(filePath)
-		if err != nil {
-			log.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
-			return nil, "", err
-		}
-		defer file.Close()
-
-		part, err := writer.CreateFormFile(fieldName, file.Name()) // Use file.Name() to only include the file name
-		if err != nil {
-			log.Error("Failed to create form file", zap.String("fieldName", fieldName), zap.Error(err))
-			return nil, "", err
-		}
-
-		fileSize, err := file.Stat()
-		if err != nil {
-			log.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
-			return nil, "", err
-		}
-
-		err = trackUploadProgress(file, part, fileSize.Size(), log)
-		if err != nil {
-			log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
-			return nil, "", err
-		}
-	}
-
-	// Add additional parameters to the request
-	for key, val := range params {
-		_ = writer.WriteField(key, val)
-	}
-
-	err := writer.Close()
-	if err != nil {
-		log.Error("Failed to close writer", zap.Error(err))
-		return nil, "", err
-	}
-
-	return body, writer.FormDataContentType(), nil
-}
-
-// trackUploadProgress logs the upload progress based on the percentage of the total upload.
-func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log logger.Logger) error {
-	buffer := make([]byte, 4096)
-	var uploadedSize int64
-	var lastLoggedPercentage float64
-	startTime := time.Now()
-
-	for {
-		n, err := file.Read(buffer)
-		if err != nil && err != io.EOF {
-			return err
-		}
-		if n == 0 {
-			break
-		}
-
-		uploadedSize += int64(n)
-		percentage := math.Floor(float64(uploadedSize) / float64(totalSize) * 100)
-		uploadedMB := float64(uploadedSize) / (1024 * 1024)
-
-		if percentage != lastLoggedPercentage {
-			log.Debug("File upload progress",
-				zap.String("completed", fmt.Sprintf("%.0f%%", percentage)),
-				zap.Float64("uploaded_megabytes", uploadedMB),
-				zap.Duration("elapsed_time", time.Since(startTime)))
-			lastLoggedPercentage = percentage
-		}
-
-		_, err = writer.Write(buffer[:n])
-		if err != nil {
-			return err
-		}
-	}
-
-	totalTime := time.Since(startTime)
-	log.Info("File upload completed",
-		zap.Float64("total_uploaded_megabytes", float64(uploadedSize)/(1024*1024)),
-		zap.Duration("total_upload_time", totalTime))
-
-	return nil
 }
 
 // logHeaders logs the request headers for debugging purposes.
