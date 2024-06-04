@@ -166,6 +166,7 @@ func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log l
 	buffer := make([]byte, 4096)
 	var uploadedSize int64
 	var lastLoggedPercentage float64
+	startTime := time.Now()
 
 	for {
 		n, err := file.Read(buffer)
@@ -177,11 +178,14 @@ func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log l
 		}
 
 		uploadedSize += int64(n)
-		percentage := math.Round(float64(uploadedSize) / float64(totalSize) * 100)
-		uploadedKB := float64(uploadedSize) / 1024
+		percentage := math.Floor(float64(uploadedSize) / float64(totalSize) * 100)
+		uploadedMB := float64(uploadedSize) / (1024 * 1024)
 
 		if percentage != lastLoggedPercentage {
-			log.Debug("File upload progress", zap.Float64("percentage", percentage), zap.Float64("uploaded_kilobytes", uploadedKB))
+			log.Debug("File upload progress",
+				zap.Float64("percentage", percentage),
+				zap.Float64("uploaded_megabytes", uploadedMB),
+				zap.Duration("elapsed_time", time.Since(startTime)))
 			lastLoggedPercentage = percentage
 		}
 
@@ -190,6 +194,11 @@ func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log l
 			return err
 		}
 	}
+
+	totalTime := time.Since(startTime)
+	log.Info("File upload completed",
+		zap.Float64("total_uploaded_megabytes", float64(uploadedSize)/(1024*1024)),
+		zap.Duration("total_upload_time", totalTime))
 
 	return nil
 }
