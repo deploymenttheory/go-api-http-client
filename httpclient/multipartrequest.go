@@ -21,30 +21,6 @@ import (
 )
 
 // DoMultiPartRequest creates and executes a multipart/form-data HTTP request for file uploads and form fields.
-// This method handles the construction of the multipart message body, setting the appropriate headers, and
-// sending the request to the specified endpoint.
-//
-// Parameters:
-// - method: The HTTP method to use (e.g., POST, PUT). Only POST and PUT are supported for multipart requests.
-// - endpoint: The API endpoint to which the request will be sent.
-// - files: A map of form field names to file paths. The files will be read from the disk and included as file attachments.
-// - params: A map of additional form fields and their values to include in the multipart message.
-// - out: A pointer to a variable where the unmarshaled response will be stored.
-//
-// Returns:
-// - A pointer to the http.Response received from the server.
-// - An error if the request could not be sent or the response could not be processed.
-//
-// The function first validates the authentication token, constructs the multipart request body with the provided files and fields,
-// and then constructs the full URL for the request. It sets the required headers (including Authorization and Content-Type), and sends the request.
-// The function tracks and logs the file upload progress in terms of the percentage of the total upload.
-//
-// Debug logging is used throughout the process to log significant steps, including request creation, header settings, and upload progress.
-// After sending the request, the function checks the response status code. If the response is not within the success range (200-299), it logs an error
-// and returns the response and an error. If the response is successful, it attempts to unmarshal the response body into the 'out' parameter.
-//
-// Note:
-// The caller should handle closing the response body when the response is not nil to prevent resource leaks.
 func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]string, params map[string]string, out interface{}) (*http.Response, error) {
 	log := c.Logger
 	ctx := context.Background()
@@ -107,6 +83,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 			return nil, err
 		}
 
+		// Track upload progress
 		err = trackUploadProgress(file, part, fileSize.Size(), log)
 		if err != nil {
 			log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
