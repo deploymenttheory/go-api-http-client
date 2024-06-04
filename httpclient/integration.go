@@ -15,7 +15,6 @@ type APIIntegration interface {
 	// Utilities
 	PrepRequestBodyForIntergration(body interface{}, method string, endpoint string) ([]byte, error)
 	MarshalMultipartRequest(fields map[string]string, files map[string]string) ([]byte, string, error)
-	GetContentTypeHeader(method string) string
 
 	// Info
 	GetAuthMethodDescriptor() string
