@@ -76,6 +76,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 
 	// Apply custom cookies and headers
 	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
+
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
@@ -195,27 +196,40 @@ func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log l
 func logRequestBody(body *bytes.Buffer, log logger.Logger) {
 	bodyBytes := body.Bytes()
 	bodyStr := string(bodyBytes)
-	firstBoundaryIndex := strings.Index(bodyStr, "---")
-	lastBoundaryIndex := strings.LastIndex(bodyStr, "---")
-	boundaryLength := 3 // Length of "---"
-	trailingCharCount := 20
-
-	if firstBoundaryIndex != -1 && lastBoundaryIndex != -1 && firstBoundaryIndex != lastBoundaryIndex {
-		// Content before the first boundary
-		preBoundary := bodyStr[:firstBoundaryIndex+boundaryLength]
-		// 20 characters after the first boundary
-		afterFirstBoundary := bodyStr[firstBoundaryIndex+boundaryLength : firstBoundaryIndex+boundaryLength+trailingCharCount]
-		// 20 characters before the last boundary
-		beforeLastBoundary := bodyStr[lastBoundaryIndex-trailingCharCount : lastBoundaryIndex]
-		// Everything after the last boundary
-		postBoundary := bodyStr[lastBoundaryIndex:]
-
-		log.Info("Request body preview",
-			zap.String("pre_boundary", preBoundary),
-			zap.String("after_first_boundary", afterFirstBoundary),
-			zap.String("before_last_boundary", beforeLastBoundary),
-			zap.String("post_boundary", postBoundary))
+	boundaryPrefix := "--"
+	boundaryIndex := strings.Index(bodyStr, boundaryPrefix)
+	if boundaryIndex == -1 {
+		log.Warn("No boundary found in request body")
+		return
 	}
+	boundary := bodyStr[boundaryIndex : strings.Index(bodyStr[boundaryIndex:], "\n")+boundaryIndex]
+
+	// Split the body by boundaries
+	parts := strings.Split(bodyStr, boundary)
+
+	var loggedParts []string
+	for _, part := range parts {
+		if strings.TrimSpace(part) == "--" {
+			continue // Skip the last boundary marker
+		}
+		if strings.Contains(part, "Content-Disposition: form-data; name=\"file\"") {
+			// If it's a file part, only log the headers
+			headersEndIndex := strings.Index(part, "\n\n")
+			if headersEndIndex != -1 {
+				loggedParts = append(loggedParts, part[:headersEndIndex]+"\n\n<file content omitted>\n")
+			} else {
+				loggedParts = append(loggedParts, part)
+			}
+		} else {
+			// Otherwise, log the entire part
+			loggedParts = append(loggedParts, part)
+		}
+	}
+
+	// Join the logged parts back together with the boundary
+	loggedBody := strings.Join(loggedParts, boundary) + boundary + "--"
+
+	log.Info("Request body preview", zap.String("body", loggedBody))
 }
 
 // logHeaders logs the request headers for debugging purposes.
