@@ -125,7 +125,7 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	// bool
 
 	// Max Concurrent Requests
-	if config.MaxConcurrentRequests < 0 {
+	if config.MaxConcurrentRequests < 1 {
 		return errors.New("Max retry cannot be less than 0")
 	}
 
