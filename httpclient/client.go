@@ -155,7 +155,6 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 	)
 
 	//endregion
-	log.Debug("end of build client")
 
 	return client, nil
 
