@@ -4,6 +4,7 @@ package httpclient
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -273,6 +274,8 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	}
 
 	req = req.WithContext(ctx)
+	reqJson, err := json.MarshalIndent(req, " ", "	")
+	fmt.Println(string(reqJson))
 	log.Debug(fmt.Sprintf("%+v", req))
 
 	startTime := time.Now()
