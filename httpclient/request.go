@@ -263,7 +263,9 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	log.Debug("flag 2")
 
 	url := fmt.Sprintf((*c.Integration).Domain(), endpoint)
+	log.Debug("flag 2.1")
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
+	log.Debug("flag 2.2")
 	if err != nil {
 		return nil, err
 	}
