@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
@@ -193,19 +194,30 @@ func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log l
 // logRequestBody logs the constructed request body for debugging purposes.
 func logRequestBody(body *bytes.Buffer, log logger.Logger) {
 	bodyBytes := body.Bytes()
-	bodyLen := len(bodyBytes)
+	bodyStr := string(bodyBytes)
+	firstBoundaryIndex := strings.Index(bodyStr, "---")
+	lastBoundaryIndex := strings.LastIndex(bodyStr, "---")
+	boundaryLength := 3 // Length of "---"
+	trailingCharCount := 20
 
-	if bodyLen > 20 {
-		firstPart := string(bodyBytes[:10])
-		lastPart := string(bodyBytes[bodyLen-10:])
-		fullBodyPreview := string(bodyBytes[10 : bodyLen-10])
+	if firstBoundaryIndex != -1 && lastBoundaryIndex != -1 && firstBoundaryIndex != lastBoundaryIndex {
+		// Content before the first boundary
+		preBoundary := bodyStr[:firstBoundaryIndex+boundaryLength]
+		// 20 characters after the first boundary
+		afterFirstBoundary := bodyStr[firstBoundaryIndex+boundaryLength : firstBoundaryIndex+boundaryLength+trailingCharCount]
+		// 20 characters before the last boundary
+		beforeLastBoundary := bodyStr[lastBoundaryIndex-trailingCharCount : lastBoundaryIndex]
+		// Everything after the last boundary
+		postBoundary := bodyStr[lastBoundaryIndex:]
+
 		log.Info("Request body preview",
-			zap.String("first_10_characters", firstPart),
-			zap.String("trailing_10_characters", lastPart),
-			zap.String("full_body_preview", fullBodyPreview))
+			zap.String("pre_boundary", preBoundary),
+			zap.String("after_first_boundary", afterFirstBoundary),
+			zap.String("before_last_boundary", beforeLastBoundary),
+			zap.String("post_boundary", postBoundary))
 	} else {
 		log.Info("Request body preview",
-			zap.String("body", string(bodyBytes)))
+			zap.String("body", bodyStr))
 	}
 }
 
