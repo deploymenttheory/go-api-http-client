@@ -103,6 +103,49 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 	return resp, response.HandleAPIErrorResponse(resp, log)
 }
 
+// logRequestBody logs the constructed request body for debugging purposes.
+func logRequestBody(body *bytes.Buffer, log logger.Logger) {
+	bodyBytes := body.Bytes()
+	bodyStr := string(bodyBytes)
+
+	// Find the boundary string
+	boundaryIndex := strings.Index(bodyStr, "\r\n")
+	if boundaryIndex == -1 {
+		log.Warn("No boundary found in request body")
+		return
+	}
+	boundary := bodyStr[:boundaryIndex]
+
+	// Split the body by boundaries
+	parts := strings.Split(bodyStr, boundary)
+
+	var loggedParts []string
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "--" || part == "" {
+			continue // Skip the last boundary marker or empty parts
+		}
+		if strings.Contains(part, "Content-Disposition: form-data; name=\"file\"") {
+			// If it's a file part, only log the headers
+			headersEndIndex := strings.Index(part, "\r\n\r\n")
+			if headersEndIndex != -1 {
+				headers := part[:headersEndIndex]
+				loggedParts = append(loggedParts, headers+"\r\n\r\n<file content omitted>\r\n")
+			} else {
+				loggedParts = append(loggedParts, part)
+			}
+		} else {
+			// Otherwise, log the entire part
+			loggedParts = append(loggedParts, part)
+		}
+	}
+
+	// Join the logged parts back together with the boundary
+	loggedBody := boundary + "\r\n" + strings.Join(loggedParts, "\r\n"+boundary+"\r\n") + "\r\n" + boundary + "--"
+
+	log.Info("Request body preview", zap.String("body", loggedBody))
+}
+
 // createMultipartRequestBody creates a multipart request body with the provided files and form fields.
 func createMultipartRequestBody(files map[string]string, params map[string]string, log logger.Logger) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
@@ -190,46 +233,6 @@ func trackUploadProgress(file *os.File, writer io.Writer, totalSize int64, log l
 		zap.Duration("total_upload_time", totalTime))
 
 	return nil
-}
-
-// logRequestBody logs the constructed request body for debugging purposes.
-func logRequestBody(body *bytes.Buffer, log logger.Logger) {
-	bodyBytes := body.Bytes()
-	bodyStr := string(bodyBytes)
-	boundaryPrefix := "--"
-	boundaryIndex := strings.Index(bodyStr, boundaryPrefix)
-	if boundaryIndex == -1 {
-		log.Warn("No boundary found in request body")
-		return
-	}
-	boundary := bodyStr[boundaryIndex : strings.Index(bodyStr[boundaryIndex:], "\n")+boundaryIndex]
-
-	// Split the body by boundaries
-	parts := strings.Split(bodyStr, boundary)
-
-	var loggedParts []string
-	for _, part := range parts {
-		if strings.TrimSpace(part) == "--" {
-			continue // Skip the last boundary marker
-		}
-		if strings.Contains(part, "Content-Disposition: form-data; name=\"file\"") {
-			// If it's a file part, only log the headers
-			headersEndIndex := strings.Index(part, "\n\n")
-			if headersEndIndex != -1 {
-				loggedParts = append(loggedParts, part[:headersEndIndex]+"\n\n<file content omitted>\n")
-			} else {
-				loggedParts = append(loggedParts, part)
-			}
-		} else {
-			// Otherwise, log the entire part
-			loggedParts = append(loggedParts, part)
-		}
-	}
-
-	// Join the logged parts back together with the boundary
-	loggedBody := strings.Join(loggedParts, boundary) + boundary + "--"
-
-	log.Info("Request body preview", zap.String("body", loggedBody))
 }
 
 // logHeaders logs the request headers for debugging purposes.
