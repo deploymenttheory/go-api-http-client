@@ -265,7 +265,6 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	(*c.Integration).SetRequestHeaders(req)
 	req = req.WithContext(ctx)
 	log.Debug(fmt.Sprintf("%+v", req.Header))
-	log.Warn(url)
 	startTime := time.Now()
 	resp, err := c.http.Do(req)
 	if err != nil {
