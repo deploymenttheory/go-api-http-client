@@ -26,7 +26,7 @@ import (
 // DoMultiPartRequest creates and executes a multipart/form-data HTTP request for file uploads and form fields.
 func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, out interface{}) (*http.Response, error) {
 	log := c.Logger
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel() // Ensure the context is canceled when the function returns
 
 	// Ensure the method is supported
