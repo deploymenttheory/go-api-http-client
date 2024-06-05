@@ -2,7 +2,6 @@ package httpclient
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -26,8 +25,6 @@ import (
 // DoMultiPartRequest creates and executes a multipart/form-data HTTP request for file uploads and form fields.
 func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, out interface{}) (*http.Response, error) {
 	log := c.Logger
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel() // Ensure the context is canceled when the function returns
 
 	// Ensure the method is supported
 	if method != http.MethodPost && method != http.MethodPut {
@@ -47,14 +44,6 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	if err != nil || !valid {
 		return nil, err
 	}
-
-	// Acquire a concurrency permit to control the number of concurrent requests.
-	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyPermit(ctx)
-	if err != nil {
-		log.Error("Failed to acquire concurrency permit", zap.Error(err))
-		return nil, err
-	}
-	defer c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
 
 	log.Debug("Executing multipart request", zap.String("method", method), zap.String("endpoint", endpoint))
 
@@ -85,8 +74,6 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
-
-	req = req.WithContext(ctx)
 
 	startTime := time.Now()
 	resp, err := c.httpClient.Do(req)
