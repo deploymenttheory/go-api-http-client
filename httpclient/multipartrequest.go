@@ -289,11 +289,12 @@ func logMultiPartRequestBody(body *bytes.Buffer, log logger.Logger) {
 			continue // Skip the last boundary marker or empty parts
 		}
 		if strings.Contains(part, "Content-Disposition: form-data; name=\"file\"") {
-			// If it's a file part, only log the headers
+			// If it's a file part, log headers and indicate content is omitted
 			headersEndIndex := strings.Index(part, "\r\n\r\n")
 			if headersEndIndex != -1 {
 				headers := part[:headersEndIndex]
-				loggedParts = append(loggedParts, headers+"\r\n\r\n<file content omitted>\r\n")
+				fileMeta := part[headersEndIndex+4 : len(part)-2] // Extract the file metadata portion
+				loggedParts = append(loggedParts, headers+"\r\n\r\n<file content omitted>\r\n"+fileMeta)
 			} else {
 				loggedParts = append(loggedParts, part)
 			}
