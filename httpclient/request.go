@@ -66,7 +66,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 
 	if IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out)
-	} else if IsNonIdempotentHTTPMethod(method) {
+	} else if !IsIdempotentHTTPMethod(method) {
 		return c.executeRequest(method, endpoint, body, out)
 	} else {
 		return nil, log.Error("HTTP method not supported", zap.String("method", method))
@@ -108,6 +108,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
 // endregion
 func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
+	// TODO review refactor executeRequestWithRetries
 	log := c.Logger
 	ctx := context.Background()
 	totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
@@ -209,6 +210,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 //
 // endregion
 func (c *Client) executeRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
+	// TODO review refactor execute Request
 	log := c.Logger
 	ctx := context.Background()
 
@@ -230,8 +232,6 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 }
 
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
-	log := c.Logger
-	log.Debug("start of doRequest")
 
 	// _, err := (*c.Integration).Token()
 	// if err != nil {
@@ -253,16 +253,15 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	c.Concurrency.Metrics.TotalRequests++
 	c.Concurrency.Metrics.Lock.Unlock()
 
-	// Marshal the request data based on the provided api handler
 	requestData, err := (*c.Integration).PrepRequestBodyForIntergration(body, method, endpoint)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO cleaner way to do this?
 	url := fmt.Sprintf("%s%s", (*c.Integration).Domain(), endpoint)
 
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
-
 	if err != nil {
 		return nil, err
 	}
@@ -274,21 +273,22 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	req = req.WithContext(ctx)
 
-	log.Debug(fmt.Sprintf("%+v", req))
-
 	startTime := time.Now()
 	resp, err := c.http.Do(req)
 	if err != nil {
-		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
+		c.Logger.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
 	duration := time.Since(startTime)
 	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
-	log.LogCookies("incoming", req, method, endpoint)
-	CheckDeprecationHeader(resp, log)
 
-	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
+	// TODO review LogCookies
+	c.Logger.LogCookies("incoming", req, method, endpoint)
+
+	CheckDeprecationHeader(resp, c.Logger)
+
+	c.Logger.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
 
 	return resp, nil
 }
