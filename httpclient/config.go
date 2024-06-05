@@ -46,9 +46,6 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	if populateDefaults {
 		log.Println("FEATURE PENDING")
 		SetDefaultValuesClientConfig(&config)
-		if err != nil {
-			return fmt.Errorf("failed to populate default values: %v", err)
-		}
 	}
 
 	// TODO adjust these strings to have links to documentation & centralise them
