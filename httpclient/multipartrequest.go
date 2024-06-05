@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -51,8 +52,10 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	if err != nil {
 		return nil, err
 	}
+
 	// Log the constructed request body for debugging
 	logMultiPartRequestBody(body, log)
+
 	// Construct the full URL for the API endpoint.
 	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
@@ -77,9 +80,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
-	// Start tracking upload time
 	startTime := time.Now()
-
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
@@ -231,19 +232,30 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 	return nil
 }
 
-// logUploadProgress logs the upload progress based on the percentage of the total file size.
-func logUploadProgress(fileSize int64, log logger.Logger) func(int64) {
-	var uploaded int64 = 0
-	const logInterval = 5 // Log every 5% increment
-	lastLoggedPercentage := int64(0)
+// logUploadProgress logs the upload progress based on the percentage of the total upload.
+func logUploadProgress(totalSize int64, log logger.Logger) func(int64) {
+	var uploadedSize int64
+	var lastLoggedPercentage float64
+	startTime := time.Now()
 
 	return func(bytesWritten int64) {
-		uploaded += bytesWritten
-		percentage := (uploaded * 100) / fileSize
+		uploadedSize += bytesWritten
+		percentage := math.Floor(float64(uploadedSize) / float64(totalSize) * 100)
+		uploadedMB := float64(uploadedSize) / (1024 * 1024)
 
-		if percentage >= lastLoggedPercentage+logInterval {
-			log.Debug("Upload progress", zap.Int64("uploaded_bytes", uploaded), zap.Int64("total_bytes", fileSize), zap.Int64("percentage", percentage))
+		if percentage != lastLoggedPercentage {
+			log.Info("File upload progress",
+				zap.String("completed", fmt.Sprintf("%.0f%%", percentage)),
+				zap.Float64("uploaded_megabytes", uploadedMB),
+				zap.Duration("elapsed_time", time.Since(startTime)))
 			lastLoggedPercentage = percentage
+		}
+
+		if uploadedSize == totalSize {
+			totalTime := time.Since(startTime)
+			log.Info("File upload completed",
+				zap.Float64("total_uploaded_megabytes", float64(uploadedSize)/(1024*1024)),
+				zap.Duration("total_upload_time", totalTime))
 		}
 	}
 }
