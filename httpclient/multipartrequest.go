@@ -75,15 +75,9 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		log.Error("Failed to create HTTP request", zap.Error(err))
 		return nil, err
 	}
-	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("Accept", "application/json")
 
-	// Apply custom cookies and headers
-	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
-
-	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
-	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+	// Apply common headers
+	applyCommonHeaders(req, contentType, endpoint, c)
 
 	req = req.WithContext(ctx)
 
@@ -145,10 +139,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 		contentType = ct
 	}
 
-	header := textproto.MIMEHeader{}
-	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldName, filepath.Base(filePath)))
-	header.Set("Content-Type", contentType)
-	header.Set("Content-Transfer-Encoding", "base64")
+	header := CustomFormDataHeader(fieldName, filepath.Base(filePath), contentType, headersMap[fieldName])
 
 	part, err := writer.CreatePart(header)
 	if err != nil {
@@ -193,6 +184,7 @@ func CustomFormDataHeader(fieldname, filename, contentType string, customHeaders
 	header := textproto.MIMEHeader{}
 	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldname, filename))
 	header.Set("Content-Type", contentType)
+	header.Set("Content-Transfer-Encoding", "base64")
 	for key, values := range customHeaders {
 		for _, value := range values {
 			header.Add(key, value)
@@ -326,4 +318,17 @@ func logMultiPartRequestBody(body *bytes.Buffer, log logger.Logger) {
 	loggedBody := boundary + "\r\n" + strings.Join(loggedParts, "\r\n"+boundary+"\r\n") + "\r\n" + boundary + "--"
 
 	log.Info("Request body preview", zap.String("body", loggedBody))
+}
+
+// applyCommonHeaders sets common headers for the request
+func applyCommonHeaders(req *http.Request, contentType string, endpoint string, c *Client) {
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Accept", "application/json")
+
+	// Apply custom cookies and headers
+	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, c.Logger)
+
+	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler.SetRequestHeaders(endpoint)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 }
