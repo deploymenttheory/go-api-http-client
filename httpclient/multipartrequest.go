@@ -75,11 +75,12 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		log.Error("Failed to create HTTP request", zap.Error(err))
 		return nil, err
 	}
-	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("Accept", "application/json")
 
-	// Apply custom cookies and headers
-	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
+	// Set custom cookies
+	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, c.Logger)
+
+	// Set headers
+	req.Header.Set("Content-Type", contentType)
 
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
@@ -145,10 +146,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 		contentType = ct
 	}
 
-	header := textproto.MIMEHeader{}
-	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldName, filepath.Base(filePath)))
-	header.Set("Content-Type", contentType)
-	header.Set("Content-Transfer-Encoding", "base64")
+	header := setFormDataPartHeader(fieldName, filepath.Base(filePath), contentType, headersMap[fieldName])
 
 	part, err := writer.CreatePart(header)
 	if err != nil {
@@ -188,11 +186,12 @@ func addFormField(writer *multipart.Writer, key, val string, log logger.Logger) 
 	return nil
 }
 
-// CustomFormDataHeader creates a textproto.MIMEHeader for a form data field with the provided field name, file name, content type, and custom headers.
-func CustomFormDataHeader(fieldname, filename, contentType string, customHeaders http.Header) textproto.MIMEHeader {
+// setFormDataPartHeader creates a textproto.MIMEHeader for a form data field with the provided field name, file name, content type, and custom headers.
+func setFormDataPartHeader(fieldname, filename, contentType string, customHeaders http.Header) textproto.MIMEHeader {
 	header := textproto.MIMEHeader{}
 	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldname, filename))
 	header.Set("Content-Type", contentType)
+	header.Set("Content-Transfer-Encoding", "base64")
 	for key, values := range customHeaders {
 		for _, value := range values {
 			header.Add(key, value)
