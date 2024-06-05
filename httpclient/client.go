@@ -20,14 +20,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// TODO all struct comments
+
 // Master struct/object
 type Client struct {
-	// Private
 	config ClientConfig
 	http   *http.Client
 	lock   sync.Mutex
 
-	// Exported
 	AuthToken       string
 	AuthTokenExpiry time.Time
 	Logger          logger.Logger
@@ -39,19 +39,16 @@ type Client struct {
 type ClientConfig struct {
 	Integration APIIntegration
 
-	// Log
 	LogLevel            string
-	LogOutputFormat     string // Output format of the logs. Use "JSON" for JSON format, "console" for human-readable format
+	LogOutputFormat     string // Output format of the logs. Use "pretty" for JSON format, "console" for human-readable format
 	LogConsoleSeparator string
 	ExportLogs          bool
 	LogExportPath       string
 	HideSensitiveData   bool
 
-	// Cookies
-	CookieJarEnabled bool              // Enable or disable cookie jar
-	CustomCookies    map[string]string // Key-value pairs for setting specific cookies
+	CookieJarEnabled bool
+	CustomCookies    []map[string]string
 
-	// Misc
 	MaxRetryAttempts          int
 	MaxConcurrentRequests     int
 	EnableDynamicRateLimiting bool
@@ -70,58 +67,32 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
 
-	//region Logging
-	// TODO refactor logging. It's very confusing
+	// TODO refactor logging.
 	parsedLogLevel := logger.ParseLogLevelFromString(config.LogLevel)
 	log := logger.BuildLogger(parsedLogLevel, config.LogOutputFormat, config.LogConsoleSeparator, config.LogExportPath, config.ExportLogs)
 	log.SetLevel(parsedLogLevel)
 
-	//endregion
-
-	//region HTTP
-
 	log.Info(fmt.Sprintf("initializing new http client, auth: %s", config.Integration.Domain()))
 
-	// Initialize the internal HTTP client
 	httpClient := &http.Client{
 		Timeout: config.CustomTimeout,
-		// Jar: cookiejar
 	}
 
-	//endregion
+	// TODO Add Cookie Support
 
-	//////////////////////////////////////////////////////////////////////////////////////////
-
-	//region Redirect
-
-	// Conditionally setup redirect handling
+	// TODO refactor redirects
 	if err := redirecthandler.SetupRedirectHandler(httpClient, config.FollowRedirects, config.MaxRedirects, log); err != nil {
 		log.Error("Failed to set up redirect handler", zap.Error(err))
 		return nil, err
 	}
 
-	//endregion
-
-	//////////////////////////////////////////////////////////////////////////////////////////
-
-	//region Concurrency
-
-	// Initialize ConcurrencyMetrics specifically for ConcurrencyHandler
 	concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
-
-	// Initialize the ConcurrencyHandler with the newly created ConcurrencyMetrics
 	concurrencyHandler := concurrency.NewConcurrencyHandler(
 		config.MaxConcurrentRequests,
 		log,
 		concurrencyMetrics,
 	)
 
-	//endregion
-
-	//////////////////////////////////////////////////////////////////////////////////////////
-	//region Create
-
-	// Create a new HTTP client with the provided configuration.
 	client := &Client{
 		Integration: &config.Integration,
 		http:        httpClient,
@@ -130,13 +101,6 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 		Concurrency: concurrencyHandler,
 	}
 
-	//endregion
-
-	//////////////////////////////////////////////////////////////////////////////////////////
-
-	//region LoggingOut
-
-	// Log the client's configuration.
 	log.Debug("New API client initialized",
 		zap.String("Authentication Method", (*client.Integration).GetAuthMethodDescriptor()),
 		zap.String("Logging Level", config.LogLevel),
@@ -153,8 +117,6 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 		zap.Duration("Total Retry Duration", config.TotalRetryDuration),
 		zap.Duration("Custom Timeout", config.CustomTimeout),
 	)
-
-	//endregion
 
 	return client, nil
 
