@@ -316,7 +316,7 @@ func logRequestBody(body *bytes.Buffer, log logger.Logger) {
 	// Join the logged parts back together with the boundary
 	loggedBody := boundary + "\r\n" + strings.Join(loggedParts, "\r\n"+boundary+"\r\n") + "\r\n" + boundary + "--"
 
-	log.Info("Request body preview", zap.String("body", loggedBody))
+	log.Info("Multipart Request body preview", zap.String("body", loggedBody))
 }
 
 // logHeaders logs the request headers for debugging purposes.
