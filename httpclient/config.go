@@ -5,7 +5,6 @@ package httpclient
 import (
 	"errors"
 	"fmt"
-	"log"
 	"slices"
 	"time"
 )
@@ -44,7 +43,6 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	var err error
 
 	if populateDefaults {
-		log.Println("FEATURE PENDING")
 		SetDefaultValuesClientConfig(&config)
 	}
 
