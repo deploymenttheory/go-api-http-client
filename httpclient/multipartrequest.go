@@ -288,18 +288,33 @@ func logMultiPartRequestBody(body *bytes.Buffer, log logger.Logger) {
 		if part == "--" || part == "" {
 			continue // Skip the last boundary marker or empty parts
 		}
-		if strings.Contains(part, "Content-Disposition: form-data; name=\"file\"") {
-			// If it's a file part, log headers and indicate content is omitted
-			headersEndIndex := strings.Index(part, "\r\n\r\n")
-			if headersEndIndex != -1 {
-				headers := part[:headersEndIndex]
-				fileMeta := part[headersEndIndex+4 : len(part)-2] // Extract the file metadata portion
-				loggedParts = append(loggedParts, headers+"\r\n\r\n<file content omitted>\r\n"+fileMeta)
+
+		headersEndIndex := strings.Index(part, "\r\n\r\n")
+		if headersEndIndex != -1 {
+			headers := part[:headersEndIndex]
+			bodyContent := part[headersEndIndex+4:]
+
+			encoding := "none"
+			if strings.Contains(headers, "base64") {
+				encoding = "base64"
+			} else if strings.Contains(headers, "quoted-printable") {
+				encoding = "quoted-printable"
+			}
+
+			// Log headers and indicate content is omitted
+			if strings.Contains(headers, "Content-Disposition: form-data; name=\"file\"") {
+				log.Info("Multipart section",
+					zap.String("content_disposition", headers),
+					zap.String("encoding", encoding))
+				loggedParts = append(loggedParts, headers+"\r\n\r\n<file content omitted>")
 			} else {
-				loggedParts = append(loggedParts, part)
+				log.Info("Multipart section",
+					zap.String("content_disposition", headers),
+					zap.String("encoding", encoding))
+				// Log the entire part if it's not a file
+				loggedParts = append(loggedParts, headers+"\r\n\r\n"+bodyContent)
 			}
 		} else {
-			// Otherwise, log the entire part
 			loggedParts = append(loggedParts, part)
 		}
 	}
