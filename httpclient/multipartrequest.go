@@ -145,13 +145,12 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 		contentType = ct
 	}
 
-	var part io.Writer
-	if h, ok := headersMap[fieldName]; ok {
-		part, err = writer.CreatePart(CustomFormDataHeader(fieldName, filepath.Base(filePath), contentType, h))
-	} else {
-		part, err = writer.CreateFormFile(fieldName, filepath.Base(filePath))
-	}
+	header := textproto.MIMEHeader{}
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldName, filepath.Base(filePath)))
+	header.Set("Content-Type", contentType)
+	header.Set("Content-Transfer-Encoding", "base64")
 
+	part, err := writer.CreatePart(header)
 	if err != nil {
 		log.Error("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
 		return err
