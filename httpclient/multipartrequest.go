@@ -8,6 +8,7 @@ import (
 	"math"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,7 +23,7 @@ import (
 )
 
 // DoMultiPartRequest creates and executes a multipart/form-data HTTP request for file uploads and form fields.
-func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]string, params map[string]string, out interface{}) (*http.Response, error) {
+func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, out interface{}) (*http.Response, error) {
 	log := c.Logger
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure the context is canceled when the function returns
@@ -56,7 +57,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 
 	log.Debug("Executing multipart request", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	body, contentType, err := createMultipartRequestBody(files, params, log)
+	body, contentType, err := createMultipartRequestBody(files, params, contentTypes, headersMap, log)
 	if err != nil {
 		return nil, err
 	}
@@ -105,54 +106,106 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 	return resp, response.HandleAPIErrorResponse(resp, log)
 }
 
-// createMultipartRequestBody creates a multipart request body with the provided files and form fields.
-func createMultipartRequestBody(files map[string]string, params map[string]string, log logger.Logger) (*bytes.Buffer, string, error) {
+// createMultipartRequestBody creates a multipart request body with the provided files and form fields, supporting custom content types and headers.
+func createMultipartRequestBody(files map[string]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, log logger.Logger) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
 	for fieldName, filePath := range files {
-		file, err := os.Open(filePath)
-		if err != nil {
-			log.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
-			return nil, "", err
-		}
-		defer file.Close()
-
-		// Use only the filename in the Content-Disposition header
-		part, err := writer.CreateFormFile(fieldName, filepath.Base(filePath))
-		if err != nil {
-			log.Error("Failed to create form file", zap.String("fieldName", fieldName), zap.Error(err))
-			return nil, "", err
-		}
-
-		fileSize, err := file.Stat()
-		if err != nil {
-			log.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
-			return nil, "", err
-		}
-
-		// Start logging the progress
-		progressLogger := logUploadProgress(fileSize.Size(), log)
-
-		// Chunk the file upload and log the progress
-		err = chunkFileUpload(file, part, log, progressLogger)
-		if err != nil {
-			log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
+		if err := addFilePart(writer, fieldName, filePath, contentTypes, headersMap, log); err != nil {
 			return nil, "", err
 		}
 	}
 
 	for key, val := range params {
-		_ = writer.WriteField(key, val)
+		if err := addFormField(writer, key, val, log); err != nil {
+			return nil, "", err
+		}
 	}
 
-	err := writer.Close()
-	if err != nil {
+	if err := writer.Close(); err != nil {
 		log.Error("Failed to close writer", zap.Error(err))
 		return nil, "", err
 	}
 
 	return body, writer.FormDataContentType(), nil
+}
+
+// addFilePart adds a file part to the multipart writer with the provided field name and file path.
+func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTypes map[string]string, headersMap map[string]http.Header, log logger.Logger) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
+		return err
+	}
+	defer file.Close()
+
+	contentType := "application/octet-stream"
+	if ct, ok := contentTypes[fieldName]; ok {
+		contentType = ct
+	}
+
+	var partHeaders textproto.MIMEHeader
+	if h, ok := headersMap[fieldName]; ok {
+		partHeaders = CustomFormDataHeader(fieldName, filepath.Base(filePath), contentType, h)
+	} else {
+		partHeaders = FormDataHeader(fieldName, contentType)
+	}
+
+	part, err := writer.CreatePart(partHeaders)
+	if err != nil {
+		log.Error("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
+		return err
+	}
+
+	fileSize, err := file.Stat()
+	if err != nil {
+		log.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
+		return err
+	}
+
+	progressLogger := logUploadProgress(fileSize.Size(), log)
+	if err := chunkFileUpload(file, part, log, progressLogger); err != nil {
+		log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// addFormField adds a form field to the multipart writer with the provided key and value.
+func addFormField(writer *multipart.Writer, key, val string, log logger.Logger) error {
+	fieldWriter, err := writer.CreatePart(FormDataHeader(key, "text/plain"))
+	if err != nil {
+		log.Error("Failed to create form field", zap.String("key", key), zap.Error(err))
+		return err
+	}
+	if _, err := fieldWriter.Write([]byte(val)); err != nil {
+		log.Error("Failed to write form field", zap.String("key", key), zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// FormDataHeader creates a textproto.MIMEHeader for a form data field with the provided field name and content type.
+func FormDataHeader(fieldname, contentType string) textproto.MIMEHeader {
+	header := textproto.MIMEHeader{}
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"`, fieldname))
+	header.Set("Content-Type", contentType)
+	return header
+}
+
+// CustomFormDataHeader creates a textproto.MIMEHeader for a form data field with the provided field name, file name, content type, and custom headers.
+func CustomFormDataHeader(fieldname, filename, contentType string, customHeaders http.Header) textproto.MIMEHeader {
+	header := textproto.MIMEHeader{}
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldname, filename))
+	header.Set("Content-Type", contentType)
+	for key, values := range customHeaders {
+		for _, value := range values {
+			header.Add(key, value)
+		}
+	}
+	return header
 }
 
 // chunkFileUpload reads the file in chunks and writes it to the writer.
@@ -195,7 +248,7 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 	return nil
 }
 
-// trackUploadProgress logs the upload progress based on the percentage of the total upload.
+// logUploadProgress logs the upload progress based on the percentage of the total upload.
 func logUploadProgress(totalSize int64, log logger.Logger) func(int64) {
 	var uploadedSize int64
 	var lastLoggedPercentage float64
