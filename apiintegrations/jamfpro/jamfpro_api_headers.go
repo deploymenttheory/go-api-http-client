@@ -32,7 +32,7 @@ func (j *JamfAPIHandler) GetContentTypeHeader(endpoint string, log logger.Logger
 
 	// Special case for package upload endpoint
 	if strings.HasPrefix(endpoint, "/api/v1/packages") && strings.HasSuffix(endpoint, "/upload") {
-		j.Logger.Debug("Skipping Content-Type setting for package upload endpoint. Multipart request will set", zap.String("endpoint", endpoint))
+		j.Logger.Debug("Skipping Content-Type setting for package upload endpoint. Multipart request will handling setting directly with boundary", zap.String("endpoint", endpoint))
 		return "" // Skip setting Content-Type here
 	}
 
