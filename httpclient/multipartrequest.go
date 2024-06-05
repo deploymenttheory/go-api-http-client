@@ -295,7 +295,7 @@ func logMultiPartRequestBody(body *bytes.Buffer, log logger.Logger) {
 			bodyContent := part[headersEndIndex+4:]
 
 			encoding := "none"
-			if strings.Contains(headers, "base64") {
+			if strings.Contains(headers, "base64") || strings.Contains(bodyContent, "base64,") {
 				encoding = "base64"
 			} else if strings.Contains(headers, "quoted-printable") {
 				encoding = "quoted-printable"
