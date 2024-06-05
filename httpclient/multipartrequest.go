@@ -3,6 +3,7 @@ package httpclient
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 
 	"github.com/deploymenttheory/go-api-http-client/response"
@@ -39,44 +40,32 @@ import (
 func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]string, files map[string]string, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
-	valid, err := c.CheckAndRefreshAuthToken()
-	if err != nil || !valid {
-		return nil, err
-	}
-
-	// Marshal the multipart form data
-	requestData, _, err := c.API.MarshalMultipartRequest(fields, files, log)
+	requestData, _, err := (*c.Integration).MarshalMultipartRequest(fields, files)
 	if err != nil {
 		return nil, err
 	}
 
-	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := c.API.ConstructAPIResourceEndpoint(endpoint, log)
+	url := fmt.Sprintf("%s%s", (*c.Integration).Domain(), endpoint)
 
-	// Create the request
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
 	if err != nil {
 		return nil, err
 	}
 
-	// Use HeaderManager to set headers
-	// headerHandler.SetContentType(contentType)
-	// headerHandler.SetRequestHeaders(endpoint)
-	// headerHandler.LogHeaders(c.config.HideSensitiveData)
+	err = (*c.Integration).PrepRequestParamsForIntegration(req, c.config.TokenRefreshBufferPeriod)
+	if err != nil {
+		return nil, err
+	}
 
-	// Execute the request
 	resp, err := c.http.Do(req)
 	if err != nil {
 		log.Error("Failed to send multipart request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
-	// Check for successful status code
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Handle error responses
 		return nil, response.HandleAPIErrorResponse(resp, log)
 	} else {
-		// Handle successful responses
 		return resp, response.HandleAPISuccessResponse(resp, out, log)
 	}
 }
