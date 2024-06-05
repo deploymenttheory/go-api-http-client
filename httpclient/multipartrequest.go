@@ -23,7 +23,7 @@ import (
 )
 
 // DoMultiPartRequest creates and executes a multipart/form-data HTTP request for file uploads and form fields.
-func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, out interface{}) (*http.Response, error) {
+func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, out interface{}) (*http.Response, error) {
 	log := c.Logger
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure the context is canceled when the function returns
@@ -107,13 +107,15 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string]st
 }
 
 // createMultipartRequestBody creates a multipart request body with the provided files and form fields, supporting custom content types and headers.
-func createMultipartRequestBody(files map[string]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, log logger.Logger) (*bytes.Buffer, string, error) {
+func createMultipartRequestBody(files map[string][]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, log logger.Logger) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	for fieldName, filePath := range files {
-		if err := addFilePart(writer, fieldName, filePath, contentTypes, headersMap, log); err != nil {
-			return nil, "", err
+	for fieldName, filePaths := range files {
+		for _, filePath := range filePaths {
+			if err := addFilePart(writer, fieldName, filePath, contentTypes, headersMap, log); err != nil {
+				return nil, "", err
+			}
 		}
 	}
 
