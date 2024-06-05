@@ -3,6 +3,7 @@ package httpclient
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"math"
@@ -130,7 +131,7 @@ func createMultipartRequestBody(files map[string][]string, params map[string]str
 	return body, writer.FormDataContentType(), nil
 }
 
-// addFilePart adds a file part to the multipart writer with the provided field name and file path.
+// addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
 func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTypes map[string]string, headersMap map[string]http.Header, log logger.Logger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -156,6 +157,9 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 		return err
 	}
 
+	encoder := base64.NewEncoder(base64.StdEncoding, part)
+	defer encoder.Close()
+
 	fileSize, err := file.Stat()
 	if err != nil {
 		log.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
@@ -163,7 +167,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 	}
 
 	progressLogger := logUploadProgress(fileSize.Size(), log)
-	if err := chunkFileUpload(file, part, log, progressLogger); err != nil {
+	if err := chunkFileUpload(file, encoder, log, progressLogger); err != nil {
 		log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
