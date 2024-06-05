@@ -6,8 +6,7 @@ import (
 	"time"
 )
 
-// APIHandler is an interface for encoding, decoding, and implenting contexual api functions for different API implementations.
-// It encapsulates behavior for encoding and decoding requests and responses.
+// TODO comment
 type APIIntegration interface {
 	Token(tokenRefreshBufferPeriod time.Duration) (string, error)
 	Domain() string

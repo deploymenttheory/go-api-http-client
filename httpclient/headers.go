@@ -3,35 +3,24 @@ package httpclient
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
-// SetAuthorization sets the Authorization header for the request.
-func (c *Client) SetAuthorizationHeader(req *http.Request) {
-	token := c.AuthToken
-	if !strings.HasPrefix(token, "Bearer ") {
-		token = "Bearer " + token
+// CheckDeprecationHeader checks the response headers for the Deprecation header and logs a warning if present.
+func CheckDeprecationHeader(resp *http.Response, log logger.Logger) {
+	deprecationHeader := resp.Header.Get("Deprecation")
+	if deprecationHeader != "" {
+
+		log.Warn("API endpoint is deprecated",
+			zap.String("Date", deprecationHeader),
+			zap.String("Endpoint", resp.Request.URL.String()),
+		)
 	}
-	req.Header.Set("Authorization", token)
 }
 
-// SetContentType sets the Content-Type header for the request.
-// func SetContentType(req *http.Request, contentType string) {
-// 	req.Header.Set("Content-Type", contentType)
-// }
-
-// SetAccept sets the Accept header for the request.
-// func SetAccept(req *http.Request, acceptHeader string) {
-// 	req.Header.Set("Accept", acceptHeader)
-// }
-
-// SetUserAgent sets the User-Agent header for the request.
-// func SetUserAgent(req *http.Request, userAgent string) {
-// 	req.Header.Set("User-Agent", userAgent)
-// }
+// TODO review the need for headers below. Do they need to be in the Integration?
 
 // SetCacheControlHeader sets the Cache-Control header for an HTTP request.
 // This header specifies directives for caching mechanisms in requests and responses.
@@ -68,30 +57,6 @@ func (c *Client) SetAuthorizationHeader(req *http.Request) {
 // 	req.Header.Set("X-Forwarded-For", xForwardedForValue)
 // }
 
-// SetCustomHeader sets a custom header for an HTTP request.
-// This function allows setting arbitrary headers for specialized API requirements.
-// func SetCustomHeader(req *http.Request, headerName, headerValue string) {
-// 	req.Header.Set(headerName, headerValue)
-// }
-
-// SetUserAgentHeader sets the User-Agent header for an HTTP request.
-// func SetUserAgentHeader() string {
-// 	return fmt.Sprintf("%s/%s", version.UserAgentBase, version.SDKVersion)
-// }
-
-// SetRequestHeaders sets the necessary HTTP headers for a given request using the APIHandler to determine the required headers.
-// func (c *Client) SetRequestHeaders(req *http.Request, endpoint string) {
-// 	standardHeaders := (*c.integration).SetRequestHeaders(endpoint)
-
-// 	for header, value := range standardHeaders {
-// 		if header == "Authorization" {
-// 			c.SetAuthorizationHeader(req)
-// 		} else if value != "" {
-// 			req.Header.Set(header, value)
-// 		}
-// 	}
-// }
-
 // LogHeaders prints all the current headers in the http.Request using the zap logger.
 // It uses the RedactSensitiveHeaderData function to redact sensitive data based on the hideSensitiveData flag.
 // func (c *Client) LogHeaders(req *http.Request, hideSensitiveData bool) {
@@ -121,15 +86,3 @@ func (c *Client) SetAuthorizationHeader(req *http.Request) {
 // 	}
 // 	return strings.Join(headerStrings, "\n") // "\n" as seperator.
 // }
-
-// CheckDeprecationHeader checks the response headers for the Deprecation header and logs a warning if present.
-func CheckDeprecationHeader(resp *http.Response, log logger.Logger) {
-	deprecationHeader := resp.Header.Get("Deprecation")
-	if deprecationHeader != "" {
-
-		log.Warn("API endpoint is deprecated",
-			zap.String("Date", deprecationHeader),
-			zap.String("Endpoint", resp.Request.URL.String()),
-		)
-	}
-}

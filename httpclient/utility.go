@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// TODO all func comments in here
+
 const ConfigFileExtension = ".json"
 
 func validateFilePath(path string) (string, error) {
