@@ -2,6 +2,7 @@ package httpclient
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -58,8 +59,12 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	// Construct the full URL for the API endpoint.
 	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
-	// Create the HTTP request
-	req, err := http.NewRequest(method, url, body)
+	// Create a context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), c.clientConfig.ClientOptions.Timeout.CustomTimeout.Duration())
+	defer cancel()
+
+	// Create the HTTP request with context
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		log.Error("Failed to create HTTP request", zap.Error(err))
 		return nil, err
@@ -286,8 +291,6 @@ func logMultiPartRequestBody(body *bytes.Buffer, log logger.Logger) {
 			encoding := "none"
 			if strings.Contains(headers, "base64") || strings.Contains(bodyContent, "base64,") {
 				encoding = "base64"
-			} else if strings.Contains(headers, "quoted-printable") {
-				encoding = "quoted-printable"
 			}
 
 			// Log headers and indicate content is omitted
