@@ -145,14 +145,13 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 		contentType = ct
 	}
 
-	var partHeaders textproto.MIMEHeader
+	var part io.Writer
 	if h, ok := headersMap[fieldName]; ok {
-		partHeaders = CustomFormDataHeader(fieldName, filepath.Base(filePath), contentType, h)
+		part, err = writer.CreatePart(CustomFormDataHeader(fieldName, filepath.Base(filePath), contentType, h))
 	} else {
-		partHeaders = FormDataHeader(fieldName, contentType)
+		part, err = writer.CreateFormFile(fieldName, filepath.Base(filePath))
 	}
 
-	part, err := writer.CreatePart(partHeaders)
 	if err != nil {
 		log.Error("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
 		return err
@@ -175,7 +174,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 
 // addFormField adds a form field to the multipart writer with the provided key and value.
 func addFormField(writer *multipart.Writer, key, val string, log logger.Logger) error {
-	fieldWriter, err := writer.CreatePart(FormDataHeader(key, "text/plain"))
+	fieldWriter, err := writer.CreateFormField(key)
 	if err != nil {
 		log.Error("Failed to create form field", zap.String("key", key), zap.Error(err))
 		return err
@@ -185,14 +184,6 @@ func addFormField(writer *multipart.Writer, key, val string, log logger.Logger) 
 		return err
 	}
 	return nil
-}
-
-// FormDataHeader creates a textproto.MIMEHeader for a form data field with the provided field name and content type.
-func FormDataHeader(fieldname, contentType string) textproto.MIMEHeader {
-	header := textproto.MIMEHeader{}
-	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"`, fieldname))
-	header.Set("Content-Type", contentType)
-	return header
 }
 
 // CustomFormDataHeader creates a textproto.MIMEHeader for a form data field with the provided field name, file name, content type, and custom headers.
@@ -316,7 +307,7 @@ func logRequestBody(body *bytes.Buffer, log logger.Logger) {
 	// Join the logged parts back together with the boundary
 	loggedBody := boundary + "\r\n" + strings.Join(loggedParts, "\r\n"+boundary+"\r\n") + "\r\n" + boundary + "--"
 
-	log.Info("Multipart Request body preview", zap.String("body", loggedBody))
+	log.Info("Request body preview", zap.String("body", loggedBody))
 }
 
 // logHeaders logs the request headers for debugging purposes.
