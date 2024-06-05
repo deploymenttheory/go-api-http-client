@@ -293,8 +293,7 @@ func logMultiPartRequestBody(body *bytes.Buffer, log logger.Logger) {
 			headersEndIndex := strings.Index(part, "\r\n\r\n")
 			if headersEndIndex != -1 {
 				headers := part[:headersEndIndex]
-				fileMeta := part[headersEndIndex+4 : len(part)-2] // Extract the file metadata portion
-				loggedParts = append(loggedParts, headers+"\r\n\r\n<file content omitted>\r\n"+fileMeta)
+				loggedParts = append(loggedParts, headers+"\r\n\r\n<file content omitted>\r\n")
 			} else {
 				loggedParts = append(loggedParts, part)
 			}
