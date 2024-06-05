@@ -67,7 +67,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
 
-	// TODO refactor logging.
+	// TODO refactor logging. It makes files even when told not to!
 	parsedLogLevel := logger.ParseLogLevelFromString(config.LogLevel)
 	log := logger.BuildLogger(parsedLogLevel, config.LogOutputFormat, config.LogConsoleSeparator, config.LogExportPath, config.ExportLogs)
 	log.SetLevel(parsedLogLevel)
