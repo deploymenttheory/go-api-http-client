@@ -63,7 +63,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	}
 
 	// Log the constructed request body for debugging
-	logRequestBody(body, log)
+	logMultiPartRequestBody(body, log)
 
 	// Construct the full URL for the API endpoint.
 	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
@@ -83,9 +83,6 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
-
-	// Log headers for debugging
-	logHeaders(req, log)
 
 	req = req.WithContext(ctx)
 
@@ -269,8 +266,8 @@ func logUploadProgress(totalSize int64, log logger.Logger) func(int64) {
 	}
 }
 
-// logRequestBody logs the constructed request body for debugging purposes.
-func logRequestBody(body *bytes.Buffer, log logger.Logger) {
+// logMultiPartRequestBody logs the constructed request body for debugging purposes.
+func logMultiPartRequestBody(body *bytes.Buffer, log logger.Logger) {
 	bodyBytes := body.Bytes()
 	bodyStr := string(bodyBytes)
 
@@ -310,13 +307,4 @@ func logRequestBody(body *bytes.Buffer, log logger.Logger) {
 	loggedBody := boundary + "\r\n" + strings.Join(loggedParts, "\r\n"+boundary+"\r\n") + "\r\n" + boundary + "--"
 
 	log.Info("Request body preview", zap.String("body", loggedBody))
-}
-
-// logHeaders logs the request headers for debugging purposes.
-func logHeaders(req *http.Request, log logger.Logger) {
-	for key, values := range req.Header {
-		for _, value := range values {
-			log.Info("Request header", zap.String("key", key), zap.String("value", value))
-		}
-	}
 }
