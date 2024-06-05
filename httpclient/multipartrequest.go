@@ -80,7 +80,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, c.Logger)
 
 	// Apply common headers
-	applyCommonHeaders(req, contentType, endpoint, c)
+	setMultiPartHeaders(req, contentType, endpoint, c)
 
 	req = req.WithContext(ctx)
 
@@ -323,8 +323,8 @@ func logMultiPartRequestBody(body *bytes.Buffer, log logger.Logger) {
 	log.Info("Request body preview", zap.String("body", loggedBody))
 }
 
-// applyCommonHeaders sets common headers for the request
-func applyCommonHeaders(req *http.Request, contentType string, endpoint string, c *Client) {
+// setMultiPartHeaders sets common headers for the request
+func setMultiPartHeaders(req *http.Request, contentType string, endpoint string, c *Client) {
 	req.Header.Set("Content-Type", contentType)
 
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
