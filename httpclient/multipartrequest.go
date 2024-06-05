@@ -76,11 +76,15 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		return nil, err
 	}
 
-	// Apply custom cookies
+	// Set custom cookies
 	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, c.Logger)
 
-	// Apply common headers
-	setMultiPartHeaders(req, contentType, endpoint, c)
+	// Set headers
+	req.Header.Set("Content-Type", contentType)
+
+	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler.SetRequestHeaders(endpoint)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
 	req = req.WithContext(ctx)
 
@@ -142,7 +146,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 		contentType = ct
 	}
 
-	header := CustomFormDataHeader(fieldName, filepath.Base(filePath), contentType, headersMap[fieldName])
+	header := setFormDataPartHeader(fieldName, filepath.Base(filePath), contentType, headersMap[fieldName])
 
 	part, err := writer.CreatePart(header)
 	if err != nil {
@@ -182,8 +186,8 @@ func addFormField(writer *multipart.Writer, key, val string, log logger.Logger) 
 	return nil
 }
 
-// CustomFormDataHeader creates a textproto.MIMEHeader for a form data field with the provided field name, file name, content type, and custom headers.
-func CustomFormDataHeader(fieldname, filename, contentType string, customHeaders http.Header) textproto.MIMEHeader {
+// setFormDataPartHeader creates a textproto.MIMEHeader for a form data field with the provided field name, file name, content type, and custom headers.
+func setFormDataPartHeader(fieldname, filename, contentType string, customHeaders http.Header) textproto.MIMEHeader {
 	header := textproto.MIMEHeader{}
 	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldname, filename))
 	header.Set("Content-Type", contentType)
@@ -321,13 +325,4 @@ func logMultiPartRequestBody(body *bytes.Buffer, log logger.Logger) {
 	loggedBody := boundary + "\r\n" + strings.Join(loggedParts, "\r\n"+boundary+"\r\n") + "\r\n" + boundary + "--"
 
 	log.Info("Request body preview", zap.String("body", loggedBody))
-}
-
-// setMultiPartHeaders sets common headers for the request
-func setMultiPartHeaders(req *http.Request, contentType string, endpoint string, c *Client) {
-	req.Header.Set("Content-Type", contentType)
-
-	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
-	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 }
