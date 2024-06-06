@@ -263,7 +263,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 		return err
 	}
 
-	progressLogger := logUploadProgress(fileSize.Size(), log)
+	progressLogger := logUploadProgress(file, fileSize.Size(), log)
 	if err := chunkFileUpload(file, encoder, log, progressLogger); err != nil {
 		log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
 		return err
@@ -326,7 +326,7 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 
 // chunkFileUpload reads the file upload into chunks and writes it to the writer.
 // This function reads the file in chunks and writes it to the provided writer, allowing for progress logging during the upload.
-// chunk size is set to 5124 KB (5 MB) by default.
+// chunk size is set to 1024 KB (1 MB) by default.
 
 // Parameters:
 // - file: The file to be uploaded.
@@ -339,7 +339,7 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 //   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
 //     or writer errors.
 func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateProgress func(int64)) error {
-	const chunkSize = 10240 * 1024 // 5124 KB in bytes (5 MB)
+	const chunkSize = 1024 * 1024 // 1024 bytes * 1024 (1 MB)
 	buffer := make([]byte, chunkSize)
 	totalWritten := int64(0)
 	chunkWritten := int64(0)
@@ -387,26 +387,33 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 // This function returns a closure that logs the upload progress each time it is called, updating the percentage completed.
 
 // Parameters:
+// - file: The file being uploaded. used for logging the file name.
 // - fileSize: The total size of the file being uploaded.
 // - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
 //   and errors encountered during the upload.
 
 // Returns:
 // - func(int64): A function that takes the number of bytes written as an argument and logs the upload progress.
-func logUploadProgress(fileSize int64, log logger.Logger) func(int64) {
+func logUploadProgress(file *os.File, fileSize int64, log logger.Logger) func(int64) {
 	var uploaded int64 = 0
 	const logInterval = 5 // Log every 5% increment
 	lastLoggedPercentage := int64(0)
+	startTime := time.Now()
+	fileName := filepath.Base(file.Name())
 
 	return func(bytesWritten int64) {
 		uploaded += bytesWritten
 		percentage := (uploaded * 100) / fileSize
 
 		if percentage >= lastLoggedPercentage+logInterval {
+			elapsedTime := time.Since(startTime)
+
 			log.Info("Upload progress",
-				zap.Int64("uploaded_kbs", uploaded/1024),
-				zap.Int64("total_filesize_in_kb", fileSize/1024),
-				zap.String("percentage", fmt.Sprintf("%d%%", percentage)))
+				zap.String("file_name", fileName),
+				zap.Float64("uploaded_mbs", float64(uploaded)/1048576), // Log in MB (1024 * 1024)
+				zap.Float64("total_filesize_in_mb", float64(fileSize)/1048576),
+				zap.String("percentage", fmt.Sprintf("%d%%", percentage)),
+				zap.Duration("elapsed_time", elapsedTime))
 			lastLoggedPercentage = percentage
 		}
 	}
