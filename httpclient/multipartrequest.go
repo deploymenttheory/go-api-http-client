@@ -23,7 +23,7 @@ import (
 )
 
 // DoMultiPartRequest creates and executes a multipart/form-data HTTP request for file uploads and form fields.
-func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, out interface{}) (*http.Response, error) {
+func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, params map[string]string, contentTypes map[string]string, formPartHeaders map[string]http.Header, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
 	// Ensure the method is supported
@@ -47,7 +47,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	log.Debug("Executing multipart request", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	body, contentType, err := createMultipartRequestBody(files, params, contentTypes, headersMap, log)
+	body, contentType, err := createMultipartRequestBody(files, params, contentTypes, formPartHeaders, log)
 	if err != nil {
 		return nil, err
 	}
@@ -97,13 +97,13 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 }
 
 // createMultipartRequestBody creates a multipart request body with the provided files and form fields, supporting custom content types and headers.
-func createMultipartRequestBody(files map[string][]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, log logger.Logger) (*bytes.Buffer, string, error) {
+func createMultipartRequestBody(files map[string][]string, params map[string]string, contentTypes map[string]string, formPartHeaders map[string]http.Header, log logger.Logger) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
 	for fieldName, filePaths := range files {
 		for _, filePath := range filePaths {
-			if err := addFilePart(writer, fieldName, filePath, contentTypes, headersMap, log); err != nil {
+			if err := addFilePart(writer, fieldName, filePath, contentTypes, formPartHeaders, log); err != nil {
 				return nil, "", err
 			}
 		}
@@ -124,7 +124,7 @@ func createMultipartRequestBody(files map[string][]string, params map[string]str
 }
 
 // addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
-func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTypes map[string]string, headersMap map[string]http.Header, log logger.Logger) error {
+func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTypes map[string]string, formPartHeaders map[string]http.Header, log logger.Logger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
@@ -137,7 +137,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 		contentType = ct
 	}
 
-	header := setFormDataPartHeader(fieldName, filepath.Base(filePath), contentType, headersMap[fieldName])
+	header := setFormDataPartHeader(fieldName, filepath.Base(filePath), contentType, formPartHeaders[fieldName])
 
 	part, err := writer.CreatePart(header)
 	if err != nil {
