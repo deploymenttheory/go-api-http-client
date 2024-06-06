@@ -23,16 +23,54 @@ import (
 )
 
 // DoMultiPartRequest creates and executes a multipart/form-data HTTP request for file uploads and form fields.
-func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, out interface{}) (*http.Response, error) {
+// This function handles constructing the multipart request body, setting the necessary headers, and executing the request.
+// It supports custom content types and headers for each part of the multipart request, and handles authentication and
+// logging throughout the process.
+
+// Parameters:
+// - method: A string representing the HTTP method to be used for the request. This method should be either POST or PUT
+//   as these are the only methods that support multipart/form-data requests.
+// - endpoint: The target API endpoint for the request. This should be a relative path that will be appended to the base URL
+//   configured for the HTTP client.
+// - files: A map where the key is the field name and the value is a slice of file paths to be included in the request.
+// - formDataFields: A map of additional form fields to be included in the multipart request, where the key is the field name
+//   and the value is the field value.
+// - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
+//   content type (e.g., "image/jpeg").
+// - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
+//   and the value is an http.Header containing the headers for that part.
+// - out: A pointer to an output variable where the response will be deserialized. This should be a pointer to a struct that
+//   matches the expected response schema.
+
+// Returns:
+// - *http.Response: The HTTP response received from the server. In case of successful execution, this response contains
+//   the status code, headers, and body of the response. In case of errors, this response may contain the last received
+//   HTTP response that led to the failure.
+// - error: An error object indicating failure during request execution. This could be due to network issues, server errors,
+//   or a failure in request serialization/deserialization.
+
+// Usage:
+// This function is suitable for executing multipart/form-data HTTP requests, particularly for file uploads along with
+// additional form fields. It ensures proper authentication, sets necessary headers, and logs the process for debugging
+// and monitoring purposes.
+
+// Example:
+// var result MyResponseType
+// resp, err := client.DoMultiPartRequest("POST", "/api/upload", files, formDataFields, fileContentTypes, formDataPartHeaders, &result)
+//
+//	if err != nil {
+//	    // Handle error
+//	}
+//
+// // Use `result` or `resp` as needed
+func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
-	// Ensure the method is supported
 	if method != http.MethodPost && method != http.MethodPut {
 		log.Error("HTTP method not supported for multipart request", zap.String("method", method))
 		return nil, fmt.Errorf("unsupported HTTP method: %s", method)
 	}
 
-	// Authenticate the client using the provided credentials and refresh the auth token if necessary.
 	clientCredentials := authenticationhandler.ClientCredentials{
 		Username:     c.clientConfig.Auth.Username,
 		Password:     c.clientConfig.Auth.Password,
@@ -47,37 +85,33 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	log.Debug("Executing multipart request", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	body, contentType, err := createMultipartRequestBody(files, params, contentTypes, headersMap, log)
+	body, contentType, err := createMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
 	if err != nil {
 		return nil, err
 	}
-	// Log the constructed request body for debugging
+
 	logMultiPartRequestBody(body, log)
-	// Construct the full URL for the API endpoint.
+
 	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), c.clientConfig.ClientOptions.Timeout.CustomTimeout.Duration())
 	defer cancel()
 
-	// Create the HTTP request with context
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		log.Error("Failed to create HTTP request", zap.Error(err))
 		return nil, err
 	}
 
-	// Set custom cookies
 	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, c.Logger)
 
-	// Set headers
 	req.Header.Set("Content-Type", contentType)
 
 	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
 	headerHandler.SetRequestHeaders(endpoint)
 	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
-	// Start tracking upload time
 	startTime := time.Now()
 
 	resp, err := c.httpClient.Do(req)
@@ -97,19 +131,40 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 }
 
 // createMultipartRequestBody creates a multipart request body with the provided files and form fields, supporting custom content types and headers.
-func createMultipartRequestBody(files map[string][]string, params map[string]string, contentTypes map[string]string, headersMap map[string]http.Header, log logger.Logger) (*bytes.Buffer, string, error) {
+// This function constructs the body of a multipart/form-data request by adding each file and form field to the multipart writer,
+// setting custom content types and headers for each part as specified.
+
+// Parameters:
+// - files: A map where the key is the field name and the value is a slice of file paths to be included in the request. Each file path
+//   corresponds to a file that will be included in the multipart request.
+// - formDataFields: A map of additional form fields to be included in the multipart request, where the key is the field name
+//   and the value is the field value. These are regular form fields that accompany the file uploads.
+// - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
+//   content type (e.g., "image/jpeg"). If a content type is not specified for a field, "application/octet-stream" will be used as default.
+// - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
+//   and the value is an http.Header containing the headers for that part. These headers are added to the multipart parts individually.
+// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+//   and errors encountered during the construction of the multipart request body.
+
+// Returns:
+// - *bytes.Buffer: The constructed multipart request body. This buffer contains the full multipart form data payload ready to be sent.
+// - string: The content type of the multipart request body. This includes the boundary string used by the multipart writer.
+// - error: An error object indicating failure during the construction of the multipart request body. This could be due to issues
+//   such as file reading errors or multipart writer errors.
+
+func createMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
 	for fieldName, filePaths := range files {
 		for _, filePath := range filePaths {
-			if err := addFilePart(writer, fieldName, filePath, contentTypes, headersMap, log); err != nil {
+			if err := addFilePart(writer, fieldName, filePath, fileContentTypes, formDataPartHeaders, log); err != nil {
 				return nil, "", err
 			}
 		}
 	}
 
-	for key, val := range params {
+	for key, val := range formDataFields {
 		if err := addFormField(writer, key, val, log); err != nil {
 			return nil, "", err
 		}
@@ -124,7 +179,23 @@ func createMultipartRequestBody(files map[string][]string, params map[string]str
 }
 
 // addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
-func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTypes map[string]string, headersMap map[string]http.Header, log logger.Logger) error {
+// This function opens the specified file, sets the appropriate content type and headers, and adds it to the multipart writer.
+
+// Parameters:
+// - writer: The multipart writer used to construct the multipart request body.
+// - fieldName: The field name for the file part.
+// - filePath: The path to the file to be included in the request.
+// - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
+//   content type (e.g., "image/jpeg").
+// - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
+//   and the value is an http.Header containing the headers for that part.
+// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+//   and errors encountered during the addition of the file part.
+
+// Returns:
+//   - error: An error object indicating failure during the addition of the file part. This could be due to issues such as
+//     file reading errors or multipart writer errors.
+func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
@@ -132,12 +203,13 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 	}
 	defer file.Close()
 
+	// Default fileContentType
 	contentType := "application/octet-stream"
-	if ct, ok := contentTypes[fieldName]; ok {
+	if ct, ok := fileContentTypes[fieldName]; ok {
 		contentType = ct
 	}
 
-	header := setFormDataPartHeader(fieldName, filepath.Base(filePath), contentType, headersMap[fieldName])
+	header := setFormDataPartHeader(fieldName, filepath.Base(filePath), contentType, formDataPartHeaders[fieldName])
 
 	part, err := writer.CreatePart(header)
 	if err != nil {
@@ -164,6 +236,18 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, contentTy
 }
 
 // addFormField adds a form field to the multipart writer with the provided key and value.
+// This function adds a regular form field (non-file) to the multipart request body.
+
+// Parameters:
+// - writer: The multipart writer used to construct the multipart request body.
+// - key: The field name for the form field.
+// - val: The value of the form field.
+// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+//   and errors encountered during the addition of the form field.
+
+// Returns:
+//   - error: An error object indicating failure during the addition of the form field. This could be due to issues such as
+//     multipart writer errors.
 func addFormField(writer *multipart.Writer, key, val string, log logger.Logger) error {
 	fieldWriter, err := writer.CreateFormField(key)
 	if err != nil {
@@ -178,6 +262,18 @@ func addFormField(writer *multipart.Writer, key, val string, log logger.Logger) 
 }
 
 // setFormDataPartHeader creates a textproto.MIMEHeader for a form data field with the provided field name, file name, content type, and custom headers.
+// This function constructs the MIME headers for a multipart form data part, including the content disposition, content type,
+// and any custom headers specified.
+
+// Parameters:
+// - fieldname: The name of the form field.
+// - filename: The name of the file being uploaded (if applicable).
+// - contentType: The content type of the form data part (e.g., "image/jpeg").
+// - customHeaders: A map of custom headers to be added to the form data part. The key is the header name and the value is the
+//   header value.
+
+// Returns:
+// - textproto.MIMEHeader: The constructed MIME header for the form data part.
 func setFormDataPartHeader(fieldname, filename, contentType string, customHeaders http.Header) textproto.MIMEHeader {
 	header := textproto.MIMEHeader{}
 	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldname, filename))
@@ -192,6 +288,18 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 }
 
 // chunkFileUpload reads the file in chunks and writes it to the writer.
+// This function reads the file in chunks and writes it to the provided writer, allowing for progress logging during the upload.
+
+// Parameters:
+// - file: The file to be uploaded.
+// - writer: The writer to which the file content will be written.
+// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+//   and errors encountered during the file upload.
+// - updateProgress: A function to update the upload progress, typically used for logging purposes.
+
+// Returns:
+//   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
+//     or writer errors.
 func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateProgress func(int64)) error {
 	const logThreshold = 1 << 20 // 1 MB in bytes
 	buffer := make([]byte, 4096)
@@ -232,6 +340,15 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 }
 
 // logUploadProgress logs the upload progress based on the percentage of the total file size.
+// This function returns a closure that logs the upload progress each time it is called, updating the percentage completed.
+
+// Parameters:
+// - fileSize: The total size of the file being uploaded.
+// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+//   and errors encountered during the upload.
+
+// Returns:
+// - func(int64): A function that takes the number of bytes written as an argument and logs the upload progress.
 func logUploadProgress(fileSize int64, log logger.Logger) func(int64) {
 	var uploaded int64 = 0
 	const logInterval = 5 // Log every 5% increment
@@ -242,7 +359,10 @@ func logUploadProgress(fileSize int64, log logger.Logger) func(int64) {
 		percentage := (uploaded * 100) / fileSize
 
 		if percentage >= lastLoggedPercentage+logInterval {
-			log.Debug("Upload progress", zap.Int64("uploaded_bytes", uploaded), zap.Int64("total_bytes", fileSize), zap.Int64("percentage", percentage))
+			log.Info("Upload progress",
+				zap.Int64("uploaded_bytes", uploaded),
+				zap.Int64("total_bytes", fileSize),
+				zap.String("percentage", fmt.Sprintf("%d%%", percentage)))
 			lastLoggedPercentage = percentage
 		}
 	}
