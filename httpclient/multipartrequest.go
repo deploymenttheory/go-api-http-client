@@ -85,12 +85,18 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	log.Debug("Executing multipart request", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	body, contentType, err := createMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
+	// body, contentType, err := createMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// Call the helper function to create a streaming multipart request body
+	body, contentType, err := createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
 	if err != nil {
 		return nil, err
 	}
 
-	logMultiPartRequestBody(body, log)
+	//logMultiPartRequestBody(body, log)
 
 	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
@@ -128,6 +134,37 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	}
 
 	return resp, response.HandleAPIErrorResponse(resp, log)
+}
+
+// createStreamingMultipartRequestBody creates a streaming multipart request body with the provided files and form fields.
+// This function constructs the body of a multipart/form-data request using an io.Pipe, allowing the request to be sent in chunks.
+
+func createStreamingMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) (io.Reader, string, error) {
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+
+	go func() {
+		defer pw.Close()
+		defer writer.Close()
+
+		for fieldName, filePaths := range files {
+			for _, filePath := range filePaths {
+				if err := addFilePart(writer, fieldName, filePath, fileContentTypes, formDataPartHeaders, log); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+			}
+		}
+
+		for key, val := range formDataFields {
+			if err := addFormField(writer, key, val, log); err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+		}
+	}()
+
+	return pr, writer.FormDataContentType(), nil
 }
 
 // createMultipartRequestBody creates a multipart request body with the provided files and form fields, supporting custom content types and headers.
