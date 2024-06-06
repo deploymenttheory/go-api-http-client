@@ -93,36 +93,36 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
+	// Create a context with timeout based on the custom timeout duration
+	ctx, cancel := context.WithTimeout(context.Background(), c.clientConfig.ClientOptions.Timeout.CustomTimeout.Duration())
+	defer cancel()
+
+	body, contentType, err := createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
+	if err != nil {
+		log.Error("Failed to create streaming multipart request body", zap.Error(err))
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		log.Error("Failed to create HTTP request", zap.Error(err))
+		return nil, err
+	}
+
+	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, c.Logger)
+
+	req.Header.Set("Content-Type", contentType)
+
+	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler.SetRequestHeaders(endpoint)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+
 	var resp *http.Response
 	var requestErr error
 
 	// Retry logic
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Create a context with timeout based on the custom timeout duration
-		ctx, cancel := context.WithTimeout(context.Background(), c.clientConfig.ClientOptions.Timeout.CustomTimeout.Duration())
-		defer cancel()
-
-		body, contentType, err := createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
-		if err != nil {
-			log.Error("Failed to create streaming multipart request body", zap.Error(err))
-			return nil, err
-		}
-
-		req, err := http.NewRequestWithContext(ctx, method, url, body)
-		if err != nil {
-			log.Error("Failed to create HTTP request", zap.Error(err))
-			return nil, err
-		}
-
-		cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, c.Logger)
-
-		req.Header.Set("Content-Type", contentType)
-
-		headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
-		headerHandler.SetRequestHeaders(endpoint)
-		headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
-
 		startTime := time.Now()
 
 		resp, requestErr = c.httpClient.Do(req)
