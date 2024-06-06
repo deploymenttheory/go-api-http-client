@@ -410,9 +410,9 @@ func logUploadProgress(file *os.File, fileSize int64, log logger.Logger) func(in
 
 			log.Info("Upload progress",
 				zap.String("file_name", fileName),
-				zap.Float64("uploaded_mbs", float64(uploaded)/1048576), // Log in MB (1024 * 1024)
-				zap.Float64("total_filesize_in_mb", float64(fileSize)/1048576),
-				zap.String("percentage", fmt.Sprintf("%d%%", percentage)),
+				zap.Float64("uploaded_MB's", float64(uploaded)/1048576), // Log in MB (1024 * 1024)
+				zap.Float64("total_filesize_in_MB", float64(fileSize)/1048576),
+				zap.String("total_uploaded_percentage", fmt.Sprintf("%d%%", percentage)),
 				zap.Duration("elapsed_time", elapsedTime))
 			lastLoggedPercentage = percentage
 		}
