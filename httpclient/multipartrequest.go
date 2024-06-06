@@ -83,7 +83,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		return nil, err
 	}
 
-	log.Debug("Executing multipart request", zap.String("method", method), zap.String("endpoint", endpoint))
+	log.Info("Executing multipart request", zap.String("method", method), zap.String("endpoint", endpoint))
 
 	// body, contentType, err := createMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
 	// if err != nil {
@@ -339,7 +339,7 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 //   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
 //     or writer errors.
 func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateProgress func(int64)) error {
-	const chunkSize = 5124 * 1024 // 5124 KB in bytes (5 MB)
+	const chunkSize = 10240 * 1024 // 5124 KB in bytes (5 MB)
 	buffer := make([]byte, chunkSize)
 	totalWritten := int64(0)
 	chunkWritten := int64(0)
@@ -404,8 +404,8 @@ func logUploadProgress(fileSize int64, log logger.Logger) func(int64) {
 
 		if percentage >= lastLoggedPercentage+logInterval {
 			log.Info("Upload progress",
-				zap.Int64("uploaded_bytes", uploaded),
-				zap.Int64("total_bytes", fileSize),
+				zap.Int64("uploaded_kbs", uploaded/1024),
+				zap.Int64("total_filesize_in_kb", fileSize/1024),
 				zap.String("percentage", fmt.Sprintf("%d%%", percentage)))
 			lastLoggedPercentage = percentage
 		}
