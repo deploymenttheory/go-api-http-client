@@ -397,16 +397,20 @@ func logUploadProgress(fileSize int64, log logger.Logger) func(int64) {
 	var uploaded int64 = 0
 	const logInterval = 5 // Log every 5% increment
 	lastLoggedPercentage := int64(0)
+	startTime := time.Now()
 
 	return func(bytesWritten int64) {
 		uploaded += bytesWritten
 		percentage := (uploaded * 100) / fileSize
 
 		if percentage >= lastLoggedPercentage+logInterval {
+			elapsedTime := time.Since(startTime)
+
 			log.Info("Upload progress",
 				zap.Int64("uploaded_kbs", uploaded/1024),
 				zap.Int64("total_filesize_in_kb", fileSize/1024),
-				zap.String("percentage", fmt.Sprintf("%d%%", percentage)))
+				zap.String("percentage", fmt.Sprintf("%d%%", percentage)),
+				zap.Duration("elapsed_time", elapsedTime))
 			lastLoggedPercentage = percentage
 		}
 	}
