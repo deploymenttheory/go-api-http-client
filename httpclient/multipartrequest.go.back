@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
@@ -22,13 +21,6 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"go.uber.org/zap"
 )
-
-// UploadState represents the state of an upload operation, including the last uploaded byte.
-// This struct is used to track the progress of file uploads for resumable uploads and to resume uploads from the last uploaded byte.
-type UploadState struct {
-	LastUploadedByte int64
-	sync.Mutex
-}
 
 // DoMultiPartRequest creates and executes a multipart/form-data HTTP request for file uploads and form fields.
 // This function handles constructing the multipart request body, setting the necessary headers, and executing the request.
@@ -93,75 +85,59 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	log.Info("Executing multipart file upload request", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
+	// body, contentType, err := createMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	var resp *http.Response
-	var requestErr error
-
-	// Retry logic
-	maxRetries := 3
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Create a context with a longer timeout
-		ctx, cancel := context.WithTimeout(context.Background(), c.clientConfig.ClientOptions.Timeout.CustomTimeout.Duration())
-		defer cancel()
-
-		body, contentType, err := createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
-		if err != nil {
-			log.Error("Failed to create streaming multipart request body", zap.Error(err))
-			return nil, err
-		}
-
-		req, err := http.NewRequestWithContext(ctx, method, url, body)
-		if err != nil {
-			log.Error("Failed to create HTTP request", zap.Error(err))
-			return nil, err
-		}
-
-		cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, c.Logger)
-
-		req.Header.Set("Content-Type", contentType)
-
-		headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
-		headerHandler.SetRequestHeaders(endpoint)
-		headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
-
-		startTime := time.Now()
-
-		resp, requestErr = c.httpClient.Do(req)
-		duration := time.Since(startTime)
-
-		if requestErr != nil {
-			log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(requestErr))
-			if attempt < maxRetries {
-				log.Info("Retrying request", zap.Int("attempt", attempt))
-				time.Sleep(2 * time.Second)
-				continue
-			}
-			return nil, requestErr
-		}
-
-		log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Duration("duration", duration))
-
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			return resp, response.HandleAPISuccessResponse(resp, out, log)
-		}
-
-		// If status code indicates a server error, retry
-		if resp.StatusCode >= 500 && attempt < maxRetries {
-			log.Info("Retrying request due to server error", zap.Int("status_code", resp.StatusCode), zap.Int("attempt", attempt))
-			time.Sleep(2 * time.Second)
-			continue
-		}
-
-		return resp, response.HandleAPIErrorResponse(resp, log)
+	// Call the helper function to create a streaming multipart request body
+	body, contentType, err := createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
+	if err != nil {
+		return nil, err
 	}
 
-	return resp, requestErr
+	//logMultiPartRequestBody(body, log)
+
+	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
+
+	// Create a context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), c.clientConfig.ClientOptions.Timeout.CustomTimeout.Duration())
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		log.Error("Failed to create HTTP request", zap.Error(err))
+		return nil, err
+	}
+
+	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, c.Logger)
+
+	req.Header.Set("Content-Type", contentType)
+
+	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler.SetRequestHeaders(endpoint)
+	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+
+	startTime := time.Now()
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
+		return nil, err
+	}
+
+	duration := time.Since(startTime)
+	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Duration("duration", duration))
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return resp, response.HandleAPISuccessResponse(resp, out, log)
+	}
+
+	return resp, response.HandleAPIErrorResponse(resp, log)
 }
 
 // createStreamingMultipartRequestBody creates a streaming multipart request body with the provided files and form fields.
 // This function constructs the body of a multipart/form-data request using an io.Pipe, allowing the request to be sent in chunks.
-// createStreamingMultipartRequestBody creates a streaming multipart request body with the provided files and form fields.
 func createStreamingMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) (io.Reader, string, error) {
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
@@ -265,9 +241,6 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 // Returns:
 //   - error: An error object indicating failure during the addition of the file part. This could be due to issues such as
 //     file reading errors or multipart writer errors.
-//
-// addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
-// addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
 func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -300,8 +273,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 	}
 
 	progressLogger := logUploadProgress(file, fileSize.Size(), log)
-	uploadState := &UploadState{}
-	if err := chunkFileUpload(file, encoder, log, progressLogger, uploadState); err != nil {
+	if err := chunkFileUpload(file, encoder, log, progressLogger); err != nil {
 		log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
@@ -375,17 +347,12 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 // Returns:
 //   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
 //     or writer errors.
-//
-// chunkFileUpload reads the file upload into chunks and writes it to the writer.
-func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateProgress func(int64), uploadState *UploadState) error {
+func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateProgress func(int64)) error {
 	const chunkSize = 1024 * 1024 // 1024 bytes * 1024 (1 MB)
 	buffer := make([]byte, chunkSize)
 	totalWritten := int64(0)
 	chunkWritten := int64(0)
 	fileName := filepath.Base(file.Name())
-
-	// Seek to the last uploaded byte
-	file.Seek(uploadState.LastUploadedByte, io.SeekStart)
 
 	for {
 		n, err := file.Read(buffer)
@@ -398,10 +365,6 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 
 		written, err := writer.Write(buffer[:n])
 		if err != nil {
-			// Save the state before returning the error
-			uploadState.Lock()
-			uploadState.LastUploadedByte += totalWritten
-			uploadState.Unlock()
 			return err
 		}
 
@@ -440,7 +403,6 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 
 // Returns:
 // - func(int64): A function that takes the number of bytes written as an argument and logs the upload progress.
-// logUploadProgress logs the upload progress based on the percentage of the total file size.
 func logUploadProgress(file *os.File, fileSize int64, log logger.Logger) func(int64) {
 	var uploaded int64 = 0
 	const logInterval = 5 // Log every 5% increment
