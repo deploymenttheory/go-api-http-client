@@ -23,7 +23,7 @@ import (
 )
 
 // DoMultiPartRequest creates and executes a multipart/form-data HTTP request for file uploads and form fields.
-func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, params map[string]string, contentTypes map[string]string, formDataPartHeaders map[string]http.Header, out interface{}) (*http.Response, error) {
+func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, formDataFields map[string]string, contentTypes map[string]string, formDataPartHeaders map[string]http.Header, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
 	// Ensure the method is supported
@@ -47,7 +47,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	log.Debug("Executing multipart request", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	body, contentType, err := createMultipartRequestBody(files, params, contentTypes, formDataPartHeaders, log)
+	body, contentType, err := createMultipartRequestBody(files, formDataFields, contentTypes, formDataPartHeaders, log)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 }
 
 // createMultipartRequestBody creates a multipart request body with the provided files and form fields, supporting custom content types and headers.
-func createMultipartRequestBody(files map[string][]string, params map[string]string, contentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) (*bytes.Buffer, string, error) {
+func createMultipartRequestBody(files map[string][]string, formDataFields map[string]string, contentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -109,7 +109,7 @@ func createMultipartRequestBody(files map[string][]string, params map[string]str
 		}
 	}
 
-	for key, val := range params {
+	for key, val := range formDataFields {
 		if err := addFormField(writer, key, val, log); err != nil {
 			return nil, "", err
 		}
