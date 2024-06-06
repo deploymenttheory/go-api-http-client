@@ -326,7 +326,7 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 
 // chunkFileUpload reads the file upload into chunks and writes it to the writer.
 // This function reads the file in chunks and writes it to the provided writer, allowing for progress logging during the upload.
-// chunk size is set to 2024 KB (2 MB) by default.
+// chunk size is set to 5124 KB (5 MB) by default.
 
 // Parameters:
 // - file: The file to be uploaded.
@@ -339,7 +339,7 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 //   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
 //     or writer errors.
 func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateProgress func(int64)) error {
-	const chunkSize = 2024 * 1024 // 2024 KB in bytes, adjust this as needed
+	const chunkSize = 5124 * 1024 // 5124 KB in bytes (5 MB)
 	buffer := make([]byte, chunkSize)
 	totalWritten := int64(0)
 	chunkWritten := int64(0)
