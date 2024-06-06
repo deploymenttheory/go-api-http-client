@@ -242,7 +242,10 @@ func logUploadProgress(fileSize int64, log logger.Logger) func(int64) {
 		percentage := (uploaded * 100) / fileSize
 
 		if percentage >= lastLoggedPercentage+logInterval {
-			log.Debug("Upload progress", zap.Int64("uploaded_bytes", uploaded), zap.Int64("total_bytes", fileSize), zap.Int64("percentage", percentage))
+			log.Info("Upload progress",
+				zap.Int64("uploaded_bytes", uploaded),
+				zap.Int64("total_bytes", fileSize),
+				zap.String("percentage", fmt.Sprintf("%d%%", percentage)))
 			lastLoggedPercentage = percentage
 		}
 	}
