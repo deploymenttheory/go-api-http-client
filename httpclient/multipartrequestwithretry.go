@@ -199,6 +199,22 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 }
 
 // addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
+// This function opens the specified file, sets the appropriate content type and headers, and adds it to the multipart writer.
+
+// Parameters:
+// - writer: The multipart writer used to construct the multipart request body.
+// - fieldName: The field name for the file part.
+// - filePath: The path to the file to be included in the request.
+// - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
+//   content type (e.g., "image/jpeg").
+// - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
+//   and the value is an http.Header containing the headers for that part.
+// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+//   and errors encountered during the addition of the file part.
+
+// Returns:
+//   - error: An error object indicating failure during the addition of the file part. This could be due to issues such as
+//     file reading errors or multipart writer errors.
 func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -294,11 +310,13 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 
 // chunkFileUpload reads the file upload into chunks and writes it to the writer.
 // This function reads the file in chunks and writes it to the provided writer, allowing for progress logging during the upload.
-// chunk size is set to 8192 KB (8 MB) by default. This is a common chunk size used for file uploads to cloud storage services.
+// The chunk size is set to 8192 KB (8 MB) by default. This is a common chunk size used for file uploads to cloud storage services.
 
 // Azure Blob Storage has a minimum chunk size of 4 MB and a maximum of 100 MB for block blobs.
 // GCP Cloud Storage has a minimum chunk size of 256 KB and a maximum of 5 GB.
 // AWS S3 has a minimum chunk size of 5 MB and a maximum of 5 GB.
+
+// The function also calculates the total number of chunks and logs the chunk number during the upload process.
 
 // Parameters:
 // - file: The file to be uploaded.
@@ -306,12 +324,13 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 // - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
 //   and errors encountered during the file upload.
 // - updateProgress: A function to update the upload progress, typically used for logging purposes.
+// - uploadState: A pointer to an UploadState struct used to track the progress of the file upload for resumable uploads.
 
 // Returns:
 //   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
 //     or writer errors.
 func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateProgress func(int64), uploadState *UploadState) error {
-	const chunkSize = 8 * 1024 * 1024 // 8 * 1024 * 1024 bytes (8 MB)
+	const chunkSize = 8 * 1024 * 1024 // 8 MB
 	buffer := make([]byte, chunkSize)
 	totalWritten := int64(0)
 	chunkWritten := int64(0)
@@ -319,6 +338,14 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 
 	// Seek to the last uploaded byte
 	file.Seek(uploadState.LastUploadedByte, io.SeekStart)
+
+	// Calculate the total number of chunks
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to get file info: %v", err)
+	}
+	totalChunks := (fileInfo.Size() + chunkSize - 1) / chunkSize
+	currentChunk := uploadState.LastUploadedByte / chunkSize
 
 	for {
 		n, err := file.Read(buffer)
@@ -343,8 +370,11 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 		updateProgress(int64(written))
 
 		if chunkWritten >= chunkSize {
+			currentChunk++
 			log.Debug("File Upload Chunk Sent",
 				zap.String("file_name", fileName),
+				zap.Int64("chunk_number", currentChunk),
+				zap.Int64("total_chunks", totalChunks),
 				zap.Int64("kb_sent", chunkWritten/1024),
 				zap.Int64("total_kb_sent", totalWritten/1024))
 			chunkWritten = 0
@@ -353,8 +383,11 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 
 	// Log any remaining bytes that were written but didn't reach the log threshold
 	if chunkWritten > 0 {
+		currentChunk++
 		log.Debug("Final Upload Chunk Sent",
 			zap.String("file_name", fileName),
+			zap.Int64("chunk_number", currentChunk),
+			zap.Int64("total_chunks", totalChunks),
 			zap.Int64("kb_sent", chunkWritten/1024),
 			zap.Int64("total_kb_sent", totalWritten/1024))
 	}
