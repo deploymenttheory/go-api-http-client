@@ -83,7 +83,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		return nil, err
 	}
 
-	log.Info("Executing multipart request", zap.String("method", method), zap.String("endpoint", endpoint))
+	log.Info("Executing multipart file upload request", zap.String("method", method), zap.String("endpoint", endpoint))
 
 	// body, contentType, err := createMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
 	// if err != nil {
@@ -138,14 +138,19 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 // createStreamingMultipartRequestBody creates a streaming multipart request body with the provided files and form fields.
 // This function constructs the body of a multipart/form-data request using an io.Pipe, allowing the request to be sent in chunks.
-
 func createStreamingMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) (io.Reader, string, error) {
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
 
 	go func() {
-		defer pw.Close()
-		defer writer.Close()
+		defer func() {
+			if err := writer.Close(); err != nil {
+				log.Error("Failed to close multipart writer", zap.Error(err))
+			}
+			if err := pw.Close(); err != nil {
+				log.Error("Failed to close pipe writer", zap.Error(err))
+			}
+		}()
 
 		for fieldName, filePaths := range files {
 			for _, filePath := range filePaths {
