@@ -338,8 +338,8 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 //   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
 //     or writer errors.
 func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateProgress func(int64)) error {
-	const logThreshold = 1 << 20 // 1 MB in bytes
-	buffer := make([]byte, 4096)
+	const chunkSize = 2024 * 1024 // 2024 KB in bytes, adjust this as needed
+	buffer := make([]byte, chunkSize)
 	totalWritten := int64(0)
 	chunkWritten := int64(0)
 
@@ -362,7 +362,7 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 		updateProgress(int64(written))
 
 		// Log progress for every 1MB chunk written
-		if chunkWritten >= logThreshold {
+		if chunkWritten >= chunkSize {
 			log.Debug("Chunk written", zap.Int64("bytes_written", chunkWritten), zap.Int64("total_written", totalWritten))
 			chunkWritten = 0
 		}
