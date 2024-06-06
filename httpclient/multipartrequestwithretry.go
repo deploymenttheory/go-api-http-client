@@ -294,7 +294,11 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 
 // chunkFileUpload reads the file upload into chunks and writes it to the writer.
 // This function reads the file in chunks and writes it to the provided writer, allowing for progress logging during the upload.
-// chunk size is set to 65536 KB (64 MB) by default.
+// chunk size is set to 8192 KB (8 MB) by default. This is a common chunk size used for file uploads to cloud storage services.
+
+// Azure Blob Storage has a minimum chunk size of 4 MB and a maximum of 100 MB for block blobs.
+// GCP Cloud Storage has a minimum chunk size of 256 KB and a maximum of 5 GB.
+// AWS S3 has a minimum chunk size of 5 MB and a maximum of 5 GB.
 
 // Parameters:
 // - file: The file to be uploaded.
@@ -306,10 +310,8 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 // Returns:
 //   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
 //     or writer errors.
-//
-// chunkFileUpload reads the file upload into chunks and writes it to the writer.
 func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateProgress func(int64), uploadState *UploadState) error {
-	const chunkSize = 65536 * 1024 // 65536 * 1024 bytes (64 MB)
+	const chunkSize = 8 * 1024 * 1024 // 8 * 1024 * 1024 bytes (8 MB)
 	buffer := make([]byte, chunkSize)
 	totalWritten := int64(0)
 	chunkWritten := int64(0)
