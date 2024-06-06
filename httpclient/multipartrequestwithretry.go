@@ -1,7 +1,6 @@
 package httpclient
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -101,7 +99,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	// Retry logic
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Create a context with a longer timeout
+		// Create a context with timeout based on the custom timeout duration
 		ctx, cancel := context.WithTimeout(context.Background(), c.clientConfig.ClientOptions.Timeout.CustomTimeout.Duration())
 		defer cancel()
 
@@ -200,73 +198,6 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 	return pr, writer.FormDataContentType(), nil
 }
 
-// createMultipartRequestBody creates a multipart request body with the provided files and form fields, supporting custom content types and headers.
-// This function constructs the body of a multipart/form-data request by adding each file and form field to the multipart writer,
-// setting custom content types and headers for each part as specified.
-
-// Parameters:
-// - files: A map where the key is the field name and the value is a slice of file paths to be included in the request. Each file path
-//   corresponds to a file that will be included in the multipart request.
-// - formDataFields: A map of additional form fields to be included in the multipart request, where the key is the field name
-//   and the value is the field value. These are regular form fields that accompany the file uploads.
-// - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
-//   content type (e.g., "image/jpeg"). If a content type is not specified for a field, "application/octet-stream" will be used as default.
-// - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
-//   and the value is an http.Header containing the headers for that part. These headers are added to the multipart parts individually.
-// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
-//   and errors encountered during the construction of the multipart request body.
-
-// Returns:
-// - *bytes.Buffer: The constructed multipart request body. This buffer contains the full multipart form data payload ready to be sent.
-// - string: The content type of the multipart request body. This includes the boundary string used by the multipart writer.
-// - error: An error object indicating failure during the construction of the multipart request body. This could be due to issues
-//   such as file reading errors or multipart writer errors.
-
-// func createMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) (*bytes.Buffer, string, error) {
-// 	body := &bytes.Buffer{}
-// 	writer := multipart.NewWriter(body)
-
-// 	for fieldName, filePaths := range files {
-// 		for _, filePath := range filePaths {
-// 			if err := addFilePart(writer, fieldName, filePath, fileContentTypes, formDataPartHeaders, log); err != nil {
-// 				return nil, "", err
-// 			}
-// 		}
-// 	}
-
-// 	for key, val := range formDataFields {
-// 		if err := addFormField(writer, key, val, log); err != nil {
-// 			return nil, "", err
-// 		}
-// 	}
-
-// 	if err := writer.Close(); err != nil {
-// 		log.Error("Failed to close writer", zap.Error(err))
-// 		return nil, "", err
-// 	}
-
-// 	return body, writer.FormDataContentType(), nil
-// }
-
-// addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
-// This function opens the specified file, sets the appropriate content type and headers, and adds it to the multipart writer.
-
-// Parameters:
-// - writer: The multipart writer used to construct the multipart request body.
-// - fieldName: The field name for the file part.
-// - filePath: The path to the file to be included in the request.
-// - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
-//   content type (e.g., "image/jpeg").
-// - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
-//   and the value is an http.Header containing the headers for that part.
-// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
-//   and errors encountered during the addition of the file part.
-
-// Returns:
-//   - error: An error object indicating failure during the addition of the file part. This could be due to issues such as
-//     file reading errors or multipart writer errors.
-//
-// addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
 // addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
 func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) error {
 	file, err := os.Open(filePath)
@@ -464,61 +395,4 @@ func logUploadProgress(file *os.File, fileSize int64, log logger.Logger) func(in
 			lastLoggedPercentage = percentage
 		}
 	}
-}
-
-// logMultiPartRequestBody logs the constructed request body for debugging purposes.
-func logMultiPartRequestBody(body *bytes.Buffer, log logger.Logger) {
-	bodyBytes := body.Bytes()
-	bodyStr := string(bodyBytes)
-
-	// Find the boundary string
-	boundaryIndex := strings.Index(bodyStr, "\r\n")
-	if boundaryIndex == -1 {
-		log.Warn("No boundary found in request body")
-		return
-	}
-	boundary := bodyStr[:boundaryIndex]
-
-	// Split the body by boundaries
-	parts := strings.Split(bodyStr, boundary)
-
-	var loggedParts []string
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "--" || part == "" {
-			continue // Skip the last boundary marker or empty parts
-		}
-
-		headersEndIndex := strings.Index(part, "\r\n\r\n")
-		if headersEndIndex != -1 {
-			headers := part[:headersEndIndex]
-			bodyContent := part[headersEndIndex+4:]
-
-			encoding := "none"
-			if strings.Contains(headers, "base64") || strings.Contains(bodyContent, "base64,") {
-				encoding = "base64"
-			}
-
-			// Log headers and indicate content is omitted
-			if strings.Contains(headers, "Content-Disposition: form-data; name=\"file\"") {
-				log.Info("Multipart section",
-					zap.String("content_disposition", headers),
-					zap.String("encoding", encoding))
-				loggedParts = append(loggedParts, headers+"\r\n\r\n<file content omitted>")
-			} else {
-				log.Info("Multipart section",
-					zap.String("content_disposition", headers),
-					zap.String("encoding", encoding))
-				// Log the entire part if it's not a file
-				loggedParts = append(loggedParts, headers+"\r\n\r\n"+bodyContent)
-			}
-		} else {
-			loggedParts = append(loggedParts, part)
-		}
-	}
-
-	// Join the logged parts back together with the boundary
-	loggedBody := boundary + "\r\n" + strings.Join(loggedParts, "\r\n"+boundary+"\r\n") + "\r\n" + boundary + "--"
-
-	log.Info("Request body preview", zap.String("body", loggedBody))
 }
