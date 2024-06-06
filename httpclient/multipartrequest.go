@@ -324,8 +324,9 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 	return header
 }
 
-// chunkFileUpload reads the file in chunks and writes it to the writer.
+// chunkFileUpload reads the file upload into chunks and writes it to the writer.
 // This function reads the file in chunks and writes it to the provided writer, allowing for progress logging during the upload.
+// chunk size is set to 2024 KB (2 MB) by default.
 
 // Parameters:
 // - file: The file to be uploaded.
@@ -342,6 +343,7 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 	buffer := make([]byte, chunkSize)
 	totalWritten := int64(0)
 	chunkWritten := int64(0)
+	fileName := filepath.Base(file.Name())
 
 	for {
 		n, err := file.Read(buffer)
@@ -361,16 +363,21 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 		chunkWritten += int64(written)
 		updateProgress(int64(written))
 
-		// Log progress for every 1MB chunk written
 		if chunkWritten >= chunkSize {
-			log.Debug("Chunk written", zap.Int64("bytes_written", chunkWritten), zap.Int64("total_written", totalWritten))
+			log.Debug("File Upload Chunk Sent",
+				zap.String("file_name", fileName),
+				zap.Int64("kb_sent", chunkWritten/1024),
+				zap.Int64("total_kb_sent", totalWritten/1024))
 			chunkWritten = 0
 		}
 	}
 
 	// Log any remaining bytes that were written but didn't reach the log threshold
 	if chunkWritten > 0 {
-		log.Debug("Final chunk written", zap.Int64("bytes_written", chunkWritten), zap.Int64("total_written", totalWritten))
+		log.Debug("Final Upload Chunk Sent",
+			zap.String("file_name", fileName),
+			zap.Int64("kb_sent", chunkWritten/1024),
+			zap.Int64("total_kb_sent", totalWritten/1024))
 	}
 
 	return nil
