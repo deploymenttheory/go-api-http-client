@@ -154,7 +154,9 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 
 		for fieldName, filePaths := range files {
 			for _, filePath := range filePaths {
+				log.Debug("Adding file part", zap.String("field_name", fieldName), zap.String("file_path", filePath))
 				if err := addFilePart(writer, fieldName, filePath, fileContentTypes, formDataPartHeaders, log); err != nil {
+					log.Error("Failed to add file part", zap.Error(err))
 					pw.CloseWithError(err)
 					return
 				}
@@ -162,7 +164,9 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 		}
 
 		for key, val := range formDataFields {
+			log.Debug("Adding form field", zap.String("field_name", key), zap.String("field_value", val))
 			if err := addFormField(writer, key, val, log); err != nil {
+				log.Error("Failed to add form field", zap.Error(err))
 				pw.CloseWithError(err)
 				return
 			}
