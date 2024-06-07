@@ -97,8 +97,17 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	ctx, cancel := context.WithTimeout(context.Background(), c.clientConfig.ClientOptions.Timeout.CustomTimeout.Duration())
 	defer cancel()
 
-	body, contentType, err := createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
-	if err != nil {
+	var body io.Reader
+	var contentType string
+
+	// Create multipart body in a function to ensure it runs again on retry
+	createBody := func() error {
+		var err error
+		body, contentType, err = createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
+		return err
+	}
+
+	if err := createBody(); err != nil {
 		log.Error("Failed to create streaming multipart request body", zap.Error(err))
 		return nil, err
 	}
@@ -124,6 +133,20 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		startTime := time.Now()
+
+		// Create a new request for each retry
+		if attempt > 1 {
+			if err := createBody(); err != nil {
+				log.Error("Failed to recreate streaming multipart request body", zap.Error(err))
+				return nil, err
+			}
+			req, err = http.NewRequestWithContext(ctx, method, url, body)
+			if err != nil {
+				log.Error("Failed to create HTTP request on retry", zap.Error(err))
+				return nil, err
+			}
+			req.Header.Set("Content-Type", contentType)
+		}
 
 		resp, requestErr = c.httpClient.Do(req)
 		duration := time.Since(startTime)
