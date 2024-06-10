@@ -13,7 +13,6 @@ require (
 require (
 	github.com/antchfx/xpath v1.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/deploymenttheory/go-api-sdk-jamfpro v1.7.2-0.20240610104259-0b9b31d08ba9 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
