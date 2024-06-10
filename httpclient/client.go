@@ -47,7 +47,7 @@ type ClientConfig struct {
 	HideSensitiveData   bool
 
 	CookieJarEnabled bool
-	CustomCookies    []map[string]string
+	CustomCookies    []*http.Cookie
 
 	MaxRetryAttempts          int
 	MaxConcurrentRequests     int
