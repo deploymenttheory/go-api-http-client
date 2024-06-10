@@ -270,7 +270,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 		return nil, err
 	}
 
-	err = (*c.Integration).PrepRequestParams(req, c.config.TokenRefreshBufferPeriod)
+	err = (*c.Integration).PrepRequestParamsAndAuth(req)
 	if err != nil {
 		return nil, err
 	}

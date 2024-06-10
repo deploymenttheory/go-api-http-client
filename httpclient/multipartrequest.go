@@ -52,7 +52,7 @@ func (c *Client) DoMultipartRequest(method, endpoint string, fields map[string]s
 		return nil, err
 	}
 
-	err = (*c.Integration).PrepRequestParams(req, c.config.TokenRefreshBufferPeriod)
+	err = (*c.Integration).PrepRequestParamsAndAuth(req)
 	if err != nil {
 		return nil, err
 	}
