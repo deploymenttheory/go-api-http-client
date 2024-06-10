@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// TODO remove collapsable comment
+
 // DoRequest constructs and executes an HTTP request based on the provided method, endpoint, request body, and output variable.
 // This function serves as a dispatcher, deciding whether to execute the request with or without retry logic based on the
 // idempotency of the HTTP method. Idempotent methods (GET, PUT, DELETE) are executed with retries to handle transient errors
