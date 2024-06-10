@@ -6,7 +6,7 @@ import (
 	"net/url"
 )
 
-func (c *Client) parseCustomCookies(cookies []*http.Cookie) error {
+func (c *Client) parseCustomCookies(cookiesList []*http.Cookie) error {
 	c.Logger.Debug("FLAG-1")
 	cookieUrl, err := url.Parse((*c.Integration).Domain())
 	c.Logger.Debug(cookieUrl.Host)
@@ -15,8 +15,8 @@ func (c *Client) parseCustomCookies(cookies []*http.Cookie) error {
 		return err
 	}
 	c.Logger.Debug("FLAG-3")
-	c.Logger.Debug(fmt.Sprintf("%+v", cookies))
-	c.http.Jar.SetCookies(cookieUrl, cookies)
+	c.Logger.Debug(fmt.Sprintf("%+v", cookiesList))
+	c.http.Jar.SetCookies(cookieUrl, cookiesList)
 	c.Logger.Debug("FLAG-4")
 
 	return nil
