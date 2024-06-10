@@ -4,7 +4,6 @@ package httpclient
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 
 // TODO remove collapsable comment
 
+// region comment
 // DoRequest constructs and executes an HTTP request based on the provided method, endpoint, request body, and output variable.
 // This function serves as a dispatcher, deciding whether to execute the request with or without retry logic based on the
 // idempotency of the HTTP method. Idempotent methods (GET, PUT, DELETE) are executed with retries to handle transient errors
@@ -62,6 +62,7 @@ import (
 //   within the client's concurrency model.
 // - The decision to retry requests is based on the idempotency of the HTTP method and the client's retry configuration,
 //   including maximum retry attempts and total retry duration.
+// endregion
 
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
@@ -235,6 +236,7 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 
+	// region Concurrency
 	ctx, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
 	if err != nil {
 		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
@@ -249,25 +251,35 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	c.Concurrency.Metrics.TotalRequests++
 	c.Concurrency.Metrics.Lock.Unlock()
 
-	requestData, err := (*c.Integration).PrepRequestBodyForIntergration(body, method, endpoint)
+	// endregion
+
+	// region Body Prep
+	requestData, err := (*c.Integration).PrepRequestBody(body, method, endpoint)
+	if err != nil {
+		return nil, err
+	}
+	requestDataBytes := bytes.NewBuffer(requestData)
+
+	// endregion
+
+	// region Request Prep
+	url := (*c.Integration).Domain() + endpoint
+
+	req, err := http.NewRequest(method, url, requestDataBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO cleaner way to do this?
-	url := fmt.Sprintf("%s%s", (*c.Integration).Domain(), endpoint)
-
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
-	if err != nil {
-		return nil, err
-	}
-
-	err = (*c.Integration).PrepRequestParamsForIntegration(req, c.config.TokenRefreshBufferPeriod)
+	err = (*c.Integration).PrepRequestParams(req, c.config.TokenRefreshBufferPeriod)
 	if err != nil {
 		return nil, err
 	}
 
 	req = req.WithContext(ctx)
+
+	// endregion
+
+	// region Request
 
 	startTime := time.Now()
 	resp, err := c.http.Do(req)
@@ -275,6 +287,10 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 		c.Logger.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
+
+	// endregion
+
+	// region Tidy up
 
 	duration := time.Since(startTime)
 	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
@@ -285,6 +301,8 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	CheckDeprecationHeader(resp, c.Logger)
 
 	c.Logger.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
+
+	// endregion
 
 	return resp, nil
 }
