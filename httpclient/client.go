@@ -60,17 +60,13 @@ type ClientConfig struct {
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
-func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, error) {
-
+func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Logger) (*Client, error) {
 	err := validateClientConfig(config, populateDefaultValues)
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
 
 	// TODO refactor logging. It makes files even when told not to!
-	parsedLogLevel := logger.ParseLogLevelFromString(config.LogLevel)
-	log := logger.BuildLogger(parsedLogLevel, config.LogOutputFormat, config.LogConsoleSeparator, config.LogExportPath, config.ExportLogs)
-	log.SetLevel(parsedLogLevel)
 
 	log.Info(fmt.Sprintf("initializing new http client, auth: %s", config.Integration.Domain()))
 
