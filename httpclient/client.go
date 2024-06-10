@@ -46,8 +46,8 @@ type ClientConfig struct {
 	LogExportPath       string
 	HideSensitiveData   bool
 
-	CookieJarEnabled bool
-	CustomCookies    []map[string]string
+	// CookieJarEnabled bool
+	CustomCookies []*http.Cookie
 
 	MaxRetryAttempts          int
 	MaxConcurrentRequests     int
@@ -101,13 +101,14 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 		Concurrency: concurrencyHandler,
 	}
 
+	client.parseCustomCookies(config.CustomCookies)
+
 	log.Debug("New API client initialized",
 		zap.String("Authentication Method", (*client.Integration).GetAuthMethodDescriptor()),
 		zap.String("Logging Level", config.LogLevel),
 		zap.String("Log Encoding Format", config.LogOutputFormat),
 		zap.String("Log Separator", config.LogConsoleSeparator),
 		zap.Bool("Hide Sensitive Data In Logs", config.HideSensitiveData),
-		zap.Bool("Cookie Jar Enabled", config.CookieJarEnabled),
 		zap.Int("Max Retry Attempts", config.MaxRetryAttempts),
 		zap.Bool("Enable Dynamic Rate Limiting", config.EnableDynamicRateLimiting),
 		zap.Int("Max Concurrent Requests", config.MaxConcurrentRequests),
