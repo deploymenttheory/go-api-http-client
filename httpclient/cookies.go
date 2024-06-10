@@ -16,6 +16,7 @@ func (c *Client) parseCustomCookies(cookiesList []*http.Cookie) error {
 	}
 	c.Logger.Debug("FLAG-3")
 	c.Logger.Debug(fmt.Sprintf("%+v", cookiesList))
+	c.Logger.Debug(fmt.Sprintf("%+v", c.http.Jar))
 	c.http.Jar.SetCookies(cookieUrl, cookiesList)
 	c.Logger.Debug("FLAG-4")
 
