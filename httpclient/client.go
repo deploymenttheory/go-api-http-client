@@ -101,6 +101,8 @@ func BuildClient(config ClientConfig, populateDefaultValues bool) (*Client, erro
 		Concurrency: concurrencyHandler,
 	}
 
+	client.parseCustomCookies(config.CustomCookies)
+
 	log.Debug("New API client initialized",
 		zap.String("Authentication Method", (*client.Integration).GetAuthMethodDescriptor()),
 		zap.String("Logging Level", config.LogLevel),
