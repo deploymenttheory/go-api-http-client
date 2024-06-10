@@ -3,10 +3,15 @@ package httpclient
 import (
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 )
 
 func (c *Client) parseCustomCookies(cookiesList []*http.Cookie) error {
+	cookieJar, err := cookiejar.New(nil)
+	if err != nil {
+		return err
+	}
 	c.Logger.Debug("FLAG-1")
 	cookieUrl, err := url.Parse((*c.Integration).Domain())
 	c.Logger.Debug(cookieUrl.Host)
@@ -17,6 +22,7 @@ func (c *Client) parseCustomCookies(cookiesList []*http.Cookie) error {
 	c.Logger.Debug("FLAG-3")
 	c.Logger.Debug(fmt.Sprintf("%+v", cookiesList))
 	c.Logger.Debug(fmt.Sprintf("%+v", c.http.Jar))
+	c.http.Jar = cookieJar
 	c.http.Jar.SetCookies(cookieUrl, cookiesList)
 	c.Logger.Debug("FLAG-4")
 
