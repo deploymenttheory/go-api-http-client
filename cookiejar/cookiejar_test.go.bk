@@ -1,4 +1,3 @@
-// cookiejar/cookiejar_test.go
 package cookiejar
 
 import (

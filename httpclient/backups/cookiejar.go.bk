@@ -1,5 +1,3 @@
-// cookiejar/cookiejar.go
-
 /* When both the cookie jar is enabled and specific cookies are set for an HTTP client in
 your scenario, here’s what generally happens during the request processing:
 
@@ -39,12 +37,14 @@ useful to debug and verify which cookies are being sent and managed. This is cru
 maintaining visibility into how cookies are influencing the behavior of your HTTP client
 interactions.*/
 
-package cookiejar
+package httpclient
 
 import (
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
+
+	"net/url"
 	"strings"
 
 	"github.com/deploymenttheory/go-api-http-client/logger"
@@ -52,13 +52,35 @@ import (
 )
 
 // SetupCookieJar initializes the HTTP client with a cookie jar if enabled in the configuration.
-func SetupCookieJar(client *http.Client, enableCookieJar bool, log logger.Logger) error {
-	if enableCookieJar {
+
+func SetupCookieJar(client *http.Client, clientConfig ClientConfig, log logger.Logger) error {
+	if clientConfig.CookieJarEnabled {
+
 		jar, err := cookiejar.New(nil) // nil options use default options
 		if err != nil {
 			log.Error("Failed to create cookie jar", zap.Error(err))
 			return fmt.Errorf("setupCookieJar failed: %w", err) // Wrap and return the error
 		}
+
+		if clientConfig.CustomCookies != nil {
+			var CookieList []*http.Cookie
+			CookieList = make([]*http.Cookie, 0)
+			for k, v := range clientConfig.CustomCookies {
+				newCookie := &http.Cookie{
+					Name:  k,
+					Value: v,
+				}
+				CookieList = append(CookieList, newCookie)
+			}
+
+			cookieUrl, err := url.Parse(fmt.Sprintf("http://%s.jamfcloud.com", clientConfig.Environment.InstanceName))
+			if err != nil {
+				return err
+			}
+
+			jar.SetCookies(cookieUrl, CookieList)
+		}
+
 		client.Jar = jar
 	}
 	return nil

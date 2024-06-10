@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
-	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"go.uber.org/zap"
 )
@@ -34,24 +33,24 @@ import (
 //
 // Note:
 // The caller should handle closing the response body when successful.
-func (c *Client) DoDownloadRequest(method, endpoint string, out io.Writer) (*http.Response, error) {
-	log := c.Logger
+func (client *Client) DoDownloadRequest(method, endpoint string, out io.Writer) (*http.Response, error) {
+	log := client.Logger
 
 	// Auth Token validation check
 	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     c.clientConfig.Auth.Username,
-		Password:     c.clientConfig.Auth.Password,
-		ClientID:     c.clientConfig.Auth.ClientID,
-		ClientSecret: c.clientConfig.Auth.ClientSecret,
+		Username:     client.config.BasicAuthUsername,
+		Password:     client.config.BasicAuthPassword,
+		ClientID:     client.config.ClientID,
+		ClientSecret: client.config.ClientID,
 	}
 
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
+	valid, err := client.AuthTokenHandler.CheckAndRefreshAuthToken(client.APIHandler, client.http, clientCredentials, client.config.TokenRefreshBufferPeriod)
 	if err != nil || !valid {
 		return nil, err
 	}
 
 	// Construct URL using the ConstructAPIResourceEndpoint function
-	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
+	url := client.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
 
 	// Create the request
 	req, err := http.NewRequest(method, url, nil)
@@ -60,14 +59,14 @@ func (c *Client) DoDownloadRequest(method, endpoint string, out io.Writer) (*htt
 	}
 
 	// Initialize HeaderManager
-	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
+	headerHandler := NewHeaderHandler(req, client.Logger, client.APIHandler, client.AuthTokenHandler)
 
 	// Use HeaderManager to set headers
 	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+	headerHandler.LogHeaders(client.config.HideSensitiveData)
 
 	// Execute the request
-	resp, err := c.httpClient.Do(req)
+	resp, err := client.http.Do(req)
 	if err != nil {
 		log.Error("Failed to send download request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
