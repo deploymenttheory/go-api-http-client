@@ -37,14 +37,8 @@ type Client struct {
 
 // Options/Variables for Client
 type ClientConfig struct {
-	Integration APIIntegration
-
-	LogLevel            string
-	LogOutputFormat     string // Output format of the logs. Use "pretty" for JSON format, "console" for human-readable format
-	LogConsoleSeparator string
-	ExportLogs          bool
-	LogExportPath       string
-	HideSensitiveData   bool
+	Integration       APIIntegration
+	HideSensitiveData bool
 
 	// CookieJarEnabled bool
 	CustomCookies []*http.Cookie
@@ -54,7 +48,7 @@ type ClientConfig struct {
 	EnableDynamicRateLimiting bool
 	CustomTimeout             time.Duration
 	TokenRefreshBufferPeriod  time.Duration
-	TotalRetryDuration        time.Duration
+	TotalRetryDuration        time.Duration // TODO do we need this now it's in the integration?
 	FollowRedirects           bool
 	MaxRedirects              int
 }
@@ -101,9 +95,6 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 
 	log.Debug("New API client initialized",
 		zap.String("Authentication Method", (*client.Integration).GetAuthMethodDescriptor()),
-		zap.String("Logging Level", config.LogLevel),
-		zap.String("Log Encoding Format", config.LogOutputFormat),
-		zap.String("Log Separator", config.LogConsoleSeparator),
 		zap.Bool("Hide Sensitive Data In Logs", config.HideSensitiveData),
 		zap.Int("Max Retry Attempts", config.MaxRetryAttempts),
 		zap.Bool("Enable Dynamic Rate Limiting", config.EnableDynamicRateLimiting),
