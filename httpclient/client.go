@@ -91,7 +91,9 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 		Concurrency: concurrencyHandler,
 	}
 
-	client.parseCustomCookies(config.CustomCookies)
+	if len(client.config.CustomCookies) > 0 {
+		client.parseCustomCookies(config.CustomCookies)
+	}
 
 	log.Debug("New API client initialized",
 		zap.String("Authentication Method", (*client.Integration).GetAuthMethodDescriptor()),
