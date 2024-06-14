@@ -49,7 +49,7 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	}
 
 	if config.MaxRetryAttempts < 0 {
-		return errors.New("Max retry cannot be less than 0")
+		return errors.New("max retry cannot be less than 0")
 	}
 
 	if config.MaxConcurrentRequests < 1 {

@@ -46,15 +46,15 @@ func validateClientSecret(clientSecret string) error {
 	}
 
 	if matched, _ := regexp.MatchString(`[a-z]`, clientSecret); !matched {
-		return errors.New("client secret must contain at least one lowercase letter.")
+		return errors.New("client secret must contain at least one lowercase letter")
 	}
 
 	if matched, _ := regexp.MatchString(`[A-Z]`, clientSecret); !matched {
-		return errors.New("client secret must contain at least one uppercase letter.")
+		return errors.New("client secret must contain at least one uppercase letter")
 	}
 
 	if matched, _ := regexp.MatchString(`\d`, clientSecret); !matched {
-		return errors.New("client secret must contain at least one digit.")
+		return errors.New("client secret must contain at least one digit")
 	}
 
 	return nil
