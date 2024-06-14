@@ -4,8 +4,6 @@ package httpclient
 
 import (
 	"errors"
-	"fmt"
-	"slices"
 	"time"
 )
 
@@ -40,7 +38,6 @@ func LoadConfigFromEnv() (*ClientConfig, error) {
 
 // TODO Review validateClientConfig
 func validateClientConfig(config ClientConfig, populateDefaults bool) error {
-	var err error
 
 	if populateDefaults {
 		SetDefaultValuesClientConfig(&config)
@@ -49,36 +46,6 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	// TODO adjust these strings to have links to documentation & centralise them
 	if config.Integration == nil {
 		return errors.New("no api integration supplied, please see documentation")
-	}
-
-	// Level
-	validLogLevels := []string{
-		"LogLevelDebug",
-		"LogLevelInfo",
-		"LogLevelWarn",
-		"LogLevelError",
-		"LogLevelPanic",
-		"LogLevelFatal",
-	}
-	if !slices.Contains(validLogLevels, config.LogLevel) {
-		return fmt.Errorf("invalid log level: %s", config.LogLevel)
-	}
-
-	validLogFormats := []string{
-		"json",
-		"pretty",
-	}
-
-	if !slices.Contains(validLogFormats, config.LogOutputFormat) {
-		return fmt.Errorf("invalid log output format: %s", config.LogOutputFormat)
-	}
-
-	// Log Export Path
-	if config.ExportLogs {
-		_, err = validateFilePath(config.LogExportPath)
-		if err != nil {
-			return err
-		}
 	}
 
 	if config.MaxRetryAttempts < 0 {
@@ -111,26 +78,6 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 }
 
 func SetDefaultValuesClientConfig(config *ClientConfig) {
-
-	if config.LogLevel == "" {
-		config.LogLevel = DefaultLogLevelString
-	}
-
-	if config.LogOutputFormat == "" {
-		config.LogOutputFormat = DefaultLogOutputFormatString
-	}
-
-	if config.LogConsoleSeparator == "" {
-		config.LogConsoleSeparator = DefaultLogConsoleSeparator
-	}
-
-	if !config.ExportLogs {
-		config.ExportLogs = DefaultExportLogs
-	}
-
-	if config.LogExportPath == "" {
-		config.LogExportPath = DefaultLogExportPath
-	}
 
 	if !config.HideSensitiveData {
 		config.HideSensitiveData = DefaultHideSensitiveData
