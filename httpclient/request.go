@@ -243,13 +243,15 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	}
 
-	defer func() {
-		c.Concurrency.ReleaseConcurrencyPermit(requestID)
-	}()
+	if c.config.ConcurrencyManagementEnabled {
+		defer func() {
+			c.Concurrency.ReleaseConcurrencyPermit(requestID)
+		}()
 
-	c.Concurrency.Metrics.Lock.Lock()
-	c.Concurrency.Metrics.TotalRequests++
-	c.Concurrency.Metrics.Lock.Unlock()
+		c.Concurrency.Metrics.Lock.Lock()
+		c.Concurrency.Metrics.TotalRequests++
+		c.Concurrency.Metrics.Lock.Unlock()
+	}
 
 	// endregion
 
@@ -293,7 +295,10 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	// region Tidy up
 
 	duration := time.Since(startTime)
-	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
+
+	if c.config.ConcurrencyManagementEnabled {
+		c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
+	}
 
 	// TODO review LogCookies
 	c.Logger.LogCookies("incoming", req, method, endpoint)

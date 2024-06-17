@@ -43,14 +43,15 @@ type ClientConfig struct {
 	// CookieJarEnabled bool
 	CustomCookies []*http.Cookie
 
-	MaxRetryAttempts          int
-	MaxConcurrentRequests     int
-	EnableDynamicRateLimiting bool
-	CustomTimeout             time.Duration
-	TokenRefreshBufferPeriod  time.Duration
-	TotalRetryDuration        time.Duration // TODO do we need this now it's in the integration?
-	FollowRedirects           bool
-	MaxRedirects              int
+	MaxRetryAttempts             int
+	MaxConcurrentRequests        int
+	EnableDynamicRateLimiting    bool
+	CustomTimeout                time.Duration
+	TokenRefreshBufferPeriod     time.Duration
+	TotalRetryDuration           time.Duration // TODO do we need this now it's in the integration?
+	FollowRedirects              bool
+	MaxRedirects                 int
+	ConcurrencyManagementEnabled bool
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
@@ -76,12 +77,17 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 		return nil, err
 	}
 
-	concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
-	concurrencyHandler := concurrency.NewConcurrencyHandler(
-		config.MaxConcurrentRequests,
-		log,
-		concurrencyMetrics,
-	)
+	var concurrencyHandler *concurrency.ConcurrencyHandler
+	if config.ConcurrencyManagementEnabled {
+		concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
+		concurrencyHandler = concurrency.NewConcurrencyHandler(
+			config.MaxConcurrentRequests,
+			log,
+			concurrencyMetrics,
+		)
+	} else {
+		concurrencyHandler = nil
+	}
 
 	client := &Client{
 		Integration: &config.Integration,
