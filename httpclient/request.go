@@ -237,13 +237,14 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 
 	// region Concurrency
-	ctx, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
-	if err != nil {
-		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
-
-	}
-
+	// var concCtx context.Context
 	if c.config.ConcurrencyManagementEnabled {
+		_, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
+		if err != nil {
+			return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
+
+		}
+
 		defer func() {
 			c.Concurrency.ReleaseConcurrencyPermit(requestID)
 		}()
