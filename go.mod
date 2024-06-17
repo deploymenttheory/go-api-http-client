@@ -1,6 +1,6 @@
 module github.com/deploymenttheory/go-api-http-client
 
-go 1.22.2
+go 1.22.4
 
 require (
 	github.com/antchfx/xmlquery v1.4.0
@@ -14,7 +14,9 @@ require (
 	github.com/antchfx/xpath v1.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deploymenttheory/go-api-http-client-integration-jamfpro v0.0.0-20240610142526-769f07834f50 // indirect
+
 	github.com/deploymenttheory/go-api-sdk-jamfpro v1.7.2-0.20240610152250-5b91816c5437 // indirect
+
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
