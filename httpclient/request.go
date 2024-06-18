@@ -236,33 +236,29 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 
-	// region Concurrency
-	ctx, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
-	if err != nil {
-		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
+	// TODO Concurrency - Refactor or remove this
+	// if c.config.ConcurrencyManagementEnabled {
+	// 	_, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
+	// 	if err != nil {
+	// 		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
 
-	}
+	// 	}
 
-	defer func() {
-		c.Concurrency.ReleaseConcurrencyPermit(requestID)
-	}()
+	// 	defer func() {
+	// 		c.Concurrency.ReleaseConcurrencyPermit(requestID)
+	// 	}()
 
-	c.Concurrency.Metrics.Lock.Lock()
-	c.Concurrency.Metrics.TotalRequests++
-	c.Concurrency.Metrics.Lock.Unlock()
+	// 	c.Concurrency.Metrics.Lock.Lock()
+	// 	c.Concurrency.Metrics.TotalRequests++
+	// 	c.Concurrency.Metrics.Lock.Unlock()
+	// }
 
-	// endregion
-
-	// region Body Prep
 	requestData, err := (*c.Integration).PrepRequestBody(body, method, endpoint)
 	if err != nil {
 		return nil, err
 	}
 	requestDataBytes := bytes.NewBuffer(requestData)
 
-	// endregion
-
-	// region Request Prep
 	url := (*c.Integration).Domain() + endpoint
 
 	req, err := http.NewRequest(method, url, requestDataBytes)
@@ -277,23 +273,20 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	req = req.WithContext(ctx)
 
-	// endregion
+	// TODO Concurrency - Refactor or remove this
+	// startTime := time.Now()
 
-	// region Request
-
-	startTime := time.Now()
 	resp, err := c.http.Do(req)
 	if err != nil {
 		c.Logger.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
-	// endregion
-
-	// region Tidy up
-
-	duration := time.Since(startTime)
-	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
+	// TODO Concurrency - Refactor or remove this
+	// if c.config.ConcurrencyManagementEnabled {
+	// 	duration := time.Since(startTime)
+	// 	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
+	// }
 
 	// TODO review LogCookies
 	c.Logger.LogCookies("incoming", req, method, endpoint)
@@ -301,8 +294,6 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	CheckDeprecationHeader(resp, c.Logger)
 
 	c.Logger.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
-
-	// endregion
 
 	return resp, nil
 }
