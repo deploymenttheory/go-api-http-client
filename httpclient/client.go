@@ -10,7 +10,6 @@ package httpclient
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
@@ -26,7 +25,6 @@ import (
 type Client struct {
 	config ClientConfig
 	http   *http.Client
-	lock   sync.Mutex
 
 	AuthToken       string
 	AuthTokenExpiry time.Time
@@ -68,8 +66,6 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 	httpClient := &http.Client{
 		Timeout: config.CustomTimeout,
 	}
-
-	// TODO Add Cookie Support
 
 	// TODO refactor redirects
 	if err := redirecthandler.SetupRedirectHandler(httpClient, config.FollowRedirects, config.MaxRedirects, log); err != nil {
