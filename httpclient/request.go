@@ -7,16 +7,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
-	"github.com/deploymenttheory/go-api-http-client/cookiejar"
-	"github.com/deploymenttheory/go-api-http-client/headers"
-	"github.com/deploymenttheory/go-api-http-client/httpmethod"
 	"github.com/deploymenttheory/go-api-http-client/ratehandler"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"github.com/deploymenttheory/go-api-http-client/status"
 	"go.uber.org/zap"
 )
 
+// TODO remove collapsable comment
+
+// region comment
 // DoRequest constructs and executes an HTTP request based on the provided method, endpoint, request body, and output variable.
 // This function serves as a dispatcher, deciding whether to execute the request with or without retry logic based on the
 // idempotency of the HTTP method. Idempotent methods (GET, PUT, DELETE) are executed with retries to handle transient errors
@@ -63,19 +62,21 @@ import (
 //   within the client's concurrency model.
 // - The decision to retry requests is based on the idempotency of the HTTP method and the client's retry configuration,
 //   including maximum retry attempts and total retry duration.
+// endregion
 
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
-	if httpmethod.IsIdempotentHTTPMethod(method) {
+	if IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out)
-	} else if httpmethod.IsNonIdempotentHTTPMethod(method) {
+	} else if !IsIdempotentHTTPMethod(method) {
 		return c.executeRequest(method, endpoint, body, out)
 	} else {
 		return nil, log.Error("HTTP method not supported", zap.String("method", method))
 	}
 }
 
+// region comment
 // executeRequestWithRetries executes an HTTP request using the specified method, endpoint, request body, and output variable.
 // It is designed for idempotent HTTP methods (GET, PUT, DELETE), where the request can be safely retried in case of
 // transient errors or rate limiting. The function implements a retry mechanism that respects the client's configuration
@@ -108,10 +109,12 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // - The function respects the client's concurrency token, acquiring and releasing it as needed to ensure safe concurrent
 // operations.
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
+// endregion
 func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
+	// TODO review refactor executeRequestWithRetries
 	log := c.Logger
 	ctx := context.Background()
-	totalRetryDeadline := time.Now().Add(c.clientConfig.ClientOptions.Timeout.TotalRetryDuration.Duration())
+	totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
 
 	var resp *http.Response
 	var err error
@@ -151,7 +154,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 
 		if status.IsTransientError(resp) {
 			retryCount++
-			if retryCount > c.clientConfig.ClientOptions.Retry.MaxRetryAttempts {
+			if retryCount > c.config.MaxRetryAttempts {
 				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
 				break
 			}
@@ -177,6 +180,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	return resp, response.HandleAPIErrorResponse(resp, log)
 }
 
+// region comment
 // executeRequest executes an HTTP request using the specified method, endpoint, and request body without implementing
 // retry logic. It is primarily designed for non-idempotent HTTP methods like POST and PATCH, where the request should
 // not be automatically retried within this function due to the potential side effects of re-submitting the same data.
@@ -206,7 +210,10 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 //     execution.
 //   - The function logs detailed information about the request execution, including the method, endpoint, status code, and
 //     any errors encountered.
+//
+// endregion
 func (c *Client) executeRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
+	// TODO review refactor execute Request
 	log := c.Logger
 	ctx := context.Background()
 
@@ -227,87 +234,66 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 	return nil, response.HandleAPIErrorResponse(res, log)
 }
 
-// doRequest contains the shared logic for making the HTTP request, including authentication,
-// setting headers, managing concurrency, and logging. This function performs the following steps:
-// 1. Authenticates the client using the provided credentials and refreshes the auth token if necessary.
-// 2. Acquires a concurrency permit to control the number of concurrent requests.
-// 3. Increments the total request counter within the ConcurrencyHandler's metrics.
-// 4. Marshals the request data based on the provided body, method, and endpoint.
-// 5. Constructs the full URL for the API endpoint.
-// 6. Creates the HTTP request and applies custom cookies and headers.
-// 7. Executes the HTTP request and logs relevant information.
-// 8. Adjusts concurrency settings based on the response and logs the response details.
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
-	log := c.Logger
 
-	// Authenticate the client using the provided credentials and refresh the auth token if necessary.
-	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     c.clientConfig.Auth.Username,
-		Password:     c.clientConfig.Auth.Password,
-		ClientID:     c.clientConfig.Auth.ClientID,
-		ClientSecret: c.clientConfig.Auth.ClientSecret,
-	}
+	// TODO Concurrency - Refactor or remove this
+	// if c.config.ConcurrencyManagementEnabled {
+	// 	_, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
+	// 	if err != nil {
+	// 		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
 
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
-	if err != nil || !valid {
+	// 	}
+
+	// 	defer func() {
+	// 		c.Concurrency.ReleaseConcurrencyPermit(requestID)
+	// 	}()
+
+	// 	c.Concurrency.Metrics.Lock.Lock()
+	// 	c.Concurrency.Metrics.TotalRequests++
+	// 	c.Concurrency.Metrics.Lock.Unlock()
+	// }
+
+	requestData, err := (*c.Integration).PrepRequestBody(body, method, endpoint)
+	if err != nil {
 		return nil, err
 	}
+	requestDataBytes := bytes.NewBuffer(requestData)
 
-	// Acquire a concurrency permit to control the number of concurrent requests.
-	ctx, requestID, err := c.ConcurrencyHandler.AcquireConcurrencyPermit(ctx)
-	if err != nil {
-		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
-	}
+	url := (*c.Integration).Domain() + endpoint
 
-	// Ensure the concurrency permit is released after the function exits.
-	defer func() {
-		c.ConcurrencyHandler.ReleaseConcurrencyPermit(requestID)
-	}()
-
-	// Increment the total request counter within the ConcurrencyHandler's metrics.
-	c.ConcurrencyHandler.Metrics.Lock.Lock()
-	c.ConcurrencyHandler.Metrics.TotalRequests++
-	c.ConcurrencyHandler.Metrics.Lock.Unlock()
-
-	// Marshal the request data based on the provided api handler
-	requestData, err := c.APIHandler.MarshalRequest(body, method, endpoint, log)
+	req, err := http.NewRequest(method, url, requestDataBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	// Construct the full URL for the API endpoint.
-	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
-
-	// Create the HTTP request and apply custom cookies and headers.
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(requestData))
+	err = (*c.Integration).PrepRequestParamsAndAuth(req)
 	if err != nil {
 		return nil, err
 	}
-
-	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, log)
-
-	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
-	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
 
 	req = req.WithContext(ctx)
-	log.LogCookies("outgoing", req, method, endpoint)
 
-	// Execute the HTTP request and log relevant information.
-	startTime := time.Now()
-	resp, err := c.httpClient.Do(req)
+	// TODO Concurrency - Refactor or remove this
+	// startTime := time.Now()
+
+	resp, err := c.http.Do(req)
 	if err != nil {
-		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
+		c.Logger.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
-	// Adjust concurrency settings based on the response and log the response details.
-	duration := time.Since(startTime)
-	c.ConcurrencyHandler.EvaluateAndAdjustConcurrency(resp, duration)
-	log.LogCookies("incoming", req, method, endpoint)
-	headers.CheckDeprecationHeader(resp, log)
+	// TODO Concurrency - Refactor or remove this
+	// if c.config.ConcurrencyManagementEnabled {
+	// 	duration := time.Since(startTime)
+	// 	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
+	// }
 
-	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
+	// TODO review LogCookies
+	c.Logger.LogCookies("incoming", req, method, endpoint)
+
+	CheckDeprecationHeader(resp, c.Logger)
+
+	c.Logger.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
 
 	return resp, nil
 }

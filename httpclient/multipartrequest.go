@@ -13,9 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/authenticationhandler"
-	"github.com/deploymenttheory/go-api-http-client/cookiejar"
-	"github.com/deploymenttheory/go-api-http-client/headers"
 	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"go.uber.org/zap"
@@ -77,24 +74,12 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		return nil, fmt.Errorf("unsupported HTTP method: %s", method)
 	}
 
-	clientCredentials := authenticationhandler.ClientCredentials{
-		Username:     c.clientConfig.Auth.Username,
-		Password:     c.clientConfig.Auth.Password,
-		ClientID:     c.clientConfig.Auth.ClientID,
-		ClientSecret: c.clientConfig.Auth.ClientSecret,
-	}
-
-	valid, err := c.AuthTokenHandler.CheckAndRefreshAuthToken(c.APIHandler, c.httpClient, clientCredentials, c.clientConfig.ClientOptions.Timeout.TokenRefreshBufferPeriod.Duration())
-	if err != nil || !valid {
-		return nil, err
-	}
-
 	log.Info("Executing multipart file upload request", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	url := c.APIHandler.ConstructAPIResourceEndpoint(endpoint, log)
+	url := (*c.Integration).Domain() + endpoint
 
 	// Create a context with timeout based on the custom timeout duration
-	ctx, cancel := context.WithTimeout(context.Background(), c.clientConfig.ClientOptions.Timeout.CustomTimeout.Duration())
+	ctx, cancel := context.WithTimeout(context.Background(), c.config.CustomTimeout)
 	defer cancel()
 
 	var body io.Reader
@@ -118,13 +103,9 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		return nil, err
 	}
 
-	cookiejar.ApplyCustomCookies(req, c.clientConfig.ClientOptions.Cookies.CustomCookies, c.Logger)
+	// TODO cookies
 
-	req.Header.Set("Content-Type", contentType)
-
-	headerHandler := headers.NewHeaderHandler(req, c.Logger, c.APIHandler, c.AuthTokenHandler)
-	headerHandler.SetRequestHeaders(endpoint)
-	headerHandler.LogHeaders(c.clientConfig.ClientOptions.Logging.HideSensitiveData)
+	(*c.Integration).PrepRequestParamsAndAuth(req)
 
 	var resp *http.Response
 	var requestErr error
@@ -148,7 +129,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 			req.Header.Set("Content-Type", contentType)
 		}
 
-		resp, requestErr = c.httpClient.Do(req)
+		resp, requestErr = c.http.Do(req)
 		duration := time.Since(startTime)
 
 		if requestErr != nil {
