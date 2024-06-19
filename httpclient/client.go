@@ -35,12 +35,9 @@ type Client struct {
 
 // Options/Variables for Client
 type ClientConfig struct {
-	Integration       APIIntegration
-	HideSensitiveData bool
-
-	// CookieJarEnabled bool
-	CustomCookies []*http.Cookie
-
+	Integration                  APIIntegration
+	HideSensitiveData            bool
+	CustomCookies                []*http.Cookie
 	MaxRetryAttempts             int
 	MaxConcurrentRequests        int
 	EnableDynamicRateLimiting    bool
@@ -58,8 +55,6 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
-
-	// TODO refactor logging. It makes files even when told not to!
 
 	log.Info(fmt.Sprintf("initializing new http client, auth: %s", config.Integration.Domain()))
 
@@ -94,7 +89,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 	}
 
 	if len(client.config.CustomCookies) > 0 {
-		client.parseCustomCookies(config.CustomCookies)
+		client.loadCustomCookies(config.CustomCookies)
 	}
 
 	log.Debug("New API client initialized",

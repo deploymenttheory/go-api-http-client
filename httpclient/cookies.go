@@ -7,11 +7,12 @@ import (
 	"net/url"
 )
 
-func (c *Client) parseCustomCookies(cookiesList []*http.Cookie) error {
+func (c *Client) loadCustomCookies(cookiesList []*http.Cookie) error {
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {
 		return err
 	}
+
 	cookieUrl, err := url.Parse((*c.Integration).Domain())
 
 	if err != nil {
@@ -20,7 +21,6 @@ func (c *Client) parseCustomCookies(cookiesList []*http.Cookie) error {
 
 	c.http.Jar = cookieJar
 	c.http.Jar.SetCookies(cookieUrl, cookiesList)
-
 	c.Logger.Debug(fmt.Sprintf("%+v", c.http.Jar))
 
 	return nil
