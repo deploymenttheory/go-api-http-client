@@ -7,11 +7,8 @@ import (
 
 // TODO comment
 type APIIntegration interface {
-	// Info
 	Domain() string
 	GetAuthMethodDescriptor() string
-
-	// Utilities
 	CheckRefreshToken() error
 	PrepRequestParamsAndAuth(req *http.Request) error
 	PrepRequestBody(body interface{}, method string, endpoint string) ([]byte, error)

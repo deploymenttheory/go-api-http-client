@@ -10,7 +10,6 @@ package httpclient
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
@@ -26,7 +25,6 @@ import (
 type Client struct {
 	config ClientConfig
 	http   *http.Client
-	lock   sync.Mutex
 
 	AuthToken       string
 	AuthTokenExpiry time.Time
@@ -37,12 +35,9 @@ type Client struct {
 
 // Options/Variables for Client
 type ClientConfig struct {
-	Integration       APIIntegration
-	HideSensitiveData bool
-
-	// CookieJarEnabled bool
-	CustomCookies []*http.Cookie
-
+	Integration                  APIIntegration
+	HideSensitiveData            bool
+	CustomCookies                []*http.Cookie
 	MaxRetryAttempts             int
 	MaxConcurrentRequests        int
 	EnableDynamicRateLimiting    bool
@@ -61,15 +56,11 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
 
-	// TODO refactor logging. It makes files even when told not to!
-
 	log.Info(fmt.Sprintf("initializing new http client, auth: %s", config.Integration.Domain()))
 
 	httpClient := &http.Client{
 		Timeout: config.CustomTimeout,
 	}
-
-	// TODO Add Cookie Support
 
 	// TODO refactor redirects
 	if err := redirecthandler.SetupRedirectHandler(httpClient, config.FollowRedirects, config.MaxRedirects, log); err != nil {
@@ -98,7 +89,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 	}
 
 	if len(client.config.CustomCookies) > 0 {
-		client.parseCustomCookies(config.CustomCookies)
+		client.loadCustomCookies(config.CustomCookies)
 	}
 
 	log.Debug("New API client initialized",

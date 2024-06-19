@@ -221,7 +221,7 @@ func (r *RedirectHandler) GetRedirectHistory(req *http.Request) []*url.URL {
 // SetupRedirectHandler configures the HTTP client for redirect handling based on the client configuration.
 func SetupRedirectHandler(client *http.Client, followRedirects bool, maxRedirects int, log logger.Logger) error {
 	if followRedirects {
-		if maxRedirects < 0 {
+		if maxRedirects < 1 {
 			log.Error("Invalid maxRedirects value", zap.Int("maxRedirects", maxRedirects))
 			return fmt.Errorf("invalid maxRedirects value: %d", maxRedirects)
 		}

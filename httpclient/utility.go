@@ -42,7 +42,7 @@ func validateValidClientID(clientID string) error {
 
 func validateClientSecret(clientSecret string) error {
 	if len(clientSecret) < 16 {
-		return errors.New("client secret must be at least 16 characters long.")
+		return errors.New("client secret must be at least 16 characters long")
 	}
 
 	if matched, _ := regexp.MatchString(`[a-z]`, clientSecret); !matched {
