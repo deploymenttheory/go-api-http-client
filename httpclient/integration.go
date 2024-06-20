@@ -8,6 +8,7 @@ import (
 // TODO comment
 type APIIntegration interface {
 	GetFQDN() string
+	ConstructURL(endpoint string) string
 	GetAuthMethodDescriptor() string
 	CheckRefreshToken() error
 	PrepRequestParamsAndAuth(req *http.Request) error
