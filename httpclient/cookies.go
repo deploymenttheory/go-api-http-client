@@ -13,7 +13,7 @@ func (c *Client) loadCustomCookies(cookiesList []*http.Cookie) error {
 		return err
 	}
 
-	cookieUrl, err := url.Parse((*c.Integration).Domain())
+	cookieUrl, err := url.Parse((*c.Integration).GetFQDN())
 
 	if err != nil {
 		return err

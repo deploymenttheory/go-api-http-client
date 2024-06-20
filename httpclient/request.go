@@ -259,7 +259,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	}
 	requestDataBytes := bytes.NewBuffer(requestData)
 
-	url := (*c.Integration).Domain() + endpoint
+	url := (*c.Integration).ConstructURL(endpoint)
 
 	req, err := http.NewRequest(method, url, requestDataBytes)
 	if err != nil {
