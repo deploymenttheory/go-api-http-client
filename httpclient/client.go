@@ -35,18 +35,18 @@ type Client struct {
 
 // Options/Variables for Client
 type ClientConfig struct {
-	Integration                  APIIntegration
-	HideSensitiveData            bool
-	CustomCookies                []*http.Cookie
-	MaxRetryAttempts             int
-	MaxConcurrentRequests        int
-	EnableDynamicRateLimiting    bool
-	CustomTimeout                time.Duration
-	TokenRefreshBufferPeriod     time.Duration
-	TotalRetryDuration           time.Duration // TODO do we need this now it's in the integration?
-	FollowRedirects              bool
-	MaxRedirects                 int
-	ConcurrencyManagementEnabled bool
+	Integration                 APIIntegration
+	HideSensitiveData           bool
+	CustomCookies               []*http.Cookie
+	MaxRetryAttempts            int
+	MaxConcurrentRequests       int
+	EnableDynamicRateLimiting   bool
+	CustomTimeout               time.Duration
+	TokenRefreshBufferPeriod    time.Duration
+	TotalRetryDuration          time.Duration // TODO do we need this now it's in the integration?
+	FollowRedirects             bool
+	MaxRedirects                int
+	EnableConcurrencyManagement bool
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
