@@ -69,7 +69,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 	}
 
 	var concurrencyHandler *concurrency.ConcurrencyHandler
-	if config.ConcurrencyManagementEnabled {
+	if config.EnableConcurrencyManagement {
 		concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
 		concurrencyHandler = concurrency.NewConcurrencyHandler(
 			config.MaxConcurrentRequests,
@@ -103,6 +103,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 		zap.Duration("Token Refresh Buffer Period", config.TokenRefreshBufferPeriod),
 		zap.Duration("Total Retry Duration", config.TotalRetryDuration),
 		zap.Duration("Custom Timeout", config.CustomTimeout),
+		zap.Bool("Enable Concurrency Management", config.EnableConcurrencyManagement),
 	)
 
 	return client, nil
