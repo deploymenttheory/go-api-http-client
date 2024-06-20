@@ -58,7 +58,8 @@ func LoadConfigFromFile(filepath string) (*ClientConfig, error) {
 	return &config, nil
 }
 
-// LoadConfigFromEnv loads configuration settings from environment variables.
+// LoadConfigFromEnv loads HTTP client configuration settings from environment variables.
+// If any environment variables are not set, the default values defined in the constants are used instead.
 func LoadConfigFromEnv() (*ClientConfig, error) {
 	config := &ClientConfig{
 		HideSensitiveData:         getEnvAsBool("HIDE_SENSITIVE_DATA", DefaultHideSensitiveData),
