@@ -56,7 +56,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
 
-	log.Info(fmt.Sprintf("initializing new http client, auth: %s", config.Integration.Domain()))
+	log.Info(fmt.Sprintf("initializing new http client, auth: %s", config.Integration.GetFQDN()))
 
 	httpClient := &http.Client{
 		Timeout: config.CustomTimeout,

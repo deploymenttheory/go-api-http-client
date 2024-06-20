@@ -7,7 +7,7 @@ import (
 
 // TODO comment
 type APIIntegration interface {
-	Domain() string
+	GetFQDN() string
 	GetAuthMethodDescriptor() string
 	CheckRefreshToken() error
 	PrepRequestParamsAndAuth(req *http.Request) error

@@ -76,7 +76,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	log.Info("Executing multipart file upload request", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	url := (*c.Integration).Domain() + endpoint
+	url := (*c.Integration).GetFQDN() + endpoint
 
 	// Create a context with timeout based on the custom timeout duration
 	ctx, cancel := context.WithTimeout(context.Background(), c.config.CustomTimeout)
