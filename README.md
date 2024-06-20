@@ -22,6 +22,40 @@ This HTTP client is intended to be used with targetted SDK's and terraform provi
 
 TBC
 
+## Getting Started
+'
+{
+	"Integration": {
+		"FQDN": "https://api.example.com",
+		"AuthMethodDescriptor": "Bearer"
+		// other necessary fields for integration
+	},
+	"HideSensitiveData": true,
+	"CustomCookies": [
+		{
+			"Name": "sessionid",
+			"Value": "abc123",
+			"Path": "/",
+			"Domain": "example.com",
+			"Expires": "2025-01-02T15:04:05Z",
+			"MaxAge": 86400,
+			"Secure": true,
+			"HttpOnly": true,
+			"SameSite": 1
+		}
+	],
+	"MaxRetryAttempts": 5,
+	"MaxConcurrentRequests": 10,
+	"EnableDynamicRateLimiting": true,
+	"CustomTimeout": "10s",
+	"TokenRefreshBufferPeriod": "2m",
+	"TotalRetryDuration": "10m",
+	"FollowRedirects": true,
+	"MaxRedirects": 3,
+	"ConcurrencyManagementEnabled": true
+}
+'
+
 
 ## Reporting Issues and Feedback
 
@@ -54,12 +88,3 @@ If you would like to become an active contributor to this repository or project,
 [AzureDevOpsDocs]: <https://docs.microsoft.com/en-us/azure/devops/?view=azure-devops>
 [GitHubIssues]: <https://github.com/segraef/Template/issues>
 [Contributing]: CONTRIBUTING.md
-
-<!-- External -->
-[Az]: <https://img.shields.io/powershellgallery/v/Az.svg?style=flat-square&label=Az>
-[AzGallery]: <https://www.powershellgallery.com/packages/Az/>
-[PowerShellCore]: <https://github.com/PowerShell/PowerShell/releases/latest>
-
-<!-- Docs -->
-[MicrosoftAzureDocs]: <https://docs.microsoft.com/en-us/azure/>
-[PowerShellDocs]: <https://docs.microsoft.com/en-us/powershell/>

@@ -1,11 +1,12 @@
-// apiintegrations/apihandler/apihandler.go
+// httpclient/integration.go
 package httpclient
 
 import (
 	"net/http"
 )
 
-// TODO comment
+// APIIntegration is an interface that defines the methods required for an API integration. These are obtained from go-api-http-client-integrations.
+// The methods defined in this interface are used by the HTTP client to authenticate and prepare requests for the API.
 type APIIntegration interface {
 	GetFQDN() string
 	ConstructURL(endpoint string) string

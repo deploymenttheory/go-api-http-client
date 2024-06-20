@@ -3,7 +3,11 @@
 package httpclient
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"os"
 	"time"
 )
 
@@ -24,16 +28,51 @@ const (
 	DefaultMaxRedirects              = 5
 )
 
-// TODO migrate all the loose strings
-
-// TODO LoadConfigFromFile Func
+// LoadConfigFromFile loads http client configuration settings from a JSON file.
 func LoadConfigFromFile(filepath string) (*ClientConfig, error) {
-	return nil, nil
+	absPath, err := validateFilePath(filepath)
+	if err != nil {
+		return nil, fmt.Errorf("invalid file path: %v", err)
+	}
+
+	file, err := os.Open(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("could not open file: %v", err)
+	}
+	defer file.Close()
+
+	byteValue, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("could not read file: %v", err)
+	}
+
+	var config ClientConfig
+	err = json.Unmarshal(byteValue, &config)
+	if err != nil {
+		return nil, fmt.Errorf("could not unmarshal JSON: %v", err)
+	}
+
+	// Set default values for missing fields.
+	SetDefaultValuesClientConfig(&config)
+
+	return &config, nil
 }
 
-// TODO LoadConfigFromEnv Func
+// LoadConfigFromEnv loads configuration settings from environment variables.
 func LoadConfigFromEnv() (*ClientConfig, error) {
-	return nil, nil
+	config := &ClientConfig{
+		HideSensitiveData:         getEnvAsBool("HIDE_SENSITIVE_DATA", DefaultHideSensitiveData),
+		MaxRetryAttempts:          getEnvAsInt("MAX_RETRY_ATTEMPTS", DefaultMaxRetryAttempts),
+		MaxConcurrentRequests:     getEnvAsInt("MAX_CONCURRENT_REQUESTS", DefaultMaxConcurrentRequests),
+		EnableDynamicRateLimiting: getEnvAsBool("ENABLE_DYNAMIC_RATE_LIMITING", DefaultEnableDynamicRateLimiting),
+		CustomTimeout:             getEnvAsDuration("CUSTOM_TIMEOUT", DefaultCustomTimeout),
+		TokenRefreshBufferPeriod:  getEnvAsDuration("TOKEN_REFRESH_BUFFER_PERIOD", DefaultTokenRefreshBufferPeriod),
+		TotalRetryDuration:        getEnvAsDuration("TOTAL_RETRY_DURATION", DefaultTotalRetryDuration),
+		FollowRedirects:           getEnvAsBool("FOLLOW_REDIRECTS", DefaultFollowRedirects),
+		MaxRedirects:              getEnvAsInt("MAX_REDIRECTS", DefaultMaxRedirects),
+	}
+
+	return config, nil
 }
 
 // TODO Review validateClientConfig

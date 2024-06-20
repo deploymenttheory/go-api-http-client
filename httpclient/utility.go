@@ -1,11 +1,15 @@
+// httpclient/utility.go
 package httpclient
 
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // TODO all func comments in here
@@ -73,4 +77,45 @@ func validatePassword(password string) error {
 		return errors.New("password not long enough")
 	}
 	return nil
+}
+
+// getEnvAsString reads an environment variable as a string, with a fallback default value.
+func getEnvAsString(name string, defaultVal string) string {
+	if value, exists := os.LookupEnv(name); exists {
+		return value
+	}
+	return defaultVal
+}
+
+// getEnvAsBool reads an environment variable as a boolean, with a fallback default value.
+func getEnvAsBool(name string, defaultVal bool) bool {
+	if value, exists := os.LookupEnv(name); exists {
+		boolValue, err := strconv.ParseBool(value)
+		if err == nil {
+			return boolValue
+		}
+	}
+	return defaultVal
+}
+
+// getEnvAsInt reads an environment variable as an integer, with a fallback default value.
+func getEnvAsInt(name string, defaultVal int) int {
+	if value, exists := os.LookupEnv(name); exists {
+		intValue, err := strconv.Atoi(value)
+		if err == nil {
+			return intValue
+		}
+	}
+	return defaultVal
+}
+
+// getEnvAsDuration reads an environment variable as a duration, with a fallback default value.
+func getEnvAsDuration(name string, defaultVal time.Duration) time.Duration {
+	if value, exists := os.LookupEnv(name); exists {
+		durationValue, err := time.ParseDuration(value)
+		if err == nil {
+			return durationValue
+		}
+	}
+	return defaultVal
 }
