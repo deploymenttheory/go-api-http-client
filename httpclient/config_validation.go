@@ -137,6 +137,7 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	return nil
 }
 
+// SetDefaultValuesClientConfig sets default values for the client configuration.
 func SetDefaultValuesClientConfig(config *ClientConfig) {
 
 	if !config.HideSensitiveData {
@@ -173,6 +174,10 @@ func SetDefaultValuesClientConfig(config *ClientConfig) {
 
 	if config.MaxRedirects == 0 {
 		config.MaxRedirects = DefaultMaxRedirects
+	}
+
+	if !config.EnableConcurrencyManagement {
+		config.EnableConcurrencyManagement = DefaultEnableConcurrencyManagement
 	}
 
 }
