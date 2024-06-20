@@ -105,7 +105,7 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 
 	// TODO adjust these strings to have links to documentation & centralise them
 	if config.Integration == nil {
-		return errors.New("no http client api integration supplied, please see documentation for go-api-http-client-integration and provide an implementation")
+		return errors.New("no http client api integration supplied, please see repo documentation for this client and go-api-http-client-integration and provide an implementation")
 	}
 
 	if config.MaxRetryAttempts < 0 {
@@ -137,47 +137,16 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 	return nil
 }
 
-// SetDefaultValuesClientConfig sets default values for the client configuration.
+// SetDefaultValuesClientConfig sets default values for the client configuration. Ensuring that all fields have a valid or minimum value.
 func SetDefaultValuesClientConfig(config *ClientConfig) {
-
-	if !config.HideSensitiveData {
-		config.HideSensitiveData = DefaultHideSensitiveData
-	}
-
-	if config.MaxRetryAttempts == 0 {
-		config.MaxRetryAttempts = DefaultMaxRetryAttempts
-	}
-
-	if config.MaxConcurrentRequests == 0 {
-		config.MaxRetryAttempts = DefaultMaxConcurrentRequests
-	}
-
-	if !config.EnableDynamicRateLimiting {
-		config.EnableDynamicRateLimiting = DefaultEnableDynamicRateLimiting
-	}
-
-	if config.CustomTimeout == 0 {
-		config.CustomTimeout = DefaultCustomTimeout
-	}
-
-	if config.TokenRefreshBufferPeriod == 0 {
-		config.TokenRefreshBufferPeriod = DefaultTokenRefreshBufferPeriod
-	}
-
-	if config.TotalRetryDuration == 0 {
-		config.TotalRetryDuration = DefaultTotalRetryDuration
-	}
-
-	if !config.FollowRedirects {
-		config.FollowRedirects = DefaultFollowRedirects
-	}
-
-	if config.MaxRedirects == 0 {
-		config.MaxRedirects = DefaultMaxRedirects
-	}
-
-	if !config.EnableConcurrencyManagement {
-		config.EnableConcurrencyManagement = DefaultEnableConcurrencyManagement
-	}
-
+	setDefaultBool(&config.HideSensitiveData, DefaultHideSensitiveData)
+	setDefaultInt(&config.MaxRetryAttempts, DefaultMaxRetryAttempts, 1)
+	setDefaultInt(&config.MaxConcurrentRequests, DefaultMaxConcurrentRequests, 1)
+	setDefaultBool(&config.EnableDynamicRateLimiting, DefaultEnableDynamicRateLimiting)
+	setDefaultDuration(&config.CustomTimeout, DefaultCustomTimeout)
+	setDefaultDuration(&config.TokenRefreshBufferPeriod, DefaultTokenRefreshBufferPeriod)
+	setDefaultDuration(&config.TotalRetryDuration, DefaultTotalRetryDuration)
+	setDefaultBool(&config.FollowRedirects, DefaultFollowRedirects)
+	setDefaultInt(&config.MaxRedirects, DefaultMaxRedirects, 0)
+	setDefaultBool(&config.EnableConcurrencyManagement, DefaultEnableConcurrencyManagement)
 }

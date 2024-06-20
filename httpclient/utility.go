@@ -16,6 +16,7 @@ import (
 
 const ConfigFileExtension = ".json"
 
+// validateFilePath checks if a file path is valid.
 func validateFilePath(path string) (string, error) {
 	cleanPath := filepath.Clean(path)
 
@@ -36,6 +37,7 @@ func validateFilePath(path string) (string, error) {
 
 }
 
+// validateClientID checks if a client ID is a valid UUID.
 func validateValidClientID(clientID string) error {
 	uuidRegex := `^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`
 	if regexp.MustCompile(uuidRegex).MatchString(clientID) {
@@ -64,6 +66,7 @@ func validateClientSecret(clientSecret string) error {
 	return nil
 }
 
+// validateUsername checks if a username meets the minimum requirements.
 func validateUsername(username string) error {
 	usernameRegex := `^[a-zA-Z0-9!@#$%^&*()_\-\+=\[\]{\}\\|;:'",<.>/?]+$`
 	if !regexp.MustCompile(usernameRegex).MatchString(username) {
@@ -72,12 +75,15 @@ func validateUsername(username string) error {
 	return nil
 }
 
+// validatePassword checks if a password meets the minimum requirements.
 func validatePassword(password string) error {
 	if len(password) < 8 {
 		return errors.New("password not long enough")
 	}
 	return nil
 }
+
+// environment variable mapping helpers
 
 // getEnvAsString reads an environment variable as a string, with a fallback default value.
 func getEnvAsString(name string, defaultVal string) string {
@@ -118,4 +124,31 @@ func getEnvAsDuration(name string, defaultVal time.Duration) time.Duration {
 		}
 	}
 	return defaultVal
+}
+
+// http field validation functions
+
+// setDefaultBool sets a boolean field to a default value if it is not already set during http client config field validation.
+func setDefaultBool(field *bool, defaultValue bool) {
+	if !*field {
+		*field = defaultValue
+	}
+}
+
+// setDefaultInt sets an integer field to a default value if it is not already set during http client config field validation.
+func setDefaultInt(field *int, defaultValue, minValue int) {
+	if *field == 0 {
+		*field = defaultValue
+	} else if *field < minValue {
+		*field = minValue
+	}
+}
+
+// setDefaultDuration sets a duration field to a default value if it is not already set during http client config field validation.
+func setDefaultDuration(field *time.Duration, defaultValue time.Duration) {
+	if *field == 0 {
+		*field = defaultValue
+	} else if *field < 0 {
+		*field = defaultValue
+	}
 }
