@@ -85,7 +85,7 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 
 	// TODO adjust these strings to have links to documentation & centralise them
 	if config.Integration == nil {
-		return errors.New("no api integration supplied, please see documentation")
+		return errors.New("no http client api integration supplied, please see documentation for go-api-http-client-integration and provide an implementation")
 	}
 
 	if config.MaxRetryAttempts < 0 {
