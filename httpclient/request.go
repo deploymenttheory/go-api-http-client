@@ -295,5 +295,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	c.Logger.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
 
+	time.Sleep(c.config.MandatoryRequestDelay)
+
 	return resp, nil
 }

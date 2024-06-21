@@ -44,6 +44,7 @@ type ClientConfig struct {
 	CustomTimeout                time.Duration
 	TokenRefreshBufferPeriod     time.Duration
 	TotalRetryDuration           time.Duration // TODO do we need this now it's in the integration?
+	MandatoryRequestDelay        time.Duration
 	FollowRedirects              bool
 	MaxRedirects                 int
 	ConcurrencyManagementEnabled bool
