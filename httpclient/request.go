@@ -67,6 +67,10 @@ import (
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
+	if !c.config.RetryEligiableRequests {
+		return c.executeRequest(method, endpoint, body, out)
+	}
+
 	if IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out)
 	} else if !IsIdempotentHTTPMethod(method) {
@@ -294,6 +298,8 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	CheckDeprecationHeader(resp, c.Logger)
 
 	c.Logger.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
+
+	time.Sleep(c.config.MandatoryRequestDelay)
 
 	return resp, nil
 }

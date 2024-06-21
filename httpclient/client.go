@@ -47,6 +47,8 @@ type ClientConfig struct {
 	FollowRedirects             bool `json:"follow_redirects"`
 	MaxRedirects                int  `json:"max_redirects"`
 	EnableConcurrencyManagement bool `json:"enable_concurrency_management"`
+	MandatoryRequestDelay       time.Duration
+	RetryEligiableRequests      bool `json:"retry_eligiable_requests"`
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
