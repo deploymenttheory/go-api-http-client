@@ -35,20 +35,20 @@ type Client struct {
 
 // Options/Variables for Client
 type ClientConfig struct {
-	Integration                  APIIntegration
-	HideSensitiveData            bool
-	CustomCookies                []*http.Cookie
-	MaxRetryAttempts             int
-	MaxConcurrentRequests        int
-	EnableDynamicRateLimiting    bool
-	CustomTimeout                time.Duration
-	TokenRefreshBufferPeriod     time.Duration
-	TotalRetryDuration           time.Duration // TODO do we need this now it's in the integration?
-	MandatoryRequestDelay        time.Duration
-	FollowRedirects              bool
-	MaxRedirects                 int
-	ConcurrencyManagementEnabled bool
-	RetryEligiableRequests       bool
+	Integration                 APIIntegration
+	HideSensitiveData           bool `json:"hide_sensitive_data"`
+	CustomCookies               []*http.Cookie
+	MaxRetryAttempts            int  `json:"max_retry_attempts"`
+	MaxConcurrentRequests       int  `json:"max_concurrent_requests"`
+	EnableDynamicRateLimiting   bool `json:"enable_dynamic_rate_limiting"`
+	CustomTimeout               time.Duration
+	TokenRefreshBufferPeriod    time.Duration
+	TotalRetryDuration          time.Duration
+	FollowRedirects             bool `json:"follow_redirects"`
+	MaxRedirects                int  `json:"max_redirects"`
+	EnableConcurrencyManagement bool `json:"enable_concurrency_management"`
+	MandatoryRequestDelay       time.Duration
+	RetryEligiableRequests      bool `json:"retry_eligiable_requests"`
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
@@ -71,7 +71,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 	}
 
 	var concurrencyHandler *concurrency.ConcurrencyHandler
-	if config.ConcurrencyManagementEnabled {
+	if config.EnableConcurrencyManagement {
 		concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
 		concurrencyHandler = concurrency.NewConcurrencyHandler(
 			config.MaxConcurrentRequests,
@@ -105,6 +105,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 		zap.Duration("Token Refresh Buffer Period", config.TokenRefreshBufferPeriod),
 		zap.Duration("Total Retry Duration", config.TotalRetryDuration),
 		zap.Duration("Custom Timeout", config.CustomTimeout),
+		zap.Bool("Enable Concurrency Management", config.EnableConcurrencyManagement),
 	)
 
 	return client, nil
