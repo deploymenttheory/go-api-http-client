@@ -48,6 +48,7 @@ type ClientConfig struct {
 	FollowRedirects              bool
 	MaxRedirects                 int
 	ConcurrencyManagementEnabled bool
+	RetryEligiableRequests       bool
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.

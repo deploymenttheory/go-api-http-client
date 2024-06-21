@@ -67,6 +67,10 @@ import (
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	log := c.Logger
 
+	if !c.config.RetryEligiableRequests {
+		return c.executeRequest(method, endpoint, body, out)
+	}
+
 	if IsIdempotentHTTPMethod(method) {
 		return c.executeRequestWithRetries(method, endpoint, body, out)
 	} else if !IsIdempotentHTTPMethod(method) {
