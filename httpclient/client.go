@@ -36,17 +36,17 @@ type Client struct {
 // Options/Variables for Client
 type ClientConfig struct {
 	Integration                 APIIntegration
-	HideSensitiveData           bool
+	HideSensitiveData           bool `json:"hide_sensitive_data"`
 	CustomCookies               []*http.Cookie
-	MaxRetryAttempts            int
-	MaxConcurrentRequests       int
-	EnableDynamicRateLimiting   bool
+	MaxRetryAttempts            int  `json:"max_retry_attempts"`
+	MaxConcurrentRequests       int  `json:"max_concurrent_requests"`
+	EnableDynamicRateLimiting   bool `json:"enable_dynamic_rate_limiting"`
 	CustomTimeout               time.Duration
 	TokenRefreshBufferPeriod    time.Duration
-	TotalRetryDuration          time.Duration // TODO do we need this now it's in the integration?
-	FollowRedirects             bool
-	MaxRedirects                int
-	EnableConcurrencyManagement bool
+	TotalRetryDuration          time.Duration
+	FollowRedirects             bool `json:"follow_redirects"`
+	MaxRedirects                int  `json:"max_redirects"`
+	EnableConcurrencyManagement bool `json:"enable_concurrency_management"`
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
