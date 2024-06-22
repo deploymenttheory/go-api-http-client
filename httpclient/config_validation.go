@@ -108,12 +108,10 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 		return errors.New("no http client api integration supplied, please see repo documentation for this client and go-api-http-client-integration and provide an implementation")
 	}
 
-	if config.MaxRetryAttempts < 0 {
-		return errors.New("max retry cannot be less than 0")
-	}
-
-	if config.MaxConcurrentRequests < 1 {
-		return errors.New("maximum concurrent requests cannot be less than 1")
+	if config.EnableConcurrencyManagement {
+		if config.MaxConcurrentRequests < 1 {
+			return errors.New("maximum concurrent requests cannot be less than 1")
+		}
 	}
 
 	if config.CustomTimeout.Seconds() < 0 {
@@ -124,8 +122,15 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 		return errors.New("refresh buffer period cannot be less than 0 seconds")
 	}
 
-	if config.TotalRetryDuration.Seconds() < 0 {
-		return errors.New("total retry duration cannot be less than 0 seconds")
+	if config.RetryEligiableRequests {
+		if config.TotalRetryDuration.Seconds() < 0 {
+			return errors.New("total retry duration cannot be less than 0 seconds")
+		}
+
+		if config.MaxRetryAttempts < 0 {
+			return errors.New("max retry cannot be less than 0")
+		}
+
 	}
 
 	if config.FollowRedirects {
