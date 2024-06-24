@@ -103,8 +103,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		return nil, err
 	}
 
-	// Set the Content-Type header
-	req.Header.Set("Content-Type", contentType)
+	// TODO cookies
 
 	(*c.Integration).PrepRequestParamsAndAuth(req)
 
