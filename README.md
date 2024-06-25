@@ -49,15 +49,3 @@ Contributions are welcome to make this HTTP client even better! Feel free to for
 ## Contribution
 
 If you would like to become an active contributor to this repository or project, please follow the instructions provided in [`CONTRIBUTING.md`][Contributing].
-
-## Learn More
-
-<!-- References -->
-
-<!-- Local -->
-[ProjectSetup]: <https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions>
-[CreateFromTemplate]: <https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-on-github/creating-a-repository-from-a-template>
-[GitHubDocs]: <https://docs.github.com/>
-[AzureDevOpsDocs]: <https://docs.microsoft.com/en-us/azure/devops/?view=azure-devops>
-[GitHubIssues]: <https://github.com/segraef/Template/issues>
-[Contributing]: CONTRIBUTING.md
