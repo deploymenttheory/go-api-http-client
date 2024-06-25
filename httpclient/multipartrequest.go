@@ -82,9 +82,22 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	ctx, cancel := context.WithTimeout(context.Background(), c.config.CustomTimeout)
 	defer cancel()
 
-	// Create multipart body
-	body, contentType, err := createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
-	if err != nil {
+	var body io.Reader
+	var contentType string
+
+	// Create multipart body in a function to ensure it runs again on retry
+	createBody := func() error {
+		var err error
+		body, contentType, err = createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
+		if err != nil {
+			log.Error("Failed to create streaming multipart request body", zap.Error(err))
+		} else {
+			log.Info("Successfully created multipart request body")
+		}
+		return err
+	}
+
+	if err := createBody(); err != nil {
 		log.Error("Failed to create streaming multipart request body", zap.Error(err))
 		return nil, err
 	}
@@ -94,11 +107,15 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		log.Error("Failed to create HTTP request", zap.Error(err))
 		return nil, err
 	}
-	req.Header.Set("Content-Type", contentType)
+
+	// Log the request details
+	log.Info("Created HTTP Multipart request", zap.String("method", method), zap.String("url", url), zap.String("content_type", contentType))
 
 	// TODO cookies
 
 	(*c.Integration).PrepRequestParamsAndAuth(req)
+
+	req.Header.Set("Content-Type", contentType)
 
 	startTime := time.Now()
 	resp, requestErr := c.http.Do(req)
