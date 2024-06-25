@@ -74,12 +74,19 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		return nil, fmt.Errorf("unsupported HTTP method: %s", method)
 	}
 
-	log.Info("Executing multipart file upload request", zap.String("method", method), zap.String("endpoint", endpoint))
-
 	url := (*c.Integration).GetFQDN() + endpoint
 
-	// Create a context with timeout based on the custom timeout duration
-	ctx, cancel := context.WithTimeout(context.Background(), c.config.CustomTimeout)
+	var ctx context.Context
+	var cancel context.CancelFunc
+
+	if c.config.CustomTimeout > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), c.config.CustomTimeout)
+		log.Info("Using timeout context for multipart request", zap.Duration("timeout", c.config.CustomTimeout))
+	} else {
+		ctx = context.Background()
+		cancel = func() {}
+		log.Info("Using background context for multipart request. Caller will handle timeouts")
+	}
 	defer cancel()
 
 	var body io.Reader
@@ -92,7 +99,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		if err != nil {
 			log.Error("Failed to create streaming multipart request body", zap.Error(err))
 		} else {
-			log.Info("Successfully created multipart request body")
+			log.Info("Successfully created streaming multipart request body", zap.String("content_type", contentType))
 		}
 		return err
 	}
@@ -110,8 +117,6 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	// Log the request details
 	log.Info("Created HTTP Multipart request", zap.String("method", method), zap.String("url", url), zap.String("content_type", contentType))
-
-	// TODO cookies
 
 	(*c.Integration).PrepRequestParamsAndAuth(req)
 
