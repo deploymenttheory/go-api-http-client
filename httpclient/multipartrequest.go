@@ -81,7 +81,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	if c.config.CustomTimeout > 0 {
 		ctx, cancel = context.WithTimeout(context.Background(), c.config.CustomTimeout)
-		log.Info("Using timeout context for multipart request", zap.Duration("timeout", c.config.CustomTimeout))
+		log.Info("Using timeout context for multipart request", zap.Duration("custom_timeout_seconds", c.config.CustomTimeout))
 	} else {
 		ctx = context.Background()
 		cancel = func() {}
