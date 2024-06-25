@@ -82,17 +82,9 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	ctx, cancel := context.WithTimeout(context.Background(), c.config.CustomTimeout)
 	defer cancel()
 
-	var body io.Reader
-	var contentType string
-
-	// Create multipart body in a function to ensure it runs again on retry
-	createBody := func() error {
-		var err error
-		body, contentType, err = createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
-		return err
-	}
-
-	if err := createBody(); err != nil {
+	// Create multipart body
+	body, contentType, err := createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
+	if err != nil {
 		log.Error("Failed to create streaming multipart request body", zap.Error(err))
 		return nil, err
 	}
@@ -102,64 +94,29 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		log.Error("Failed to create HTTP request", zap.Error(err))
 		return nil, err
 	}
+	req.Header.Set("Content-Type", contentType)
 
 	// Set the Content-Type header
 	req.Header.Set("Content-Type", contentType)
 
 	(*c.Integration).PrepRequestParamsAndAuth(req)
 
-	var resp *http.Response
-	var requestErr error
+	startTime := time.Now()
+	resp, requestErr := c.http.Do(req)
+	duration := time.Since(startTime)
 
-	// Retry logic
-	maxRetries := 3
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		startTime := time.Now()
-
-		// Create a new request for each retry
-		if attempt > 1 {
-			if err := createBody(); err != nil {
-				log.Error("Failed to recreate streaming multipart request body", zap.Error(err))
-				return nil, err
-			}
-			req, err = http.NewRequestWithContext(ctx, method, url, body)
-			if err != nil {
-				log.Error("Failed to create HTTP request on retry", zap.Error(err))
-				return nil, err
-			}
-			req.Header.Set("Content-Type", contentType)
-		}
-
-		resp, requestErr = c.http.Do(req)
-		duration := time.Since(startTime)
-
-		if requestErr != nil {
-			log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(requestErr))
-			if attempt < maxRetries {
-				log.Info("Retrying request", zap.Int("attempt", attempt))
-				time.Sleep(2 * time.Second)
-				continue
-			}
-			return nil, requestErr
-		}
-
-		log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Duration("duration", duration))
-
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			return resp, response.HandleAPISuccessResponse(resp, out, log)
-		}
-
-		// If status code indicates a server error, retry
-		if resp.StatusCode >= 500 && attempt < maxRetries {
-			log.Info("Retrying request due to server error", zap.Int("status_code", resp.StatusCode), zap.Int("attempt", attempt))
-			time.Sleep(2 * time.Second)
-			continue
-		}
-
-		return resp, response.HandleAPIErrorResponse(resp, log)
+	if requestErr != nil {
+		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(requestErr))
+		return nil, requestErr
 	}
 
-	return resp, requestErr
+	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Duration("duration", duration))
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return resp, response.HandleAPISuccessResponse(resp, out, log)
+	}
+
+	return resp, response.HandleAPIErrorResponse(resp, log)
 }
 
 // createStreamingMultipartRequestBody creates a streaming multipart request body with the provided files and form fields.
