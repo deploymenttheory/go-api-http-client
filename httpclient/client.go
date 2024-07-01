@@ -95,8 +95,7 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 
 	// TODO refactor redirects
 	if err := redirecthandler.SetupRedirectHandler(httpClient, config.FollowRedirects, config.MaxRedirects, log); err != nil {
-		log.Error("Failed to set up redirect handler", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("Failed to set up redirect handler: %v", err)
 	}
 
 	var concurrencyHandler *concurrency.ConcurrencyHandler
