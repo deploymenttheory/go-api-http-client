@@ -55,7 +55,6 @@ func LoadConfigFromFile(filepath string) (*ClientConfig, error) {
 		return nil, fmt.Errorf("could not unmarshal JSON: %v", err)
 	}
 
-	// Set default values for missing fields.
 	SetDefaultValuesClientConfig(&config)
 
 	return &config, nil
