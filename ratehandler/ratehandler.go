@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
@@ -57,7 +56,7 @@ func CalculateBackoff(retry int) time.Duration {
 
 // ParseRateLimitHeaders parses common rate limit headers and adjusts behavior accordingly.
 // It handles both Retry-After (in seconds or HTTP-date format) and X-RateLimit-Reset headers.
-func ParseRateLimitHeaders(resp *http.Response, log logger.Logger) time.Duration {
+func ParseRateLimitHeaders(resp *http.Response, logger *zap.SugaredLogger) time.Duration {
 	// Check for the Retry-After header in seconds
 	if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
 		if waitSeconds, err := strconv.Atoi(retryAfter); err == nil {
@@ -66,7 +65,7 @@ func ParseRateLimitHeaders(resp *http.Response, log logger.Logger) time.Duration
 			// Handle HTTP-date format in Retry-After
 			return time.Until(retryAfterDate)
 		} else {
-			log.Debug("Unable to parse Retry-After header", zap.String("value", retryAfter), zap.Error(err))
+			logger.Debug("Unable to parse Retry-After header", zap.String("value", retryAfter), zap.Error(err))
 		}
 	}
 
@@ -79,7 +78,7 @@ func ParseRateLimitHeaders(resp *http.Response, log logger.Logger) time.Duration
 				const skewBuffer = 5 * time.Second
 				return time.Until(resetTime) + skewBuffer
 			} else {
-				log.Debug("Unable to parse X-RateLimit-Reset header", zap.String("value", resetTimeStr), zap.Error(err))
+				logger.Debug("Unable to parse X-RateLimit-Reset header", zap.String("value", resetTimeStr), zap.Error(err))
 			}
 		}
 	}

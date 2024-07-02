@@ -4,6 +4,7 @@ package httpclient
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -65,8 +66,6 @@ import (
 // endregion
 
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
-	log := c.Logger
-
 	if !c.config.RetryEligiableRequests {
 		return c.executeRequest(method, endpoint, body, out)
 	}
@@ -76,7 +75,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	} else if !IsIdempotentHTTPMethod(method) {
 		return c.executeRequest(method, endpoint, body, out)
 	} else {
-		return nil, log.Error("HTTP method not supported", zap.String("method", method))
+		return nil, fmt.Errorf("unsupported http method: %s", method)
 	}
 }
 
@@ -116,7 +115,6 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // endregion
 func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	// TODO review refactor executeRequestWithRetries
-	log := c.Logger
 	ctx := context.Background()
 	totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
 
@@ -124,7 +122,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 	var err error
 	var retryCount int
 
-	log.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
+	c.Sugar.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
 	for time.Now().Before(totalRetryDeadline) {
 		res, requestErr := c.doRequest(ctx, method, endpoint, body)
@@ -135,22 +133,22 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 			if resp.StatusCode >= 300 {
-				log.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
+				c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 			}
-			return resp, response.HandleAPISuccessResponse(resp, out, log)
+			return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
 		}
 
 		statusMessage := status.TranslateStatusCode(resp)
 
 		if resp != nil && status.IsNonRetryableStatusCode(resp) {
-			log.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
-			return resp, response.HandleAPIErrorResponse(resp, log)
+			c.Sugar.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
+			return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 		}
 
 		if status.IsRateLimitError(resp) {
-			waitDuration := ratehandler.ParseRateLimitHeaders(resp, log)
+			waitDuration := ratehandler.ParseRateLimitHeaders(resp, c.Sugar)
 			if waitDuration > 0 {
-				log.Warn("Rate limit encountered, waiting before retrying", zap.Duration("waitDuration", waitDuration))
+				c.Sugar.Warn("Rate limit encountered, waiting before retrying", zap.Duration("waitDuration", waitDuration))
 				time.Sleep(waitDuration)
 				continue
 			}
@@ -159,20 +157,19 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		if status.IsTransientError(resp) {
 			retryCount++
 			if retryCount > c.config.MaxRetryAttempts {
-				log.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
+				c.Sugar.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
 				break
 			}
 			waitDuration := ratehandler.CalculateBackoff(retryCount)
-			log.Warn("Retrying request due to transient error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err))
+			c.Sugar.Warn("Retrying request due to transient error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err))
 			time.Sleep(waitDuration)
 			continue
 		}
 
 		if !status.IsRetryableStatusCode(resp.StatusCode) {
-			if apiErr := response.HandleAPIErrorResponse(resp, log); apiErr != nil {
+			if apiErr := response.HandleAPIErrorResponse(resp, c.Sugar); apiErr != nil {
 				err = apiErr
 			}
-			log.LogError("request_error", method, endpoint, resp.StatusCode, resp.Status, err, statusMessage)
 			break
 		}
 	}
@@ -181,7 +178,7 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 		return nil, err
 	}
 
-	return resp, response.HandleAPIErrorResponse(resp, log)
+	return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
 
 // region comment
@@ -218,10 +215,10 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 // endregion
 func (c *Client) executeRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	// TODO review refactor execute Request
-	log := c.Logger
+
 	ctx := context.Background()
 
-	log.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
+	c.Sugar.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
 	res, err := c.doRequest(ctx, method, endpoint, body)
 	if err != nil {
@@ -230,12 +227,12 @@ func (c *Client) executeRequest(method, endpoint string, body, out interface{}) 
 
 	if res.StatusCode >= 200 && res.StatusCode < 400 {
 		if res.StatusCode >= 300 {
-			log.Warn("Redirect response received", zap.Int("status_code", res.StatusCode), zap.String("location", res.Header.Get("Location")))
+			c.Sugar.Warn("Redirect response received", zap.Int("status_code", res.StatusCode), zap.String("location", res.Header.Get("Location")))
 		}
-		return res, response.HandleAPISuccessResponse(res, out, log)
+		return res, response.HandleAPISuccessResponse(res, out, c.Sugar)
 	}
 
-	return nil, response.HandleAPIErrorResponse(res, log)
+	return nil, response.HandleAPIErrorResponse(res, c.Sugar)
 }
 
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
@@ -282,7 +279,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		c.Logger.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
+		c.Sugar.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
@@ -292,12 +289,9 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	// 	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
 	// }
 
-	// TODO review LogCookies
-	c.Logger.LogCookies("incoming", req, method, endpoint)
+	c.CheckDeprecationHeader(resp)
 
-	CheckDeprecationHeader(resp, c.Logger)
-
-	c.Logger.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
+	c.Sugar.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
 
 	time.Sleep(c.config.MandatoryRequestDelay)
 
