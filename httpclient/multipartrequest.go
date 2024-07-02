@@ -113,7 +113,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		return nil, err
 	}
 
-	// Log the request details
+	// sugar the request details
 	c.Sugar.Info("Created HTTP Multipart request", zap.String("method", method), zap.String("url", url), zap.String("content_type", contentType))
 
 	(*c.Integration).PrepRequestParamsAndAuth(req)
@@ -152,7 +152,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 //   content type (e.g., "image/jpeg").
 // - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
 //   and the value is an http.Header containing the headers for that part.
-// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+// - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
 //   and errors encountered during the construction of the multipart request body.
 
 // Returns:
@@ -160,25 +160,25 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 //   - string: The content type of the multipart request body. This includes the boundary string used by the multipart writer.
 //   - error: An error object indicating failure during the construction of the multipart request body. This could be due to issues
 //     such as file reading errors or multipart writer errors.
-func createStreamingMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log *zap.SugaredLogger) (io.Reader, string, error) {
+func createStreamingMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, sugar *zap.SugaredLogger) (io.Reader, string, error) {
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
 
 	go func() {
 		defer func() {
 			if err := writer.Close(); err != nil {
-				log.Error("Failed to close multipart writer", zap.Error(err))
+				sugar.Error("Failed to close multipart writer", zap.Error(err))
 			}
 			if err := pw.Close(); err != nil {
-				log.Error("Failed to close pipe writer", zap.Error(err))
+				sugar.Error("Failed to close pipe writer", zap.Error(err))
 			}
 		}()
 
 		for fieldName, filePaths := range files {
 			for _, filePath := range filePaths {
-				log.Debug("Adding file part", zap.String("field_name", fieldName), zap.String("file_path", filePath))
-				if err := addFilePart(writer, fieldName, filePath, fileContentTypes, formDataPartHeaders, log); err != nil {
-					log.Error("Failed to add file part", zap.Error(err))
+				sugar.Debug("Adding file part", zap.String("field_name", fieldName), zap.String("file_path", filePath))
+				if err := addFilePart(writer, fieldName, filePath, fileContentTypes, formDataPartHeaders, sugar); err != nil {
+					sugar.Error("Failed to add file part", zap.Error(err))
 					pw.CloseWithError(err)
 					return
 				}
@@ -186,9 +186,9 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 		}
 
 		for key, val := range formDataFields {
-			log.Debug("Adding form field", zap.String("field_name", key), zap.String("field_value", val))
-			if err := addFormField(writer, key, val, log); err != nil {
-				log.Error("Failed to add form field", zap.Error(err))
+			sugar.Debug("Adding form field", zap.String("field_name", key), zap.String("field_value", val))
+			if err := addFormField(writer, key, val, sugar); err != nil {
+				sugar.Error("Failed to add form field", zap.Error(err))
 				pw.CloseWithError(err)
 				return
 			}
@@ -209,16 +209,16 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 //   content type (e.g., "image/jpeg").
 // - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
 //   and the value is an http.Header containing the headers for that part.
-// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+// - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
 //   and errors encountered during the addition of the file part.
 
 // Returns:
 //   - error: An error object indicating failure during the addition of the file part. This could be due to issues such as
 //     file reading errors or multipart writer errors.
-func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log *zap.SugaredLogger) error {
+func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, sugar *zap.SugaredLogger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
+		sugar.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
 	defer file.Close()
@@ -233,7 +233,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 
 	part, err := writer.CreatePart(header)
 	if err != nil {
-		log.Error("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
+		sugar.Error("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
 		return err
 	}
 
@@ -242,14 +242,14 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 
 	fileSize, err := file.Stat()
 	if err != nil {
-		log.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
+		sugar.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
 
-	progressLogger := logUploadProgress(file, fileSize.Size(), log)
+	progressLogger := logUploadProgress(file, fileSize.Size(), sugar)
 	uploadState := &UploadState{}
-	if err := chunkFileUpload(file, encoder, progressLogger, uploadState, log); err != nil {
-		log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
+	if err := chunkFileUpload(file, encoder, progressLogger, uploadState, sugar); err != nil {
+		sugar.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
 
@@ -263,20 +263,20 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 // - writer: The multipart writer used to construct the multipart request body.
 // - key: The field name for the form field.
 // - val: The value of the form field.
-// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+// - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
 //   and errors encountered during the addition of the form field.
 
 // Returns:
 //   - error: An error object indicating failure during the addition of the form field. This could be due to issues such as
 //     multipart writer errors.
-func addFormField(writer *multipart.Writer, key, val string, log *zap.SugaredLogger) error {
+func addFormField(writer *multipart.Writer, key, val string, sugar *zap.SugaredLogger) error {
 	fieldWriter, err := writer.CreateFormField(key)
 	if err != nil {
-		log.Error("Failed to create form field", zap.String("key", key), zap.Error(err))
+		sugar.Error("Failed to create form field", zap.String("key", key), zap.Error(err))
 		return err
 	}
 	if _, err := fieldWriter.Write([]byte(val)); err != nil {
-		log.Error("Failed to write form field", zap.String("key", key), zap.Error(err))
+		sugar.Error("Failed to write form field", zap.String("key", key), zap.Error(err))
 		return err
 	}
 	return nil
@@ -321,7 +321,7 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 // Parameters:
 // - file: The file to be uploaded.
 // - writer: The writer to which the file content will be written.
-// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+// - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
 //   and errors encountered during the file upload.
 // - updateProgress: A function to update the upload progress, typically used for logging purposes.
 // - uploadState: A pointer to an UploadState struct used to track the progress of the file upload for resumable uploads.
@@ -329,7 +329,7 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 // Returns:
 //   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
 //     or writer errors.
-func chunkFileUpload(file *os.File, writer io.Writer, updateProgress func(int64), uploadState *UploadState, log *zap.SugaredLogger) error {
+func chunkFileUpload(file *os.File, writer io.Writer, updateProgress func(int64), uploadState *UploadState, sugar *zap.SugaredLogger) error {
 	const chunkSize = 8 * 1024 * 1024 // 8 MB
 	buffer := make([]byte, chunkSize)
 	totalWritten := int64(0)
@@ -371,7 +371,7 @@ func chunkFileUpload(file *os.File, writer io.Writer, updateProgress func(int64)
 
 		if chunkWritten >= chunkSize {
 			currentChunk++
-			log.Debug("File Upload Chunk Sent",
+			sugar.Debug("File Upload Chunk Sent",
 				zap.String("file_name", fileName),
 				zap.Int64("chunk_number", currentChunk),
 				zap.Int64("total_chunks", totalChunks),
@@ -381,10 +381,10 @@ func chunkFileUpload(file *os.File, writer io.Writer, updateProgress func(int64)
 		}
 	}
 
-	// Log any remaining bytes that were written but didn't reach the log threshold
+	// sugar any remaining bytes that were written but didn't reach the sugar threshold
 	if chunkWritten > 0 {
 		currentChunk++
-		log.Debug("Final Upload Chunk Sent",
+		sugar.Debug("Final Upload Chunk Sent",
 			zap.String("file_name", fileName),
 			zap.Int64("chunk_number", currentChunk),
 			zap.Int64("total_chunks", totalChunks),
@@ -401,15 +401,15 @@ func chunkFileUpload(file *os.File, writer io.Writer, updateProgress func(int64)
 // Parameters:
 // - file: The file being uploaded. used for logging the file name.
 // - fileSize: The total size of the file being uploaded.
-// - log: An instance of a logger implementing the logger.Logger interface, used to log informational messages, warnings,
+// - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
 //   and errors encountered during the upload.
 
 // Returns:
 // - func(int64): A function that takes the number of bytes written as an argument and logs the upload progress.
 // logUploadProgress logs the upload progress based on the percentage of the total file size.
-func logUploadProgress(file *os.File, fileSize int64, log *zap.SugaredLogger) func(int64) {
+func logUploadProgress(file *os.File, fileSize int64, sugar *zap.SugaredLogger) func(int64) {
 	var uploaded int64 = 0
-	const logInterval = 5 // Log every 5% increment
+	const logInterval = 5 // sugar every 5% increment
 	lastLoggedPercentage := int64(0)
 	startTime := time.Now()
 	fileName := filepath.Base(file.Name())
@@ -421,9 +421,9 @@ func logUploadProgress(file *os.File, fileSize int64, log *zap.SugaredLogger) fu
 		if percentage >= lastLoggedPercentage+logInterval {
 			elapsedTime := time.Since(startTime)
 
-			log.Info("Upload progress",
+			sugar.Info("Upload progress",
 				zap.String("file_name", fileName),
-				zap.Float64("uploaded_MB's", float64(uploaded)/1048576), // Log in MB (1024 * 1024)
+				zap.Float64("uploaded_MB's", float64(uploaded)/1048576), // sugar in MB (1024 * 1024)
 				zap.Float64("total_filesize_in_MB", float64(fileSize)/1048576),
 				zap.String("total_uploaded_percentage", fmt.Sprintf("%d%%", percentage)),
 				zap.Duration("elapsed_time", elapsedTime))

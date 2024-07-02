@@ -43,7 +43,7 @@ func (e *APIError) Error() string {
 }
 
 // HandleAPIErrorResponse handles the HTTP error response from an API and logs the error.
-func HandleAPIErrorResponse(resp *http.Response, log *zap.SugaredLogger) *APIError {
+func HandleAPIErrorResponse(resp *http.Response, sugar *zap.SugaredLogger) *APIError {
 	apiError := &APIError{
 		StatusCode: resp.StatusCode,
 		Method:     resp.Request.Method,
@@ -60,13 +60,13 @@ func HandleAPIErrorResponse(resp *http.Response, log *zap.SugaredLogger) *APIErr
 	mimeType, _ := ParseContentTypeHeader(resp.Header.Get("Content-Type"))
 	switch mimeType {
 	case "application/json":
-		parseJSONResponse(bodyBytes, apiError, resp, log)
+		parseJSONResponse(bodyBytes, apiError, resp, sugar)
 	case "application/xml", "text/xml":
-		parseXMLResponse(bodyBytes, apiError, resp, log)
+		parseXMLResponse(bodyBytes, apiError, resp, sugar)
 	case "text/html":
-		parseHTMLResponse(bodyBytes, apiError, resp, log)
+		parseHTMLResponse(bodyBytes, apiError, resp, sugar)
 	case "text/plain":
-		parseTextResponse(bodyBytes, apiError, resp, log)
+		parseTextResponse(bodyBytes, apiError, resp, sugar)
 	default:
 		apiError.RawResponse = string(bodyBytes)
 		apiError.Message = "Unknown content type error"
@@ -76,7 +76,7 @@ func HandleAPIErrorResponse(resp *http.Response, log *zap.SugaredLogger) *APIErr
 }
 
 // parseJSONResponse attempts to parse the JSON error response and update the APIError structure.
-func parseJSONResponse(bodyBytes []byte, apiError *APIError, resp *http.Response, log *zap.SugaredLogger) {
+func parseJSONResponse(bodyBytes []byte, apiError *APIError, resp *http.Response, sugar *zap.SugaredLogger) {
 	if err := json.Unmarshal(bodyBytes, apiError); err != nil {
 		apiError.RawResponse = string(bodyBytes)
 	} else {
@@ -88,7 +88,7 @@ func parseJSONResponse(bodyBytes []byte, apiError *APIError, resp *http.Response
 }
 
 // parseXMLResponse dynamically parses XML error responses and accumulates potential error messages.
-func parseXMLResponse(bodyBytes []byte, apiError *APIError, resp *http.Response, log *zap.SugaredLogger) {
+func parseXMLResponse(bodyBytes []byte, apiError *APIError, resp *http.Response, sugar *zap.SugaredLogger) {
 	// Always set the Raw field to the entire XML content for debugging purposes.
 	apiError.RawResponse = string(bodyBytes)
 
@@ -121,7 +121,7 @@ func parseXMLResponse(bodyBytes []byte, apiError *APIError, resp *http.Response,
 }
 
 // parseTextResponse updates the APIError structure based on a plain text error response and logs it.
-func parseTextResponse(bodyBytes []byte, apiError *APIError, resp *http.Response, log *zap.SugaredLogger) {
+func parseTextResponse(bodyBytes []byte, apiError *APIError, resp *http.Response, sugar *zap.SugaredLogger) {
 	// Convert the body bytes to a string and assign it to both the message and RawResponse fields of APIError.
 	bodyText := string(bodyBytes)
 	apiError.RawResponse = bodyText
@@ -133,7 +133,7 @@ func parseTextResponse(bodyBytes []byte, apiError *APIError, resp *http.Response
 
 // parseHTMLResponse extracts meaningful information from an HTML error response,
 // concatenating all text within <p> tags and links found within them.
-func parseHTMLResponse(bodyBytes []byte, apiError *APIError, resp *http.Response, log *zap.SugaredLogger) {
+func parseHTMLResponse(bodyBytes []byte, apiError *APIError, resp *http.Response, sugar *zap.SugaredLogger) {
 	// Set the entire HTML content as the RawResponse for debugging purposes.
 	apiError.RawResponse = string(bodyBytes)
 
