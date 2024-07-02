@@ -18,12 +18,14 @@ import (
 	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 )
 
+const ()
+
 // TODO all struct comments
 
 // Master struct/object
 type Client struct {
 	// Config
-	config ClientConfig
+	config *ClientConfig
 
 	// Integration
 	Integration *APIIntegration
@@ -92,7 +94,7 @@ type ClientConfig struct {
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
-func (c ClientConfig) Build() (*Client, error) {
+func (c *ClientConfig) Build() (*Client, error) {
 	if c.Sugar == nil {
 		zapLogger, err := zap.NewProduction()
 		if err != nil {
@@ -100,12 +102,16 @@ func (c ClientConfig) Build() (*Client, error) {
 		}
 
 		c.Sugar = zapLogger.Sugar()
+		c.Sugar.Info("No logger provided. Defaulting to Sugared Zap Production Logger")
 	}
+
+	c.Sugar.Debug("validating configuration")
 
 	err := c.validateClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
+	c.Sugar.Debug("configuration valid")
 
 	httpClient := &http.Client{
 		Timeout: c.CustomTimeout,
@@ -138,6 +144,7 @@ func (c ClientConfig) Build() (*Client, error) {
 	}
 
 	if len(client.config.CustomCookies) > 0 {
+		client.Sugar.Debug("setting custom cookies")
 		client.loadCustomCookies()
 	}
 

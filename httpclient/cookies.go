@@ -18,6 +18,7 @@ func (c *Client) loadCustomCookies() error {
 	}
 
 	c.http.Jar.SetCookies(cookieUrl, c.config.CustomCookies)
+	c.Sugar.Debug("custom cookies set: %v", c.http.Jar.Cookies(cookieUrl))
 
 	return nil
 }
