@@ -8,10 +8,10 @@ import (
 )
 
 // CheckDeprecationHeader checks the response headers for the Deprecation header and logs a warning if present.
-func CheckDeprecationHeader(resp *http.Response, log *zap.SugaredLogger) {
+func CheckDeprecationHeader(resp *http.Response, sugar *zap.SugaredLogger) {
 	deprecationHeader := resp.Header.Get("Deprecation")
 	if deprecationHeader != "" {
-		log.Warn("API endpoint is deprecated",
+		sugar.Warn("API endpoint is deprecated",
 			zap.String("Date", deprecationHeader),
 			zap.String("Endpoint", resp.Request.URL.String()),
 		)

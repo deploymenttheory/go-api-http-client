@@ -66,10 +66,9 @@ type UploadState struct {
 //
 // // Use `result` or `resp` as needed
 func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, out interface{}) (*http.Response, error) {
-	log := c.Logger
 
 	if method != http.MethodPost && method != http.MethodPut {
-		log.Error("HTTP method not supported for multipart request", zap.String("method", method))
+		c.Sugar.Error("HTTP method not supported for multipart request", zap.String("method", method))
 		return nil, fmt.Errorf("unsupported HTTP method: %s", method)
 	}
 
@@ -80,11 +79,11 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	if c.config.CustomTimeout > 0 {
 		ctx, cancel = context.WithTimeout(context.Background(), c.config.CustomTimeout)
-		log.Info("Using timeout context for multipart request", zap.Duration("custom_timeout_seconds", c.config.CustomTimeout))
+		c.Sugar.Info("Using timeout context for multipart request", zap.Duration("custom_timeout_seconds", c.config.CustomTimeout))
 	} else {
 		ctx = context.Background()
 		cancel = func() {}
-		log.Info("Using background context for multipart request. Caller will handle timeouts")
+		c.Sugar.Info("Using background context for multipart request. Caller will handle timeouts")
 	}
 	defer cancel()
 
@@ -94,28 +93,28 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	// Create multipart body in a function to ensure it runs again on retry
 	createBody := func() error {
 		var err error
-		body, contentType, err = createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, log)
+		body, contentType, err = createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, c.Sugar)
 		if err != nil {
-			log.Error("Failed to create streaming multipart request body", zap.Error(err))
+			c.Sugar.Error("Failed to create streaming multipart request body", zap.Error(err))
 		} else {
-			log.Info("Successfully created streaming multipart request body", zap.String("content_type", contentType))
+			c.Sugar.Info("Successfully created streaming multipart request body", zap.String("content_type", contentType))
 		}
 		return err
 	}
 
 	if err := createBody(); err != nil {
-		log.Error("Failed to create streaming multipart request body", zap.Error(err))
+		c.Sugar.Error("Failed to create streaming multipart request body", zap.Error(err))
 		return nil, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
-		log.Error("Failed to create HTTP request", zap.Error(err))
+		c.Sugar.Error("Failed to create HTTP request", zap.Error(err))
 		return nil, err
 	}
 
 	// Log the request details
-	log.Info("Created HTTP Multipart request", zap.String("method", method), zap.String("url", url), zap.String("content_type", contentType))
+	c.Sugar.Info("Created HTTP Multipart request", zap.String("method", method), zap.String("url", url), zap.String("content_type", contentType))
 
 	(*c.Integration).PrepRequestParamsAndAuth(req)
 
@@ -126,17 +125,17 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	duration := time.Since(startTime)
 
 	if requestErr != nil {
-		log.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(requestErr))
+		c.Sugar.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(requestErr))
 		return nil, requestErr
 	}
 
-	log.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Duration("duration", duration))
+	c.Sugar.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Duration("duration", duration))
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return resp, response.HandleAPISuccessResponse(resp, out, log)
+		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
 	}
 
-	return resp, response.HandleAPIErrorResponse(resp, log)
+	return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
 
 // createStreamingMultipartRequestBody creates a streaming multipart request body with the provided files and form fields.

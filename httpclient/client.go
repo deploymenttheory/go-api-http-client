@@ -27,7 +27,7 @@ type Client struct {
 
 	AuthToken       string
 	AuthTokenExpiry time.Time
-	Logger          *zap.SugaredLogger
+	Sugar           *zap.SugaredLogger
 	Concurrency     *concurrency.ConcurrencyHandler
 	Integration     *APIIntegration
 }
@@ -80,7 +80,16 @@ type ClientConfig struct {
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
-func (c ClientConfig) BuildClient(populateDefaultValues bool, logger *zap.SugaredLogger) (*Client, error) {
+func (c ClientConfig) BuildClient(populateDefaultValues bool, sugar *zap.SugaredLogger) (*Client, error) {
+
+	if sugar == nil {
+		zapLogger, err := zap.NewProduction()
+		sugar = zapLogger.Sugar()
+
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	err := c.validateClientConfig(populateDefaultValues)
 	if err != nil {
@@ -92,7 +101,7 @@ func (c ClientConfig) BuildClient(populateDefaultValues bool, logger *zap.Sugare
 	}
 
 	// TODO refactor redirects
-	if err := redirecthandler.SetupRedirectHandler(httpClient, c.FollowRedirects, c.MaxRedirects, logger); err != nil {
+	if err := redirecthandler.SetupRedirectHandler(httpClient, c.FollowRedirects, c.MaxRedirects, sugar); err != nil {
 		return nil, fmt.Errorf("Failed to set up redirect handler: %v", err)
 	}
 
@@ -101,7 +110,7 @@ func (c ClientConfig) BuildClient(populateDefaultValues bool, logger *zap.Sugare
 		concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
 		concurrencyHandler = concurrency.NewConcurrencyHandler(
 			c.MaxConcurrentRequests,
-			logger,
+			sugar,
 			concurrencyMetrics,
 		)
 	} else {
@@ -112,7 +121,7 @@ func (c ClientConfig) BuildClient(populateDefaultValues bool, logger *zap.Sugare
 		Integration: &c.Integration,
 		http:        httpClient,
 		config:      c,
-		Logger:      logger,
+		Sugar:       sugar,
 		Concurrency: concurrencyHandler,
 	}
 

@@ -118,9 +118,7 @@ func handleBinaryData(reader io.Reader, log *zap.SugaredLogger, out interface{},
 		}
 
 	default:
-		errMsg := "output parameter is not suitable for binary data (*[]byte or io.Writer)"
-		log.Error(errMsg, zap.String("Content-Type", mimeType))
-		return errors.New(errMsg)
+		return errors.New("output parameter is not suitable for binary data (*[]byte or io.Writer)")
 	}
 
 	// Handle Content-Disposition if present
