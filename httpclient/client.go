@@ -148,6 +148,8 @@ func (c *ClientConfig) Build() (*Client, error) {
 		client.loadCustomCookies()
 	}
 
+	client.Sugar.Infof("client init complete: %+v", client)
+
 	return client, nil
 
 }
