@@ -6,14 +6,13 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/status"
 	"go.uber.org/zap"
 )
 
 // RedirectHandler contains configurations for handling HTTP redirects.
 type RedirectHandler struct {
-	Logger             logger.Logger                // Logger instance for logging.
+	Logger             *zap.SugaredLogger           // Logger instance for logging.
 	MaxRedirects       int                          // Maximum allowed redirects to prevent infinite loops.
 	VisitedURLs        map[string]int               // Tracks visited URLs to detect loops.
 	VisitedURLsMutex   sync.RWMutex                 // Mutex for safe concurrent access to VisitedURLs.
@@ -24,7 +23,7 @@ type RedirectHandler struct {
 }
 
 // NewRedirectHandler creates a new instance of RedirectHandler.
-func NewRedirectHandler(logger logger.Logger, maxRedirects int) *RedirectHandler {
+func NewRedirectHandler(logger *zap.SugaredLogger, maxRedirects int) *RedirectHandler {
 	return &RedirectHandler{
 		Logger:             logger,
 		MaxRedirects:       maxRedirects,
@@ -219,7 +218,7 @@ func (r *RedirectHandler) GetRedirectHistory(req *http.Request) []*url.URL {
 }
 
 // SetupRedirectHandler configures the HTTP client for redirect handling based on the client configuration.
-func SetupRedirectHandler(client *http.Client, followRedirects bool, maxRedirects int, log logger.Logger) error {
+func SetupRedirectHandler(client *http.Client, followRedirects bool, maxRedirects int, log *zap.SugaredLogger) error {
 	if followRedirects {
 		if maxRedirects < 1 {
 			log.Error("Invalid maxRedirects value", zap.Int("maxRedirects", maxRedirects))

@@ -1,7 +1,6 @@
 package httpclient
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -21,7 +20,6 @@ func (c *Client) loadCustomCookies(cookiesList []*http.Cookie) error {
 
 	c.http.Jar = cookieJar
 	c.http.Jar.SetCookies(cookieUrl, cookiesList)
-	c.Logger.Debug(fmt.Sprintf("%+v", c.http.Jar))
 
 	return nil
 }

@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/logger"
 	"github.com/deploymenttheory/go-api-http-client/response"
 	"go.uber.org/zap"
 )
@@ -162,7 +161,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 //   - string: The content type of the multipart request body. This includes the boundary string used by the multipart writer.
 //   - error: An error object indicating failure during the construction of the multipart request body. This could be due to issues
 //     such as file reading errors or multipart writer errors.
-func createStreamingMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) (io.Reader, string, error) {
+func createStreamingMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log *zap.SugaredLogger) (io.Reader, string, error) {
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
 
@@ -217,7 +216,7 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 // Returns:
 //   - error: An error object indicating failure during the addition of the file part. This could be due to issues such as
 //     file reading errors or multipart writer errors.
-func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log logger.Logger) error {
+func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, log *zap.SugaredLogger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
@@ -250,7 +249,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 
 	progressLogger := logUploadProgress(file, fileSize.Size(), log)
 	uploadState := &UploadState{}
-	if err := chunkFileUpload(file, encoder, log, progressLogger, uploadState); err != nil {
+	if err := chunkFileUpload(file, encoder, progressLogger, uploadState, log); err != nil {
 		log.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
@@ -271,7 +270,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 // Returns:
 //   - error: An error object indicating failure during the addition of the form field. This could be due to issues such as
 //     multipart writer errors.
-func addFormField(writer *multipart.Writer, key, val string, log logger.Logger) error {
+func addFormField(writer *multipart.Writer, key, val string, log *zap.SugaredLogger) error {
 	fieldWriter, err := writer.CreateFormField(key)
 	if err != nil {
 		log.Error("Failed to create form field", zap.String("key", key), zap.Error(err))
@@ -331,7 +330,7 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 // Returns:
 //   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
 //     or writer errors.
-func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateProgress func(int64), uploadState *UploadState) error {
+func chunkFileUpload(file *os.File, writer io.Writer, updateProgress func(int64), uploadState *UploadState, log *zap.SugaredLogger) error {
 	const chunkSize = 8 * 1024 * 1024 // 8 MB
 	buffer := make([]byte, chunkSize)
 	totalWritten := int64(0)
@@ -409,7 +408,7 @@ func chunkFileUpload(file *os.File, writer io.Writer, log logger.Logger, updateP
 // Returns:
 // - func(int64): A function that takes the number of bytes written as an argument and logs the upload progress.
 // logUploadProgress logs the upload progress based on the percentage of the total file size.
-func logUploadProgress(file *os.File, fileSize int64, log logger.Logger) func(int64) {
+func logUploadProgress(file *os.File, fileSize int64, log *zap.SugaredLogger) func(int64) {
 	var uploaded int64 = 0
 	const logInterval = 5 // Log every 5% increment
 	lastLoggedPercentage := int64(0)

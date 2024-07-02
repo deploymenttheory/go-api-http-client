@@ -13,12 +13,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/deploymenttheory/go-api-http-client/logger"
 	"go.uber.org/zap"
 )
 
 // contentHandler defines the signature for unmarshaling content from an io.Reader.
-type contentHandler func(io.Reader, interface{}, logger.Logger, string) error
+type contentHandler func(io.Reader, interface{}, *zap.SugaredLogger, string) error
 
 // responseUnmarshallers maps MIME types to the corresponding contentHandler functions.
 var responseUnmarshallers = map[string]contentHandler{
@@ -28,7 +27,7 @@ var responseUnmarshallers = map[string]contentHandler{
 }
 
 // HandleAPISuccessResponse reads the response body, logs the raw response details, and unmarshals the response based on the content type.
-func HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.Logger) error {
+func HandleAPISuccessResponse(resp *http.Response, out interface{}, log *zap.SugaredLogger) error {
 	if resp.Request.Method == "DELETE" {
 		return handleDeleteRequest(resp, log)
 	}
@@ -62,21 +61,16 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, log logger.L
 }
 
 // handleDeleteRequest handles the special case for DELETE requests, where a successful response might not contain a body.
-func handleDeleteRequest(resp *http.Response, log logger.Logger) error {
+func handleDeleteRequest(resp *http.Response, log *zap.SugaredLogger) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		if log != nil {
-			log.Info("Successfully processed DELETE request", zap.String("URL", resp.Request.URL.String()), zap.Int("Status Code", resp.StatusCode))
-		}
+		log.Info("Successfully processed DELETE request", zap.String("URL", resp.Request.URL.String()), zap.Int("Status Code", resp.StatusCode))
 		return nil
-	}
-	if log != nil {
-		return log.Error("DELETE request failed", zap.String("URL", resp.Request.URL.String()), zap.Int("Status Code", resp.StatusCode))
 	}
 	return fmt.Errorf("DELETE request failed, status code: %d", resp.StatusCode)
 }
 
 // unmarshalJSON unmarshals JSON content from an io.Reader into the provided output structure.
-func unmarshalJSON(reader io.Reader, out interface{}, log logger.Logger, mimeType string) error {
+func unmarshalJSON(reader io.Reader, out interface{}, log *zap.SugaredLogger, mimeType string) error {
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(out); err != nil {
 		log.Error("JSON Unmarshal error", zap.Error(err))
@@ -87,7 +81,7 @@ func unmarshalJSON(reader io.Reader, out interface{}, log logger.Logger, mimeTyp
 }
 
 // unmarshalXML unmarshals XML content from an io.Reader into the provided output structure.
-func unmarshalXML(reader io.Reader, out interface{}, log logger.Logger, mimeType string) error {
+func unmarshalXML(reader io.Reader, out interface{}, log *zap.SugaredLogger, mimeType string) error {
 	decoder := xml.NewDecoder(reader)
 	if err := decoder.Decode(out); err != nil {
 		log.Error("XML Unmarshal error", zap.Error(err))
@@ -103,7 +97,7 @@ func isBinaryData(contentType, contentDisposition string) bool {
 }
 
 // handleBinaryData reads binary data from an io.Reader and stores it in *[]byte or streams it to an io.Writer.
-func handleBinaryData(reader io.Reader, log logger.Logger, out interface{}, mimeType, contentDisposition string) error {
+func handleBinaryData(reader io.Reader, log *zap.SugaredLogger, out interface{}, mimeType, contentDisposition string) error {
 	// Check if the output interface is either *[]byte or io.Writer
 	switch out := out.(type) {
 	case *[]byte:

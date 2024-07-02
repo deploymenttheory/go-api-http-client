@@ -4,6 +4,7 @@ package httpclient
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -65,8 +66,6 @@ import (
 // endregion
 
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
-	log := c.Logger
-
 	if !c.config.RetryEligiableRequests {
 		return c.executeRequest(method, endpoint, body, out)
 	}
@@ -76,7 +75,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	} else if !IsIdempotentHTTPMethod(method) {
 		return c.executeRequest(method, endpoint, body, out)
 	} else {
-		return nil, log.Error("HTTP method not supported", zap.String("method", method))
+		return nil, fmt.Errorf("unsupported http method: %s", method)
 	}
 }
 

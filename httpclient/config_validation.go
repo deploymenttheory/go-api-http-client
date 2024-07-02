@@ -55,7 +55,7 @@ func LoadConfigFromFile(filepath string) (*ClientConfig, error) {
 		return nil, fmt.Errorf("could not unmarshal JSON: %v", err)
 	}
 
-	SetDefaultValuesClientConfig(&config)
+	config.SetDefaultValuesClientConfig()
 
 	return &config, nil
 }
@@ -96,43 +96,43 @@ func LoadConfigFromEnv() (*ClientConfig, error) {
 }
 
 // TODO Review validateClientConfig
-func validateClientConfig(config ClientConfig, populateDefaults bool) error {
+func (c ClientConfig) validateClientConfig(populateDefaults bool) error {
 
 	if populateDefaults {
-		SetDefaultValuesClientConfig(&config)
+		c.SetDefaultValuesClientConfig()
 	}
 
 	// TODO adjust these strings to have links to documentation & centralise them
-	if config.Integration == nil {
+	if c.Integration == nil {
 		return errors.New("no http client api integration supplied, please see repo documentation for this client and go-api-http-client-integration and provide an implementation")
 	}
 
-	if config.EnableConcurrencyManagement {
-		if config.MaxConcurrentRequests < 1 {
+	if c.EnableConcurrencyManagement {
+		if c.MaxConcurrentRequests < 1 {
 			return errors.New("maximum concurrent requests cannot be less than 1")
 		}
 	}
 
-	if config.CustomTimeout.Seconds() < 0 {
+	if c.CustomTimeout.Seconds() < 0 {
 		return errors.New("timeout cannot be less than 0 seconds")
 	}
 
-	if config.TokenRefreshBufferPeriod.Seconds() < 0 {
+	if c.TokenRefreshBufferPeriod.Seconds() < 0 {
 		return errors.New("refresh buffer period cannot be less than 0 seconds")
 	}
 
-	if config.RetryEligiableRequests {
-		if config.TotalRetryDuration.Seconds() < 0 {
+	if c.RetryEligiableRequests {
+		if c.TotalRetryDuration.Seconds() < 0 {
 			return errors.New("total retry duration cannot be less than 0 seconds")
 		}
 
-		if config.MaxRetryAttempts < 0 {
+		if c.MaxRetryAttempts < 0 {
 			return errors.New("max retry cannot be less than 0")
 		}
 
 	}
 
-	if config.FollowRedirects {
+	if c.FollowRedirects {
 		if DefaultMaxRedirects < 1 {
 			return errors.New("max redirects cannot be less than 1")
 		}
@@ -142,15 +142,15 @@ func validateClientConfig(config ClientConfig, populateDefaults bool) error {
 }
 
 // SetDefaultValuesClientConfig sets default values for the client configuration. Ensuring that all fields have a valid or minimum value.
-func SetDefaultValuesClientConfig(config *ClientConfig) {
-	setDefaultBool(&config.HideSensitiveData, DefaultHideSensitiveData)
-	setDefaultInt(&config.MaxRetryAttempts, DefaultMaxRetryAttempts, 1)
-	setDefaultInt(&config.MaxConcurrentRequests, DefaultMaxConcurrentRequests, 1)
-	setDefaultBool(&config.EnableDynamicRateLimiting, DefaultEnableDynamicRateLimiting)
-	setDefaultDuration(&config.CustomTimeout, DefaultCustomTimeout)
-	setDefaultDuration(&config.TokenRefreshBufferPeriod, DefaultTokenRefreshBufferPeriod)
-	setDefaultDuration(&config.TotalRetryDuration, DefaultTotalRetryDuration)
-	setDefaultBool(&config.FollowRedirects, DefaultFollowRedirects)
-	setDefaultInt(&config.MaxRedirects, DefaultMaxRedirects, 0)
-	setDefaultBool(&config.EnableConcurrencyManagement, DefaultEnableConcurrencyManagement)
+func (c *ClientConfig) SetDefaultValuesClientConfig() {
+	setDefaultBool(&c.HideSensitiveData, DefaultHideSensitiveData)
+	setDefaultInt(&c.MaxRetryAttempts, DefaultMaxRetryAttempts, 1)
+	setDefaultInt(&c.MaxConcurrentRequests, DefaultMaxConcurrentRequests, 1)
+	setDefaultBool(&c.EnableDynamicRateLimiting, DefaultEnableDynamicRateLimiting)
+	setDefaultDuration(&c.CustomTimeout, DefaultCustomTimeout)
+	setDefaultDuration(&c.TokenRefreshBufferPeriod, DefaultTokenRefreshBufferPeriod)
+	setDefaultDuration(&c.TotalRetryDuration, DefaultTotalRetryDuration)
+	setDefaultBool(&c.FollowRedirects, DefaultFollowRedirects)
+	setDefaultInt(&c.MaxRedirects, DefaultMaxRedirects, 0)
+	setDefaultBool(&c.EnableConcurrencyManagement, DefaultEnableConcurrencyManagement)
 }

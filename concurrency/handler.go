@@ -5,13 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/deploymenttheory/go-api-http-client/logger"
+	"go.uber.org/zap"
 )
 
 // ConcurrencyHandler controls the number of concurrent HTTP requests.
 type ConcurrencyHandler struct {
 	sem                      chan struct{}
-	logger                   logger.Logger
+	logger                   *zap.SugaredLogger
 	AcquisitionTimes         []time.Duration
 	lock                     sync.Mutex
 	lastTokenAcquisitionTime time.Time
@@ -55,7 +55,7 @@ type ConcurrencyMetrics struct {
 // concurrency limit, logger, and concurrency metrics. The ConcurrencyHandler ensures
 // no more than a certain number of concurrent requests are made.
 // It uses a semaphore to control concurrency.
-func NewConcurrencyHandler(limit int, logger logger.Logger, metrics *ConcurrencyMetrics) *ConcurrencyHandler {
+func NewConcurrencyHandler(limit int, logger *zap.SugaredLogger, metrics *ConcurrencyMetrics) *ConcurrencyHandler {
 	return &ConcurrencyHandler{
 		sem:              make(chan struct{}, limit),
 		logger:           logger,

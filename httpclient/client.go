@@ -13,10 +13,9 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
-
-	"github.com/deploymenttheory/go-api-http-client/logger"
-	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 	"go.uber.org/zap"
+
+	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 )
 
 // TODO all struct comments
@@ -28,7 +27,7 @@ type Client struct {
 
 	AuthToken       string
 	AuthTokenExpiry time.Time
-	Logger          logger.Logger
+	Logger          *zap.SugaredLogger
 	Concurrency     *concurrency.ConcurrencyHandler
 	Integration     *APIIntegration
 }
@@ -81,29 +80,28 @@ type ClientConfig struct {
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
-func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Logger) (*Client, error) {
-	err := validateClientConfig(config, populateDefaultValues)
+func (c ClientConfig) BuildClient(populateDefaultValues bool, logger *zap.SugaredLogger) (*Client, error) {
+
+	err := c.validateClientConfig(populateDefaultValues)
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
 
-	log.Info(fmt.Sprintf("initializing new http client, auth: %s", config.Integration.GetFQDN()))
-
 	httpClient := &http.Client{
-		Timeout: config.CustomTimeout,
+		Timeout: c.CustomTimeout,
 	}
 
 	// TODO refactor redirects
-	if err := redirecthandler.SetupRedirectHandler(httpClient, config.FollowRedirects, config.MaxRedirects, log); err != nil {
+	if err := redirecthandler.SetupRedirectHandler(httpClient, c.FollowRedirects, c.MaxRedirects, logger); err != nil {
 		return nil, fmt.Errorf("Failed to set up redirect handler: %v", err)
 	}
 
 	var concurrencyHandler *concurrency.ConcurrencyHandler
-	if config.EnableConcurrencyManagement {
+	if c.EnableConcurrencyManagement {
 		concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
 		concurrencyHandler = concurrency.NewConcurrencyHandler(
-			config.MaxConcurrentRequests,
-			log,
+			c.MaxConcurrentRequests,
+			logger,
 			concurrencyMetrics,
 		)
 	} else {
@@ -111,30 +109,16 @@ func BuildClient(config ClientConfig, populateDefaultValues bool, log logger.Log
 	}
 
 	client := &Client{
-		Integration: &config.Integration,
+		Integration: &c.Integration,
 		http:        httpClient,
-		config:      config,
-		Logger:      log,
+		config:      c,
+		Logger:      logger,
 		Concurrency: concurrencyHandler,
 	}
 
 	if len(client.config.CustomCookies) > 0 {
-		client.loadCustomCookies(config.CustomCookies)
+		client.loadCustomCookies(c.CustomCookies)
 	}
-
-	log.Debug("New API client initialized",
-		zap.String("Authentication Method", (*client.Integration).GetAuthMethodDescriptor()),
-		zap.Bool("Hide Sensitive Data In Logs", config.HideSensitiveData),
-		zap.Int("Max Retry Attempts", config.MaxRetryAttempts),
-		zap.Bool("Enable Dynamic Rate Limiting", config.EnableDynamicRateLimiting),
-		zap.Int("Max Concurrent Requests", config.MaxConcurrentRequests),
-		zap.Bool("Follow Redirects", config.FollowRedirects),
-		zap.Int("Max Redirects", config.MaxRedirects),
-		zap.Duration("Token Refresh Buffer Period", config.TokenRefreshBufferPeriod),
-		zap.Duration("Total Retry Duration", config.TotalRetryDuration),
-		zap.Duration("Custom Timeout", config.CustomTimeout),
-		zap.Bool("Enable Concurrency Management", config.EnableConcurrencyManagement),
-	)
 
 	return client, nil
 
