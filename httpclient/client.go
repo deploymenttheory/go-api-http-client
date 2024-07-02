@@ -22,20 +22,32 @@ import (
 
 // Master struct/object
 type Client struct {
+	// Config
 	config ClientConfig
-	http   *http.Client
 
-	AuthToken       string
-	AuthTokenExpiry time.Time
-	Sugar           *zap.SugaredLogger
-	Concurrency     *concurrency.ConcurrencyHandler
-	Integration     *APIIntegration
+	// Integration
+	Integration *APIIntegration
+
+	// Executor
+	http *http.Client
+
+	// Logger
+	Sugar *zap.SugaredLogger
+
+	// Concurrency Mananger
+	Concurrency *concurrency.ConcurrencyHandler
 }
 
 // Options/Variables for Client
 type ClientConfig struct {
 	// Interface which implements the APIIntegration patterns. Integration handles all server/endpoint specific configuration, auth and vars.
 	Integration APIIntegration
+
+	// TODO
+	Sugar *zap.SugaredLogger
+
+	// Wether or not empty values will be set or an error thrown for missing items.
+	PopulateDefaultValues bool
 
 	// HideSenitiveData controls if sensitive data will be visible in logs. Debug option which should be True in production use.
 	HideSensitiveData bool `json:"hide_sensitive_data"`
@@ -80,18 +92,17 @@ type ClientConfig struct {
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
-func (c ClientConfig) BuildClient(populateDefaultValues bool, sugar *zap.SugaredLogger) (*Client, error) {
-
-	if sugar == nil {
+func (c ClientConfig) Build() (*Client, error) {
+	if c.Sugar == nil {
 		zapLogger, err := zap.NewProduction()
-		sugar = zapLogger.Sugar()
-
 		if err != nil {
 			return nil, err
 		}
+
+		c.Sugar = zapLogger.Sugar()
 	}
 
-	err := c.validateClientConfig(populateDefaultValues)
+	err := c.validateClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
@@ -101,16 +112,17 @@ func (c ClientConfig) BuildClient(populateDefaultValues bool, sugar *zap.Sugared
 	}
 
 	// TODO refactor redirects
-	if err := redirecthandler.SetupRedirectHandler(httpClient, c.FollowRedirects, c.MaxRedirects, sugar); err != nil {
+	if err := redirecthandler.SetupRedirectHandler(httpClient, c.FollowRedirects, c.MaxRedirects, c.Sugar); err != nil {
 		return nil, fmt.Errorf("Failed to set up redirect handler: %v", err)
 	}
 
+	// TODO refactor concurrency
 	var concurrencyHandler *concurrency.ConcurrencyHandler
 	if c.EnableConcurrencyManagement {
 		concurrencyMetrics := &concurrency.ConcurrencyMetrics{}
 		concurrencyHandler = concurrency.NewConcurrencyHandler(
 			c.MaxConcurrentRequests,
-			sugar,
+			c.Sugar,
 			concurrencyMetrics,
 		)
 	} else {
@@ -121,12 +133,12 @@ func (c ClientConfig) BuildClient(populateDefaultValues bool, sugar *zap.Sugared
 		Integration: &c.Integration,
 		http:        httpClient,
 		config:      c,
-		Sugar:       sugar,
+		Sugar:       c.Sugar,
 		Concurrency: concurrencyHandler,
 	}
 
 	if len(client.config.CustomCookies) > 0 {
-		client.loadCustomCookies(c.CustomCookies)
+		client.loadCustomCookies()
 	}
 
 	return client, nil

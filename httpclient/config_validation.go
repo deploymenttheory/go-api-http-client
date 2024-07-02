@@ -96,9 +96,9 @@ func LoadConfigFromEnv() (*ClientConfig, error) {
 }
 
 // TODO Review validateClientConfig
-func (c ClientConfig) validateClientConfig(populateDefaults bool) error {
+func (c ClientConfig) validateClientConfig() error {
 
-	if populateDefaults {
+	if c.PopulateDefaultValues {
 		c.SetDefaultValuesClientConfig()
 	}
 

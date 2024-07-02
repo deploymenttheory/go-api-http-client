@@ -289,9 +289,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	// 	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
 	// }
 
-	// TODO review LogCookies
-
-	CheckDeprecationHeader(resp, c.Sugar)
+	c.CheckDeprecationHeader(resp)
 
 	c.Sugar.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
 
