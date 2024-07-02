@@ -171,7 +171,6 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			if apiErr := response.HandleAPIErrorResponse(resp, log); apiErr != nil {
 				err = apiErr
 			}
-			log.LogError("request_error", method, endpoint, resp.StatusCode, resp.Status, err, statusMessage)
 			break
 		}
 	}
@@ -292,7 +291,6 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	// }
 
 	// TODO review LogCookies
-	c.Logger.LogCookies("incoming", req, method, endpoint)
 
 	CheckDeprecationHeader(resp, c.Logger)
 
