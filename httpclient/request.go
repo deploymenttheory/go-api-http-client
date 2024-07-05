@@ -10,7 +10,6 @@ import (
 
 	"github.com/deploymenttheory/go-api-http-client/ratehandler"
 	"github.com/deploymenttheory/go-api-http-client/response"
-	"github.com/deploymenttheory/go-api-http-client/status"
 	"go.uber.org/zap"
 )
 
@@ -71,7 +70,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	}
 
 	if IsIdempotentHTTPMethod(method) {
-		return c.executeRequestWithRetries(method, endpoint, body, out)
+		return c.executeRequestWithRetries(method, endpoint, body)
 	} else if !IsIdempotentHTTPMethod(method) {
 		return c.executeRequest(method, endpoint, body, out)
 	} else {
@@ -113,8 +112,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // operations.
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
 // endregion
-func (c *Client) executeRequestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
-	// TODO review refactor executeRequestWithRetries
+func (c *Client) executeRequestWithRetries(method, endpoint string, body interface{}) (*http.Response, error) {
 	ctx := context.Background()
 	totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
 
@@ -124,28 +122,38 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 
 	c.Sugar.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
+	// TODO removed the blocked comments
+	// Timer
 	for time.Now().Before(totalRetryDeadline) {
-		res, requestErr := c.doRequest(ctx, method, endpoint, body)
+
+		// Resp
+		resp, requestErr := c.doRequest(ctx, method, endpoint, body)
 		if requestErr != nil {
 			return nil, requestErr
 		}
-		resp = res
 
+		// Success
 		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 			if resp.StatusCode >= 300 {
 				c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 			}
-			return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
+			c.Sugar.Infof("%s request successful at %v", resp.Request.Method, resp.Request.URL)
+			return resp, nil
 		}
 
-		statusMessage := status.TranslateStatusCode(resp)
+		statusMessage := http.StatusText(resp.StatusCode)
+		if statusMessage == "" {
+			statusMessage = "unknown response code"
+		}
 
-		if resp != nil && status.IsNonRetryableStatusCode(resp) {
+		// Non Retry
+		if IsNonRetryableStatusCode(resp) {
 			c.Sugar.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
 			return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 		}
 
-		if status.IsRateLimitError(resp) {
+		// Rate limited
+		if resp.StatusCode == http.StatusTooManyRequests {
 			waitDuration := ratehandler.ParseRateLimitHeaders(resp, c.Sugar)
 			if waitDuration > 0 {
 				c.Sugar.Warn("Rate limit encountered, waiting before retrying", zap.Duration("waitDuration", waitDuration))
@@ -154,7 +162,8 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			}
 		}
 
-		if status.IsTransientError(resp) {
+		// Transient
+		if IsTransientError(resp) {
 			retryCount++
 			if retryCount > c.config.MaxRetryAttempts {
 				c.Sugar.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
@@ -166,12 +175,14 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body, out in
 			continue
 		}
 
-		if !status.IsRetryableStatusCode(resp.StatusCode) {
+		// Retryable
+		if !IsRetryableStatusCode(resp.StatusCode) {
 			if apiErr := response.HandleAPIErrorResponse(resp, c.Sugar); apiErr != nil {
 				err = apiErr
 			}
 			break
 		}
+
 	}
 
 	if err != nil {
