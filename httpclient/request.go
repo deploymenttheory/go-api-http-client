@@ -70,7 +70,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	}
 
 	if IsIdempotentHTTPMethod(method) {
-		return c.requestWithRetries(method, endpoint, body)
+		return c.requestWithRetries(method, endpoint, body, out)
 	} else if !IsIdempotentHTTPMethod(method) {
 		return c.request(method, endpoint, body, out)
 	} else {
@@ -112,7 +112,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // operations.
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
 // endregion
-func (c *Client) requestWithRetries(method, endpoint string, body interface{}) (*http.Response, error) {
+func (c *Client) requestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	var resp *http.Response
 	var err error
 	var retryCount int
@@ -139,7 +139,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body interface{}) (
 				c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 			}
 			c.Sugar.Infof("%s request successful at %v", resp.Request.Method, resp.Request.URL)
-			return resp, nil
+			return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
 		}
 
 		// Message
@@ -243,7 +243,7 @@ func (c *Client) request(method, endpoint string, body, out interface{}) (*http.
 			c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 		}
 		c.Sugar.Infof("%s request successful at %v", resp.Request.Method, resp.Request.URL)
-		return resp, nil
+		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
 	}
 
 	return nil, response.HandleAPIErrorResponse(resp, c.Sugar)
