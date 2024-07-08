@@ -66,13 +66,13 @@ import (
 
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	if !c.config.RetryEligiableRequests {
-		return c.executeRequest(method, endpoint, body, out)
+		return c.request(method, endpoint, body, out)
 	}
 
 	if IsIdempotentHTTPMethod(method) {
-		return c.executeRequestWithRetries(method, endpoint, body)
+		return c.requestWithRetries(method, endpoint, body)
 	} else if !IsIdempotentHTTPMethod(method) {
-		return c.executeRequest(method, endpoint, body, out)
+		return c.request(method, endpoint, body, out)
 	} else {
 		return nil, fmt.Errorf("unsupported http method: %s", method)
 	}
@@ -112,7 +112,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // operations.
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
 // endregion
-func (c *Client) executeRequestWithRetries(method, endpoint string, body interface{}) (*http.Response, error) {
+func (c *Client) requestWithRetries(method, endpoint string, body interface{}) (*http.Response, error) {
 	var resp *http.Response
 	var err error
 	var retryCount int
@@ -226,26 +226,27 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body interfa
 //     any errors encountered.
 //
 // endregion
-func (c *Client) executeRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
+func (c *Client) request(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	// TODO review refactor execute Request
 
 	ctx := context.Background()
 
 	c.Sugar.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	res, err := c.doRequest(ctx, method, endpoint, body)
+	resp, err := c.doRequest(ctx, method, endpoint, body)
 	if err != nil {
 		return nil, err
 	}
 
-	if res.StatusCode >= 200 && res.StatusCode < 400 {
-		if res.StatusCode >= 300 {
-			c.Sugar.Warn("Redirect response received", zap.Int("status_code", res.StatusCode), zap.String("location", res.Header.Get("Location")))
+	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusBadRequest {
+		if resp.StatusCode == http.StatusPermanentRedirect || resp.StatusCode == http.StatusTemporaryRedirect {
+			c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 		}
-		return res, response.HandleAPISuccessResponse(res, out, c.Sugar)
+		c.Sugar.Infof("%s request successful at %v", resp.Request.Method, resp.Request.URL)
+		return resp, nil
 	}
 
-	return nil, response.HandleAPIErrorResponse(res, c.Sugar)
+	return nil, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
 
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {

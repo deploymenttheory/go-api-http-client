@@ -52,7 +52,7 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	if handler, ok := responseUnmarshallers[mimeType]; ok {
 		return handler(bodyReader, out, sugar, mimeType)
 	} else if isBinaryData(mimeType, contentDisposition) {
-		return handleBinaryData(bodyReader, sugar, out, mimeType, contentDisposition)
+		return handleBinaryData(bodyReader, sugar, out, contentDisposition)
 	} else {
 		errMsg := fmt.Sprintf("unexpected MIME type: %s", mimeType)
 		sugar.Error("Unmarshal error", zap.String("content type", mimeType), zap.Error(errors.New(errMsg)))
@@ -97,7 +97,7 @@ func isBinaryData(contentType, contentDisposition string) bool {
 }
 
 // handleBinaryData reads binary data from an io.Reader and stores it in *[]byte or streams it to an io.Writer.
-func handleBinaryData(reader io.Reader, sugar *zap.SugaredLogger, out interface{}, mimeType, contentDisposition string) error {
+func handleBinaryData(reader io.Reader, sugar *zap.SugaredLogger, out interface{}, contentDisposition string) error {
 	// Check if the output interface is either *[]byte or io.Writer
 	switch out := out.(type) {
 	case *[]byte:
