@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/deploymenttheory/go-api-http-client/status"
 	"go.uber.org/zap"
 )
 
@@ -86,7 +85,7 @@ func (r *RedirectHandler) checkRedirect(req *http.Request, via []*http.Request) 
 	}
 
 	lastResponse := via[len(via)-1].Response
-	if status.IsRedirectStatusCode(lastResponse.StatusCode) {
+	if lastResponse.StatusCode == http.StatusPermanentRedirect || lastResponse.StatusCode == http.StatusTemporaryRedirect {
 		location, err := lastResponse.Location()
 		if err != nil {
 			r.Logger.Error("Failed to get location from redirect response", zap.Error(err))
@@ -105,7 +104,7 @@ func (r *RedirectHandler) checkRedirect(req *http.Request, via []*http.Request) 
 		}
 
 		// Cache permanent redirects
-		if status.IsPermanentRedirect(lastResponse.StatusCode) {
+		if lastResponse.StatusCode == http.StatusPermanentRedirect {
 			r.cachePermanentRedirect(req.URL.String(), newReqURL.String())
 		}
 
