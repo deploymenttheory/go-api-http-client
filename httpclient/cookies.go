@@ -5,11 +5,13 @@ import (
 	"net/url"
 )
 
+// loadCustomCookies applies the custom cookies supplied in the config and applies them to the http session.
 func (c *Client) loadCustomCookies() error {
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {
 		return err
 	}
+
 	c.http.Jar = cookieJar
 
 	cookieUrl, err := url.Parse((*c.Integration).GetFQDN())

@@ -4,6 +4,7 @@ package httpclient
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -150,5 +151,13 @@ func setDefaultDuration(field *time.Duration, defaultValue time.Duration) {
 		*field = defaultValue
 	} else if *field < 0 {
 		*field = defaultValue
+	}
+}
+
+// CheckDeprecationHeader checks the response headers for the Deprecation header and logs a warning if present.
+func (c *Client) CheckDeprecationHeader(resp *http.Response) {
+	deprecationHeader := resp.Header.Get("Deprecation")
+	if deprecationHeader != "" {
+		c.Sugar.Warn("API endpoint is deprecated", deprecationHeader, resp.Request.URL.String())
 	}
 }

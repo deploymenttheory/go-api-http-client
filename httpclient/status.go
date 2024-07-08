@@ -3,7 +3,7 @@ package httpclient
 import "net/http"
 
 // IsNonRetryableStatusCode checks if the provided response indicates a non-retryable error.
-func IsNonRetryableStatusCode(resp *http.Response) bool {
+func IsNonRetryableStatusCode(statusCode int) bool {
 	nonRetryableStatusCodes := map[int]bool{
 		http.StatusBadRequest:                   true, // 400 - Bad Request
 		http.StatusUnauthorized:                 true, // 401 - Unauthorized
@@ -31,7 +31,7 @@ func IsNonRetryableStatusCode(resp *http.Response) bool {
 		http.StatusUnavailableForLegalReasons:   true, // 451 - Unavailable For Legal Reasons
 	}
 
-	_, isNonRetryable := nonRetryableStatusCodes[resp.StatusCode]
+	_, isNonRetryable := nonRetryableStatusCodes[statusCode]
 	return isNonRetryable
 }
 

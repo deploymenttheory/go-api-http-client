@@ -113,17 +113,18 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
 // endregion
 func (c *Client) executeRequestWithRetries(method, endpoint string, body interface{}) (*http.Response, error) {
-	ctx := context.Background()
-	totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
-
 	var resp *http.Response
 	var err error
 	var retryCount int
 
+	ctx := context.Background()
+
 	c.Sugar.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
 	// TODO removed the blocked comments
+	// Simplify this?
 	// Timer
+	totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
 	for time.Now().Before(totalRetryDeadline) {
 
 		// Resp
@@ -133,21 +134,22 @@ func (c *Client) executeRequestWithRetries(method, endpoint string, body interfa
 		}
 
 		// Success
-		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-			if resp.StatusCode >= 300 {
+		if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusBadRequest {
+			if resp.StatusCode == http.StatusPermanentRedirect || resp.StatusCode == http.StatusTemporaryRedirect {
 				c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 			}
 			c.Sugar.Infof("%s request successful at %v", resp.Request.Method, resp.Request.URL)
 			return resp, nil
 		}
 
+		// Message
 		statusMessage := http.StatusText(resp.StatusCode)
 		if statusMessage == "" {
 			statusMessage = "unknown response code"
 		}
 
 		// Non Retry
-		if IsNonRetryableStatusCode(resp) {
+		if IsNonRetryableStatusCode(resp.StatusCode) {
 			c.Sugar.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
 			return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 		}

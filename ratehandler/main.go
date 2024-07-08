@@ -40,11 +40,8 @@ const (
 // The jitterFactor adds randomness to the delay to avoid simultaneous retries (thundering herd problem).
 // The delay is capped at maxDelay to prevent excessive wait times.
 func CalculateBackoff(retry int) time.Duration {
-	if retry < 0 {
-		retry = 0 // Ensure non-negative retry count
-	}
-
 	delay := float64(baseDelay) * math.Pow(2, float64(retry))
+
 	jitter := (rand.Float64() - 0.5) * jitterFactor * 2.0 // Random value between -jitterFactor and +jitterFactor
 	delayWithJitter := delay * (1.0 + jitter)
 
@@ -57,32 +54,29 @@ func CalculateBackoff(retry int) time.Duration {
 // ParseRateLimitHeaders parses common rate limit headers and adjusts behavior accordingly.
 // It handles both Retry-After (in seconds or HTTP-date format) and X-RateLimit-Reset headers.
 func ParseRateLimitHeaders(resp *http.Response, logger *zap.SugaredLogger) time.Duration {
-	// Check for the Retry-After header in seconds
 	if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
 		if waitSeconds, err := strconv.Atoi(retryAfter); err == nil {
 			return time.Duration(waitSeconds) * time.Second
+
 		} else if retryAfterDate, err := time.Parse(time.RFC1123, retryAfter); err == nil {
-			// Handle HTTP-date format in Retry-After
 			return time.Until(retryAfterDate)
+
 		} else {
 			logger.Debug("Unable to parse Retry-After header", zap.String("value", retryAfter), zap.Error(err))
 		}
 	}
 
-	// Check for X-RateLimit-Remaining; if it's 0, use X-RateLimit-Reset to determine how long to wait
 	if remaining := resp.Header.Get("X-RateLimit-Remaining"); remaining == "0" {
 		if resetTimeStr := resp.Header.Get("X-RateLimit-Reset"); resetTimeStr != "" {
 			if resetTimeEpoch, err := strconv.ParseInt(resetTimeStr, 10, 64); err == nil {
 				resetTime := time.Unix(resetTimeEpoch, 0)
-				// Add a buffer to account for potential clock skew
-				const skewBuffer = 5 * time.Second
-				return time.Until(resetTime) + skewBuffer
+				return time.Until(resetTime) + (5 * time.Second)
+
 			} else {
 				logger.Debug("Unable to parse X-RateLimit-Reset header", zap.String("value", resetTimeStr), zap.Error(err))
 			}
 		}
 	}
 
-	// No relevant rate limiting headers found, return 0
 	return 0
 }
