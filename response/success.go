@@ -43,25 +43,22 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	sugar.Debug("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
 
 	bodyReader := bytes.NewReader(bodyBytes)
-	mimeType, _ := parseHeader(resp.Header.Get("Content-Type"))
+	contentType := resp.Header.Get("Content-Type")
 	contentDisposition := resp.Header.Get("Content-Disposition")
-
-	sugar.Debugf("MIMETYPE: %s", mimeType)
-	sugar.Debugf("NORMAL-HEADER: %s", resp.Header.Get("Content-Type"))
 
 	var handler contentHandler
 	var ok bool
 
-	if handler, ok = responseUnmarshallers[mimeType]; ok {
-		return handler(bodyReader, out, sugar, mimeType)
+	if handler, ok = responseUnmarshallers[contentType]; ok {
+		return handler(bodyReader, out, sugar, contentType)
 	}
 
-	if isBinaryData(mimeType, contentDisposition) {
+	if isBinaryData(contentType, contentDisposition) {
 		return handleBinaryData(bodyReader, sugar, out, contentDisposition)
 	}
 
-	errMsg := fmt.Sprintf("unexpected MIME type: %s", mimeType)
-	sugar.Error("Unmarshal error", zap.String("content type", mimeType), zap.Error(errors.New(errMsg)))
+	errMsg := fmt.Sprintf("unexpected MIME type: %s", contentType)
+	sugar.Error("Unmarshal error", zap.String("content type", contentType), zap.Error(errors.New(errMsg)))
 	return errors.New(errMsg)
 
 }
@@ -125,7 +122,7 @@ func handleBinaryData(reader io.Reader, sugar *zap.SugaredLogger, out interface{
 	}
 
 	if contentDisposition != "" {
-		_, params := parseHeader(contentDisposition)
+		_, params := parseDispositionHeader(contentDisposition)
 		if filename, ok := params["filename"]; ok {
 			sugar.Debug("Extracted filename from Content-Disposition", zap.String("filename", filename))
 		}
