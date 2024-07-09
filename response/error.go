@@ -89,10 +89,8 @@ func parseJSONResponse(bodyBytes []byte, apiError *APIError) {
 
 // parseXMLResponse dynamically parses XML error responses and accumulates potential error messages.
 func parseXMLResponse(bodyBytes []byte, apiError *APIError) {
-	// Always set the Raw field to the entire XML content for debugging purposes.
 	apiError.RawResponse = string(bodyBytes)
 
-	// Parse the XML document.
 	doc, err := xmlquery.Parse(bytes.NewReader(bodyBytes))
 	if err != nil {
 		return
@@ -111,7 +109,6 @@ func parseXMLResponse(bodyBytes []byte, apiError *APIError) {
 
 	traverse(doc)
 
-	// Concatenate all messages found in the XML for the 'Message' field of APIError.
 	if len(messages) > 0 {
 		apiError.Message = strings.Join(messages, "; ")
 	} else {
@@ -122,29 +119,23 @@ func parseXMLResponse(bodyBytes []byte, apiError *APIError) {
 
 // parseTextResponse updates the APIError structure based on a plain text error response and logs it.
 func parseTextResponse(bodyBytes []byte, apiError *APIError) {
-	// Convert the body bytes to a string and assign it to both the message and RawResponse fields of APIError.
 	bodyText := string(bodyBytes)
 	apiError.RawResponse = bodyText
-
-	// Directly use the body text as the error message if the Message field is empty.
 	apiError.Message = bodyText
-
 }
 
 // parseHTMLResponse extracts meaningful information from an HTML error response,
 // concatenating all text within <p> tags and links found within them.
 func parseHTMLResponse(bodyBytes []byte, apiError *APIError) {
-	// Set the entire HTML content as the RawResponse for debugging purposes.
 	apiError.RawResponse = string(bodyBytes)
 
-	// Parse the HTML document.
 	reader := bytes.NewReader(bodyBytes)
 	doc, err := html.Parse(reader)
 	if err != nil {
 		return
 	}
 
-	var messages []string // To accumulate messages and links.
+	var messages []string
 	var parse func(*html.Node)
 	parse = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "p" {
