@@ -24,19 +24,10 @@ const ()
 
 // Master struct/object
 type Client struct {
-	// Config
-	config *ClientConfig
-
-	// Integration
+	config      *ClientConfig
 	Integration *APIIntegration
-
-	// Executor
-	http *http.Client
-
-	// Logger
-	Sugar *zap.SugaredLogger
-
-	// Concurrency Mananger
+	http        *http.Client
+	Sugar       *zap.SugaredLogger
 	Concurrency *concurrency.ConcurrencyHandler
 }
 
@@ -111,6 +102,7 @@ func (c *ClientConfig) Build() (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
+
 	c.Sugar.Debug("configuration valid")
 
 	httpClient := &http.Client{

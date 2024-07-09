@@ -87,6 +87,8 @@ func LoadConfigFromEnv() (*ClientConfig, error) {
 					Name:  parts[0],
 					Value: parts[1],
 				})
+			} else {
+				return nil, fmt.Errorf("invalid env cookie configuration: %s", parts)
 			}
 		}
 		config.CustomCookies = cookies
