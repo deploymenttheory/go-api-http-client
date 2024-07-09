@@ -66,13 +66,13 @@ import (
 
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	if !c.config.RetryEligiableRequests {
-		return c.request(method, endpoint, body, out)
+		return c.requestNoRetries(method, endpoint, body, out)
 	}
 
 	if IsIdempotentHTTPMethod(method) {
 		return c.requestWithRetries(method, endpoint, body, out)
 	} else if !IsIdempotentHTTPMethod(method) {
-		return c.request(method, endpoint, body, out)
+		return c.requestNoRetries(method, endpoint, body, out)
 	} else {
 		return nil, fmt.Errorf("unsupported http method: %s", method)
 	}
@@ -128,7 +128,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 	for time.Now().Before(totalRetryDeadline) {
 
 		// Resp
-		resp, requestErr := c.doRequest(ctx, method, endpoint, body)
+		resp, requestErr := c.request(ctx, method, endpoint, body)
 		if requestErr != nil {
 			return nil, requestErr
 		}
@@ -226,14 +226,14 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 //     any errors encountered.
 //
 // endregion
-func (c *Client) request(method, endpoint string, body, out interface{}) (*http.Response, error) {
+func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	// TODO review refactor execute Request
 
 	ctx := context.Background()
 
 	c.Sugar.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
-	resp, err := c.doRequest(ctx, method, endpoint, body)
+	resp, err := c.request(ctx, method, endpoint, body)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (c *Client) request(method, endpoint string, body, out interface{}) (*http.
 	return nil, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
 
-func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
+func (c *Client) request(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 
 	// TODO Concurrency - Refactor or remove this
 	// if c.config.ConcurrencyManagementEnabled {
