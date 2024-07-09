@@ -32,20 +32,16 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 		return handleDeleteRequest(resp, sugar)
 	}
 
-	// Read the response body into a buffer
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		sugar.Error("Failed to read response body", zap.Error(err))
 		return err
 	}
 
-	// After reading, reset resp.Body so it can be read again.
 	sugar.Debug("HTTP Response Headers", zap.Any("Headers", resp.Header))
 	sugar.Debug("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
 
-	// Use the buffer to create a new io.Reader for unmarshalling
 	bodyReader := bytes.NewReader(bodyBytes)
-
 	mimeType, _ := parseHeader(resp.Header.Get("Content-Type"))
 	contentDisposition := resp.Header.Get("Content-Disposition")
 

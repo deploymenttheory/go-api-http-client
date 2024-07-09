@@ -27,18 +27,15 @@ type APIError struct {
 
 // Error returns a string representation of the APIError, making it compatible with the error interface.
 func (e *APIError) Error() string {
-	// Attempt to marshal the APIError instance into a JSON string.
 	data, err := json.Marshal(e)
 	if err == nil {
 		return string(data)
 	}
 
-	// Use the standard HTTP status text as the error message if 'Message' field is empty.
 	if e.Message == "" {
 		e.Message = http.StatusText(e.StatusCode)
 	}
 
-	// Fallback to a simpler error message format if JSON marshaling fails.
 	return fmt.Sprintf("API Error: StatusCode=%d, Message=%s", e.StatusCode, e.Message)
 }
 
@@ -179,7 +176,6 @@ func parseHTMLResponse(bodyBytes []byte, apiError *APIError) {
 
 	parse(doc)
 
-	// Concatenate all accumulated messages and links with a separator.
 	if len(messages) > 0 {
 		apiError.Message = strings.Join(messages, "; ")
 	} else {
