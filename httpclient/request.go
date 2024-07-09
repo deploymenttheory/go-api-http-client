@@ -13,9 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// TODO remove collapsable comment
-
-// region comment
 // DoRequest constructs and executes an HTTP request based on the provided method, endpoint, request body, and output variable.
 // This function serves as a dispatcher, deciding whether to execute the request with or without retry logic based on the
 // idempotency of the HTTP method. Idempotent methods (GET, PUT, DELETE) are executed with retries to handle transient errors
@@ -24,46 +21,43 @@ import (
 // used to log informational messages, warnings, and errors encountered during the execution of the request.
 // It also applies redirect handling to the client if configured, allowing the client to follow redirects up to a maximum
 // number of times.
-
 // Parameters:
-// - method: A string representing the HTTP method to be used for the request. This method determines the execution path
-//   and whether the request will be retried in case of failures.
-// - endpoint: The target API endpoint for the request. This should be a relative path that will be appended to the base URL
-//   configured for the HTTP client.
-// - body: The payload for the request, which will be serialized into the request body. The serialization format (e.g., JSON, XML)
-//   is determined by the content-type header and the specific implementation of the API handler used by the client.
-// - out: A pointer to an output variable where the response will be deserialized. The function expects this to be a pointer to
-//   a struct that matches the expected response schema.
-
+//   - method: A string representing the HTTP method to be used for the request. This method determines the execution path
+//     and whether the request will be retried in case of failures.
+//   - endpoint: The target API endpoint for the request. This should be a relative path that will be appended to the base URL
+//     configured for the HTTP client.
+//   - body: The payload for the request, which will be serialized into the request body. The serialization format (e.g., JSON, XML)
+//     is determined by the content-type header and the specific implementation of the API handler used by the client.
+//   - out: A pointer to an output variable where the response will be deserialized. The function expects this to be a pointer to
+//     a struct that matches the expected response schema.
+//
 // Returns:
-// - *http.Response: The HTTP response received from the server. In case of successful execution, this response contains
-//   the status code, headers, and body of the response. In case of errors, particularly after exhausting retries for
-//   idempotent methods, this response may contain the last received HTTP response that led to the failure.
-// - error: An error object indicating failure during request execution. This could be due to network issues, server errors,
-//   or a failure in request serialization/deserialization. For idempotent methods, an error is returned if all retries are
-//   exhausted without success.
-
+//   - *http.Response: The HTTP response received from the server. In case of successful execution, this response contains
+//     the status code, headers, and body of the response. In case of errors, particularly after exhausting retries for
+//     idempotent methods, this response may contain the last received HTTP response that led to the failure.
+//   - error: An error object indicating failure during request execution. This could be due to network issues, server errors,
+//     or a failure in request serialization/deserialization. For idempotent methods, an error is returned if all retries are
+//     exhausted without success.
+//
 // Usage:
 // This function is the primary entry point for executing HTTP requests using the client. It abstracts away the details of
 // request retries, serialization, and response handling, providing a simplified interface for making HTTP requests. It is
 // suitable for a wide range of HTTP operations, from fetching data with GET requests to submitting data with POST requests.
-
 // Example:
 // var result MyResponseType
 // resp, err := client.DoRequest("GET", "/api/resource", nil, &result, logger)
-// if err != nil {
-//     // Handle error
-// }
+//
+//	if err != nil {
+//	    // Handle error
+//	}
+//
 // // Use `result` or `resp` as needed
-
 // Note:
-// - The caller is responsible for closing the response body when not nil to avoid resource leaks.
-// - The function ensures concurrency control by managing concurrency tokens internally, providing safe concurrent operations
-//   within the client's concurrency model.
-// - The decision to retry requests is based on the idempotency of the HTTP method and the client's retry configuration,
-//   including maximum retry attempts and total retry duration.
-// endregion
-
+//   - The caller is responsible for closing the response body when not nil to avoid resource leaks.
+//   - The function ensures concurrency control by managing concurrency tokens internally, providing safe concurrent operations
+//     within the client's concurrency model.
+//   - The decision to retry requests is based on the idempotency of the HTTP method and the client's retry configuration,
+//     including maximum retry attempts and total retry duration.
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	if !c.config.RetryEligiableRequests {
 		return c.requestNoRetries(method, endpoint, body, out)
@@ -73,9 +67,9 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 		return c.requestWithRetries(method, endpoint, body, out)
 	} else if !IsIdempotentHTTPMethod(method) {
 		return c.requestNoRetries(method, endpoint, body, out)
-	} else {
-		return nil, fmt.Errorf("unsupported http method: %s", method)
 	}
+
+	return nil, fmt.Errorf("unsupported http method: %s", method)
 }
 
 // region comment
@@ -85,7 +79,6 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // for maximum retry attempts and total retry duration. Each retry attempt uses exponential backoff with jitter to avoid
 // thundering herd problems. An instance of a logger (conforming to the logger.Logger interface) is used for logging the
 // request, retry attempts, and any errors encountered.
-//
 // Parameters:
 // - method: The HTTP method to be used for the request (e.g., "GET", "PUT", "DELETE").
 // - endpoint: The API endpoint to which the request will be sent. This should be a relative path that will be appended
@@ -94,7 +87,6 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // methods that do not send a payload.
 // - out: A pointer to the variable where the unmarshaled response will be stored. The function expects this to be a
 // pointer to a struct that matches the expected response schema.
-//
 // Returns:
 // - *http.Response: The HTTP response from the server, which may be the response from a successful request or the last
 // failed attempt if all retries are exhausted.
@@ -105,7 +97,6 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // This function should be used for operations that are safe to retry and where the client can tolerate the additional
 // latency introduced by the retry mechanism. It is particularly useful for handling transient errors and rate limiting
 // responses from the server.
-//
 // Note:
 // - The caller is responsible for closing the response body to prevent resource leaks.
 // - The function respects the client's concurrency token, acquiring and releasing it as needed to ensure safe concurrent
@@ -194,11 +185,9 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 	return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
 
-// region comment
 // executeRequest executes an HTTP request using the specified method, endpoint, and request body without implementing
 // retry logic. It is primarily designed for non-idempotent HTTP methods like POST and PATCH, where the request should
 // not be automatically retried within this function due to the potential side effects of re-submitting the same data.
-//
 // Parameters:
 //   - method: The HTTP method to be used for the request, typically "POST" or "PATCH".
 //   - endpoint: The API endpoint to which the request will be sent. This should be a relative path that will be appended
@@ -217,18 +206,13 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 // This function is suitable for operations where the request should not be retried automatically, such as data submission
 // operations where retrying could result in duplicate data processing. It ensures that the request is executed exactly
 // once and provides detailed logging for debugging purposes.
-//
 // Note:
 //   - The caller is responsible for closing the response body to prevent resource leaks.
 //   - The function ensures concurrency control by acquiring and releasing a concurrency token before and after the request
 //     execution.
 //   - The function logs detailed information about the request execution, including the method, endpoint, status code, and
 //     any errors encountered.
-//
-// endregion
 func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
-	// TODO review refactor execute Request
-
 	ctx := context.Background()
 
 	c.Sugar.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
@@ -249,6 +233,7 @@ func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}
 	return nil, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
 
+// TODO function comment
 func (c *Client) request(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 
 	// TODO Concurrency - Refactor or remove this
