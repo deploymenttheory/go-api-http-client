@@ -237,21 +237,21 @@ func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}
 func (c *Client) request(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 
 	// TODO Concurrency - Refactor or remove this
-	// if c.config.ConcurrencyManagementEnabled {
-	// 	_, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
-	// 	if err != nil {
-	// 		return nil, c.Logger.Error("Failed to acquire concurrency permit", zap.Error(err))
+	if c.config.EnableConcurrencyManagement {
+		_, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to acquire concurrency permit: %v", err)
 
-	// 	}
+		}
 
-	// 	defer func() {
-	// 		c.Concurrency.ReleaseConcurrencyPermit(requestID)
-	// 	}()
+		defer func() {
+			c.Concurrency.ReleaseConcurrencyPermit(requestID)
+		}()
 
-	// 	c.Concurrency.Metrics.Lock.Lock()
-	// 	c.Concurrency.Metrics.TotalRequests++
-	// 	c.Concurrency.Metrics.Lock.Unlock()
-	// }
+		c.Concurrency.Metrics.Lock()
+		c.Concurrency.Metrics.TotalRequests++
+		c.Concurrency.Metrics.Unlock()
+	}
 
 	requestData, err := (*c.Integration).PrepRequestBody(body, method, endpoint)
 	if err != nil {
@@ -274,7 +274,7 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body inte
 	req = req.WithContext(ctx)
 
 	// TODO Concurrency - Refactor or remove this
-	// startTime := time.Now()
+	startTime := time.Now()
 
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -283,10 +283,10 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body inte
 	}
 
 	// TODO Concurrency - Refactor or remove this
-	// if c.config.ConcurrencyManagementEnabled {
-	// 	duration := time.Since(startTime)
-	// 	c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
-	// }
+	if c.config.EnableConcurrencyManagement {
+		duration := time.Since(startTime)
+		c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
+	}
 
 	c.CheckDeprecationHeader(resp)
 
