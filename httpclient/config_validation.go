@@ -26,8 +26,6 @@ const (
 	DefaultCustomTimeout               = 5 * time.Second
 	DefaultTokenRefreshBufferPeriod    = 2 * time.Minute
 	DefaultTotalRetryDuration          = 5 * time.Minute
-	DefaultCustomRedirects             = true
-	DefaultMaxRedirects                = 5
 	DefaultEnableConcurrencyManagement = false
 )
 
@@ -71,8 +69,6 @@ func LoadConfigFromEnv() (*ClientConfig, error) {
 		CustomTimeout:               getEnvAsDuration("CUSTOM_TIMEOUT", DefaultCustomTimeout),
 		TokenRefreshBufferPeriod:    getEnvAsDuration("TOKEN_REFRESH_BUFFER_PERIOD", DefaultTokenRefreshBufferPeriod),
 		TotalRetryDuration:          getEnvAsDuration("TOTAL_RETRY_DURATION", DefaultTotalRetryDuration),
-		EnableCustomRedirectLogic:   getEnvAsBool("CUSTOM_REDIRECTS", DefaultCustomRedirects),
-		MaxRedirects:                getEnvAsInt("MAX_REDIRECTS", DefaultMaxRedirects),
 		EnableConcurrencyManagement: getEnvAsBool("ENABLE_CONCURRENCY_MANAGEMENT", DefaultEnableConcurrencyManagement),
 	}
 
@@ -134,12 +130,6 @@ func (c ClientConfig) validateClientConfig() error {
 
 	}
 
-	if c.EnableCustomRedirectLogic {
-		if DefaultMaxRedirects < 1 {
-			return errors.New("max redirects cannot be less than 1")
-		}
-	}
-
 	return nil
 }
 
@@ -152,7 +142,5 @@ func (c *ClientConfig) SetDefaultValuesClientConfig() {
 	setDefaultDuration(&c.CustomTimeout, DefaultCustomTimeout)
 	setDefaultDuration(&c.TokenRefreshBufferPeriod, DefaultTokenRefreshBufferPeriod)
 	setDefaultDuration(&c.TotalRetryDuration, DefaultTotalRetryDuration)
-	setDefaultBool(&c.EnableCustomRedirectLogic, DefaultCustomRedirects)
-	setDefaultInt(&c.MaxRedirects, DefaultMaxRedirects, 0)
 	setDefaultBool(&c.EnableConcurrencyManagement, DefaultEnableConcurrencyManagement)
 }

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
-	"github.com/deploymenttheory/go-api-http-client/redirect"
 	"go.uber.org/zap"
 )
 
@@ -68,7 +67,7 @@ type ClientConfig struct {
 
 	// EnableCustomRedirectLogic allows the client to follow redirections when they're returned from a request.
 	// Toggleable for debug reasons only
-	EnableCustomRedirectLogic bool `json:"follow_redirects"`
+	CustomRedirectPolicy *func(req *http.Request, via []*http.Request) error
 
 	// MaxRedirects is the maximum amount of redirects the client will follow before throwing an error.
 	MaxRedirects int `json:"max_redirects"`
@@ -109,9 +108,8 @@ func (c *ClientConfig) Build() (*Client, error) {
 		Timeout: c.CustomTimeout,
 	}
 
-	// TODO refactor redirects
-	if c.EnableCustomRedirectLogic {
-		redirect.SetCustomRedirect(httpClient, c.MaxRedirects, c.Sugar)
+	if c.CustomRedirectPolicy != nil {
+		httpClient.CheckRedirect = *c.CustomRedirectPolicy
 	}
 
 	// TODO refactor concurrency
