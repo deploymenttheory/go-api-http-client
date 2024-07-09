@@ -22,10 +22,8 @@ func TestHandleDeleteRequest_Success(t *testing.T) {
 		},
 	}
 
-	// Call handleDeleteRequest with a nil logger since logging is ignored in this test
 	err := handleDeleteRequest(resp, nil)
 
-	// No error is expected for a successful DELETE request
 	assert.NoError(t, err, "handleDeleteRequest should not return an error for successful DELETE requests")
 }
 
@@ -42,9 +40,7 @@ func TestHandleDeleteRequest_Failure(t *testing.T) {
 		},
 	}
 
-	// Call handleDeleteRequest with a nil logger since logging is ignored in this test
 	err := handleDeleteRequest(resp, nil)
 
-	// An error is expected for a failed DELETE request
 	assert.Error(t, err, "handleDeleteRequest should return an error for failed DELETE requests")
 }

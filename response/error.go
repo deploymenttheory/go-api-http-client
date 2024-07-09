@@ -177,13 +177,12 @@ func parseHTMLResponse(bodyBytes []byte, apiError *APIError) {
 		}
 	}
 
-	parse(doc) // Start parsing the document.
+	parse(doc)
 
 	// Concatenate all accumulated messages and links with a separator.
 	if len(messages) > 0 {
 		apiError.Message = strings.Join(messages, "; ")
 	} else {
-		// Fallback error message if no specific content was extracted.
 		apiError.Message = "HTML Error: See 'Raw' field for details."
 	}
 
