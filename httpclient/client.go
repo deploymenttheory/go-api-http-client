@@ -13,9 +13,8 @@ import (
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
+	"github.com/deploymenttheory/go-api-http-client/redirect"
 	"go.uber.org/zap"
-
-	"github.com/deploymenttheory/go-api-http-client/redirecthandler"
 )
 
 const ()
@@ -67,8 +66,9 @@ type ClientConfig struct {
 	// TotalRetryDuration // TODO maybe this should be called context?
 	TotalRetryDuration time.Duration
 
-	// FollowRedirects allows the client to follow redirections when they're returned from a request.
-	FollowRedirects bool `json:"follow_redirects"`
+	// EnableCustomRedirectLogic allows the client to follow redirections when they're returned from a request.
+	// Toggleable for debug reasons only
+	EnableCustomRedirectLogic bool `json:"follow_redirects"`
 
 	// MaxRedirects is the maximum amount of redirects the client will follow before throwing an error.
 	MaxRedirects int `json:"max_redirects"`
@@ -110,8 +110,8 @@ func (c *ClientConfig) Build() (*Client, error) {
 	}
 
 	// TODO refactor redirects
-	if c.FollowRedirects {
-		redirecthandler.SetupRedirectHandler(httpClient, c.MaxRedirects, c.Sugar)
+	if c.EnableCustomRedirectLogic {
+		redirect.SetCustomRedirect(httpClient, c.MaxRedirects, c.Sugar)
 	}
 
 	// TODO refactor concurrency

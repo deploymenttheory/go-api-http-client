@@ -1,4 +1,4 @@
-package redirecthandler
+package redirect
 
 import (
 	"fmt"
@@ -222,7 +222,7 @@ func (r *RedirectHandler) GetRedirectHistory(req *http.Request) []*url.URL {
 }
 
 // SetupRedirectHandler configures the HTTP client for redirect handling based on the client configuration.
-func SetupRedirectHandler(client *http.Client, maxRedirects int, log *zap.SugaredLogger) {
+func SetCustomRedirect(client *http.Client, maxRedirects int, log *zap.SugaredLogger) {
 	redirectHandler := NewRedirectHandler(log, maxRedirects)
 	redirectHandler.WithRedirectHandling(client)
 	log.Info("Redirect handling enabled", zap.Int("MaxRedirects", maxRedirects))
