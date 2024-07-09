@@ -110,8 +110,8 @@ func (c *ClientConfig) Build() (*Client, error) {
 	}
 
 	// TODO refactor redirects
-	if err := redirecthandler.SetupRedirectHandler(httpClient, c.FollowRedirects, c.MaxRedirects, c.Sugar); err != nil {
-		return nil, fmt.Errorf("Failed to set up redirect handler: %v", err)
+	if c.FollowRedirects {
+		redirecthandler.SetupRedirectHandler(httpClient, c.MaxRedirects, c.Sugar)
 	}
 
 	// TODO refactor concurrency
