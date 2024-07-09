@@ -156,8 +156,8 @@ func (ch *ConcurrencyHandler) MonitorRateLimitHeaders(resp *http.Response) int {
 func (ch *ConcurrencyHandler) MonitorServerResponseCodes(resp *http.Response) int {
 	statusCode := resp.StatusCode
 
-	ch.Metrics.Lock.Lock()
-	defer ch.Metrics.Lock.Unlock()
+	ch.Metrics.Lock()
+	defer ch.Metrics.Unlock()
 
 	if statusCode >= 200 && statusCode < 300 {
 		// Reset error counts for successful responses
@@ -212,8 +212,8 @@ var responseTimesLock sync.Mutex
 // - (1) to suggest an increase in concurrency,
 // - (0) to indicate no change needed.
 func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.Duration) int {
-	ch.Metrics.ResponseTimeVariability.Lock.Lock()
-	defer ch.Metrics.ResponseTimeVariability.Lock.Unlock()
+	ch.Metrics.ResponseTimeVariability.Lock()
+	defer ch.Metrics.ResponseTimeVariability.Unlock()
 
 	responseTimesLock.Lock() // Ensure safe concurrent access
 	responseTimes = append(responseTimes, responseTime)

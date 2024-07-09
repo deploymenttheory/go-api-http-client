@@ -71,15 +71,15 @@ func (ch *ConcurrencyHandler) AcquireConcurrencyPermit(ctx context.Context) (con
 // This method locks the concurrency handler to safely update shared metrics and logs detailed
 // information about the permit acquisition for debugging and monitoring purposes.
 func (ch *ConcurrencyHandler) trackResourceAcquisition(duration time.Duration, requestID uuid.UUID) {
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
+	ch.Lock()
+	defer ch.Unlock()
 
 	// Record the time taken to acquire the permit and update related metrics.
 	ch.AcquisitionTimes = append(ch.AcquisitionTimes, duration)
-	ch.Metrics.Lock.Lock()
+	ch.Metrics.Lock()
 	ch.Metrics.PermitWaitTime += duration
 	ch.Metrics.TotalRequests++ // Increment the count of total requests handled.
-	ch.Metrics.Lock.Unlock()
+	ch.Metrics.Unlock()
 
 	// Calculate and log the current state of permit utilization.
 	utilizedPermits := len(ch.sem)
@@ -115,13 +115,13 @@ func (ch *ConcurrencyHandler) ReleaseConcurrencyPermit(requestID uuid.UUID) {
 		return
 	}
 
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
+	ch.Lock()
+	defer ch.Unlock()
 
 	// Update metrics related to permit release.
-	ch.Metrics.Lock.Lock()
+	ch.Metrics.Lock()
 	ch.Metrics.TotalRequests-- // Decrement the count of total requests handled, if applicable.
-	ch.Metrics.Lock.Unlock()
+	ch.Metrics.Unlock()
 
 	utilizedPermits := len(ch.sem)                    // Calculate tokens currently in use.
 	availablePermits := cap(ch.sem) - utilizedPermits // Calculate tokens that are available for use.

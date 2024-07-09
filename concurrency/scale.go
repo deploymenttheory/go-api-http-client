@@ -6,8 +6,8 @@ import "go.uber.org/zap"
 // ScaleDown reduces the concurrency level by one, down to the minimum limit.
 func (ch *ConcurrencyHandler) ScaleDown() {
 	// Lock to ensure thread safety
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
+	ch.Lock()
+	defer ch.Unlock()
 
 	// We must consider the capacity rather than the length of the semaphore channel
 	currentSize := cap(ch.sem)
@@ -23,8 +23,8 @@ func (ch *ConcurrencyHandler) ScaleDown() {
 // ScaleUp increases the concurrency level by one, up to the maximum limit.
 func (ch *ConcurrencyHandler) ScaleUp() {
 	// Lock to ensure thread safety
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
+	ch.Lock()
+	defer ch.Unlock()
 
 	currentSize := cap(ch.sem)
 	if currentSize < MaxConcurrency {

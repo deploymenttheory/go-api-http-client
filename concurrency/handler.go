@@ -13,42 +13,42 @@ type ConcurrencyHandler struct {
 	sem                      chan struct{}
 	logger                   *zap.SugaredLogger
 	AcquisitionTimes         []time.Duration
-	lock                     sync.Mutex
 	lastTokenAcquisitionTime time.Time
 	Metrics                  *ConcurrencyMetrics
+	sync.Mutex
 }
 
 // ConcurrencyMetrics captures various metrics related to managing concurrency for the client's interactions with the API.
 type ConcurrencyMetrics struct {
-	TotalRequests        int64         // Total number of requests made
-	TotalRetries         int64         // Total number of retry attempts
-	TotalRateLimitErrors int64         // Total number of rate limit errors encountered
-	PermitWaitTime       time.Duration // Total time spent waiting for tokens
-	TTFB                 struct {      // Metrics related to Time to First Byte (TTFB)
-		Total time.Duration // Total Time to First Byte (TTFB) for all requests
-		Count int64         // Count of requests used for calculating TTFB
-		Lock  sync.Mutex    // Lock for TTFB metrics
+	TotalRequests        int64
+	TotalRetries         int64
+	TotalRateLimitErrors int64
+	PermitWaitTime       time.Duration
+	sync.Mutex
+	TTFB struct {
+		Total time.Duration
+		Count int64
+		sync.Mutex
 	}
-	Throughput struct { // Metrics related to network throughput
-		Total float64    // Total network throughput for all requests
-		Count int64      // Count of requests used for calculating throughput
-		Lock  sync.Mutex // Lock for throughput metrics/
+	Throughput struct {
+		Total float64
+		Count int64
+		sync.Mutex
 	}
-	ResponseTimeVariability struct { // Metrics related to response time variability
-		Total                  time.Duration // Total response time for all requests
-		Average                time.Duration // Average response time across all requests
-		Variance               float64       // Variance of response times
-		Count                  int64         // Count of responses used for calculating response time variability
-		Lock                   sync.Mutex    // Lock for response time variability metrics
-		StdDevThreshold        float64       // Maximum acceptable standard deviation for adjusting concurrency
-		DebounceScaleDownCount int           // Counter to manage scale down actions after consecutive triggers
-		DebounceScaleUpCount   int           // Counter to manage scale up actions after consecutive triggers
+	ResponseTimeVariability struct {
+		Total    time.Duration
+		Average  time.Duration
+		Variance float64
+		Count    int64
+		sync.Mutex
+		StdDevThreshold        float64
+		DebounceScaleDownCount int
+		DebounceScaleUpCount   int
 	}
 	ResponseCodeMetrics struct {
-		ErrorRate float64    // Error rate calculated as (TotalRateLimitErrors + 5xxErrors) / TotalRequests
-		Lock      sync.Mutex // Lock for response code metrics
+		ErrorRate float64
+		sync.Mutex
 	}
-	Lock sync.Mutex // Lock for overall metrics fields
 }
 
 // NewConcurrencyHandler initializes a new ConcurrencyHandler with the given
