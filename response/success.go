@@ -46,7 +46,8 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	mimeType, _ := parseHeader(resp.Header.Get("Content-Type"))
 	contentDisposition := resp.Header.Get("Content-Disposition")
 
-	sugar.Debugf("MIMETYPE-%s", mimeType)
+	sugar.Debugf("MIMETYPE: %s", mimeType)
+	sugar.Debugf("NORMAL-HEADER: %s", resp.Header.Get("Content-Type"))
 
 	var handler contentHandler
 	var ok bool
