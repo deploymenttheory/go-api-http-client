@@ -1,6 +1,6 @@
 // status.go
 // This package provides utility functions and structures for handling and categorizing HTTP error responses.
-package status
+package response
 
 import (
 	"net/http"
@@ -24,9 +24,9 @@ func IsRedirectStatusCode(statusCode int) bool {
 		http.StatusTemporaryRedirect,
 		http.StatusPermanentRedirect:
 		return true
-	default:
-		return false
 	}
+
+	return false
 }
 
 // IsPermanentRedirect checks if the provided HTTP status code is one of the permanent redirect codes.
@@ -35,13 +35,13 @@ func IsPermanentRedirect(statusCode int) bool {
 	case http.StatusMovedPermanently,
 		http.StatusPermanentRedirect:
 		return true
-	default:
-		return false
 	}
+
+	return false
 }
 
 // IsNonRetryableStatusCode checks if the provided response indicates a non-retryable error.
-func IsNonRetryableStatusCode(resp *http.Response) bool {
+func IsNonRetryableStatusCode(statusCode int) bool {
 	nonRetryableStatusCodes := map[int]bool{
 		http.StatusBadRequest:                   true,
 		http.StatusUnauthorized:                 true,
@@ -68,20 +68,18 @@ func IsNonRetryableStatusCode(resp *http.Response) bool {
 		http.StatusRequestHeaderFieldsTooLarge:  true,
 		http.StatusUnavailableForLegalReasons:   true,
 	}
-
-	_, isNonRetryable := nonRetryableStatusCodes[resp.StatusCode]
-	return isNonRetryable
+	return nonRetryableStatusCodes[statusCode]
 }
 
 // IsTransientError checks if an error or HTTP response indicates a transient error.
-func IsTransientError(resp *http.Response) bool {
+func IsTransientError(statusCode int) bool {
 	transientStatusCodes := map[int]bool{
 		http.StatusInternalServerError: true,
 		http.StatusBadGateway:          true,
 		http.StatusServiceUnavailable:  true,
 		http.StatusGatewayTimeout:      true,
 	}
-	return resp != nil && transientStatusCodes[resp.StatusCode]
+	return transientStatusCodes[statusCode]
 }
 
 // IsRetryableStatusCode checks if the provided HTTP status code is considered retryable.
@@ -95,6 +93,5 @@ func IsRetryableStatusCode(statusCode int) bool {
 		http.StatusGatewayTimeout:      true,
 	}
 
-	_, retryable := retryableStatusCodes[statusCode]
-	return retryable
+	return retryableStatusCodes[statusCode]
 }

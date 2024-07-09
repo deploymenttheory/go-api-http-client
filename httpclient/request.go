@@ -149,7 +149,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 		}
 
 		// Non Retry
-		if IsNonRetryableStatusCode(resp.StatusCode) {
+		if response.IsNonRetryableStatusCode(resp.StatusCode) {
 			c.Sugar.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
 			return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 		}
@@ -165,7 +165,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 		}
 
 		// Transient
-		if IsTransientError(resp) {
+		if response.IsTransientError(resp.StatusCode) {
 			retryCount++
 			if retryCount > c.config.MaxRetryAttempts {
 				c.Sugar.Warn("Max retry attempts reached", zap.String("method", method), zap.String("endpoint", endpoint))
@@ -178,7 +178,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 		}
 
 		// Retryable
-		if !IsRetryableStatusCode(resp.StatusCode) {
+		if !response.IsRetryableStatusCode(resp.StatusCode) {
 			if apiErr := response.HandleAPIErrorResponse(resp, c.Sugar); apiErr != nil {
 				err = apiErr
 			}
