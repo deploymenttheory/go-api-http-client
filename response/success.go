@@ -46,7 +46,7 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	// Use the buffer to create a new io.Reader for unmarshalling
 	bodyReader := bytes.NewReader(bodyBytes)
 
-	mimeType, _ := ParseContentTypeHeader(resp.Header.Get("Content-Type"))
+	mimeType, _ := parseHeader(resp.Header.Get("Content-Type"))
 	contentDisposition := resp.Header.Get("Content-Disposition")
 
 	if handler, ok := responseUnmarshallers[mimeType]; ok {
@@ -123,7 +123,7 @@ func handleBinaryData(reader io.Reader, sugar *zap.SugaredLogger, out interface{
 
 	// Handle Content-Disposition if present
 	if contentDisposition != "" {
-		_, params := ParseContentDisposition(contentDisposition)
+		_, params := parseHeader(contentDisposition)
 		if filename, ok := params["filename"]; ok {
 			sugar.Debug("Extracted filename from Content-Disposition", zap.String("filename", filename))
 			// Additional processing for the filename can be done here if needed

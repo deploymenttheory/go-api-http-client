@@ -35,7 +35,7 @@ func TestParseContentTypeHeader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotType, gotParams := ParseContentTypeHeader(tt.header)
+			gotType, gotParams := parseHeader(tt.header)
 			if gotType != tt.wantType {
 				t.Errorf("ParseContentTypeHeader() gotType = %v, want %v", gotType, tt.wantType)
 			}
@@ -70,7 +70,7 @@ func TestParseContentDisposition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotType, gotParams := ParseContentDisposition(tt.header)
+			gotType, gotParams := parseHeader(tt.header)
 			if gotType != tt.wantType {
 				t.Errorf("ParseContentDisposition() gotType = %v, want %v", gotType, tt.wantType)
 			}

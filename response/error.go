@@ -57,7 +57,7 @@ func HandleAPIErrorResponse(resp *http.Response, sugar *zap.SugaredLogger) *APIE
 		return apiError
 	}
 
-	mimeType, _ := ParseContentTypeHeader(resp.Header.Get("Content-Type"))
+	mimeType, _ := parseHeader(resp.Header.Get("Content-Type"))
 	switch mimeType {
 	case "application/json":
 		parseJSONResponse(bodyBytes, apiError)

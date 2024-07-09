@@ -3,16 +3,6 @@ package response
 
 import "strings"
 
-// ParseContentTypeHeader parses the Content-Type header and returns the MIME type and any parameters.
-func ParseContentTypeHeader(header string) (string, map[string]string) {
-	return parseHeader(header)
-}
-
-// ParseContentDisposition parses the Content-Disposition header and returns the type and any parameters.
-func ParseContentDisposition(header string) (string, map[string]string) {
-	return parseHeader(header)
-}
-
 // parseHeader generalizes the parsing of headers like Content-Type and Content-Disposition.
 // It extracts the main value (e.g., MIME type for Content-Type) and any parameters (like charset).
 func parseHeader(header string) (string, map[string]string) {
