@@ -38,6 +38,7 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 		return err
 	}
 
+	// TODO do we need to redact some auth headers here? I think so.
 	sugar.Debug("HTTP Response Headers", zap.Any("Headers", resp.Header))
 	sugar.Debug("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
 
@@ -45,15 +46,23 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	mimeType, _ := parseHeader(resp.Header.Get("Content-Type"))
 	contentDisposition := resp.Header.Get("Content-Disposition")
 
-	if handler, ok := responseUnmarshallers[mimeType]; ok {
+	sugar.Debugf("MIMETYPE-%s", mimeType)
+
+	var handler contentHandler
+	var ok bool
+
+	if handler, ok = responseUnmarshallers[mimeType]; ok {
 		return handler(bodyReader, out, sugar, mimeType)
-	} else if isBinaryData(mimeType, contentDisposition) {
-		return handleBinaryData(bodyReader, sugar, out, contentDisposition)
-	} else {
-		errMsg := fmt.Sprintf("unexpected MIME type: %s", mimeType)
-		sugar.Error("Unmarshal error", zap.String("content type", mimeType), zap.Error(errors.New(errMsg)))
-		return errors.New(errMsg)
 	}
+
+	if isBinaryData(mimeType, contentDisposition) {
+		return handleBinaryData(bodyReader, sugar, out, contentDisposition)
+	}
+
+	errMsg := fmt.Sprintf("unexpected MIME type: %s", mimeType)
+	sugar.Error("Unmarshal error", zap.String("content type", mimeType), zap.Error(errors.New(errMsg)))
+	return errors.New(errMsg)
+
 }
 
 // handleDeleteRequest handles the special case for DELETE requests, where a successful response might not contain a body.
@@ -94,10 +103,8 @@ func isBinaryData(contentType, contentDisposition string) bool {
 
 // handleBinaryData reads binary data from an io.Reader and stores it in *[]byte or streams it to an io.Writer.
 func handleBinaryData(reader io.Reader, sugar *zap.SugaredLogger, out interface{}, contentDisposition string) error {
-	// Check if the output interface is either *[]byte or io.Writer
 	switch out := out.(type) {
 	case *[]byte:
-		// Read all data from reader and store it in *[]byte
 		data, err := io.ReadAll(reader)
 		if err != nil {
 			sugar.Error("Failed to read binary data", zap.Error(err))
@@ -106,7 +113,6 @@ func handleBinaryData(reader io.Reader, sugar *zap.SugaredLogger, out interface{
 		*out = data
 
 	case io.Writer:
-		// Stream data directly to the io.Writer
 		_, err := io.Copy(out, reader)
 		if err != nil {
 			sugar.Error("Failed to stream binary data to io.Writer", zap.Error(err))
@@ -117,12 +123,10 @@ func handleBinaryData(reader io.Reader, sugar *zap.SugaredLogger, out interface{
 		return errors.New("output parameter is not suitable for binary data (*[]byte or io.Writer)")
 	}
 
-	// Handle Content-Disposition if present
 	if contentDisposition != "" {
 		_, params := parseHeader(contentDisposition)
 		if filename, ok := params["filename"]; ok {
 			sugar.Debug("Extracted filename from Content-Disposition", zap.String("filename", filename))
-			// Additional processing for the filename can be done here if needed
 		}
 	}
 

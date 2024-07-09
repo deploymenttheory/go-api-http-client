@@ -130,6 +130,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 				c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 			}
 			c.Sugar.Infof("%s request successful at %v", resp.Request.Method, resp.Request.URL)
+
 			return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
 		}
 
@@ -142,6 +143,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 		// Non Retry
 		if response.IsNonRetryableStatusCode(resp.StatusCode) {
 			c.Sugar.Warn("Non-retryable error received", zap.Int("status_code", resp.StatusCode), zap.String("status_message", statusMessage))
+
 			return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 		}
 
@@ -227,6 +229,7 @@ func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}
 			c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 		}
 		c.Sugar.Infof("%s request successful at %v", resp.Request.Method, resp.Request.URL)
+
 		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
 	}
 
