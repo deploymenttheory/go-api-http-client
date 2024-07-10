@@ -121,8 +121,6 @@ func (c *ClientConfig) Build() (*Client, error) {
 			c.Sugar,
 			concurrencyMetrics,
 		)
-	} else {
-		concurrencyHandler = nil
 	}
 
 	client := &Client{

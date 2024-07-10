@@ -274,18 +274,15 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body inte
 		return nil, err
 	}
 
-	req = req.WithContext(ctx)
-
-	// TODO Concurrency - Refactor or remove this
 	startTime := time.Now()
 
+	req = req.WithContext(ctx)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		c.Sugar.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
-	// TODO Concurrency - Refactor or remove this
 	if c.config.EnableConcurrencyManagement {
 		duration := time.Since(startTime)
 		c.Concurrency.EvaluateAndAdjustConcurrency(resp, duration)
