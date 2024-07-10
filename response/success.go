@@ -21,15 +21,15 @@ type contentHandler func(io.Reader, interface{}, *zap.SugaredLogger, string) err
 
 // responseUnmarshallers maps MIME types to the corresponding contentHandler functions.
 var responseUnmarshallers = map[string]contentHandler{
-	"application/json": unmarshalJSON,
-	"application/xml":  unmarshalXML,
-	"text/xml":         unmarshalXML,
+	"application/json": handlerUnmarshalJSON,
+	"application/xml":  handlerUnmarshalXML,
+	"text/xml":         handlerUnmarshalXML,
 }
 
 // HandleAPISuccessResponse reads the response body, logs the raw response details, and unmarshals the response based on the content type.
 func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.SugaredLogger) error {
 	if resp.Request.Method == "DELETE" {
-		return handleDeleteRequest(resp, sugar)
+		return successfulDeleteRequest(resp, sugar)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -64,7 +64,7 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 }
 
 // handleDeleteRequest handles the special case for DELETE requests, where a successful response might not contain a body.
-func handleDeleteRequest(resp *http.Response, sugar *zap.SugaredLogger) error {
+func successfulDeleteRequest(resp *http.Response, sugar *zap.SugaredLogger) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		sugar.Info("Successfully processed DELETE request", zap.String("URL", resp.Request.URL.String()), zap.Int("Status Code", resp.StatusCode))
 		return nil
@@ -73,7 +73,7 @@ func handleDeleteRequest(resp *http.Response, sugar *zap.SugaredLogger) error {
 }
 
 // unmarshalJSON unmarshals JSON content from an io.Reader into the provided output structure.
-func unmarshalJSON(reader io.Reader, out interface{}, sugar *zap.SugaredLogger, mimeType string) error {
+func handlerUnmarshalJSON(reader io.Reader, out interface{}, sugar *zap.SugaredLogger, mimeType string) error {
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(out); err != nil {
 		sugar.Error("JSON Unmarshal error", zap.Error(err))
@@ -84,7 +84,7 @@ func unmarshalJSON(reader io.Reader, out interface{}, sugar *zap.SugaredLogger, 
 }
 
 // unmarshalXML unmarshals XML content from an io.Reader into the provided output structure.
-func unmarshalXML(reader io.Reader, out interface{}, sugar *zap.SugaredLogger, mimeType string) error {
+func handlerUnmarshalXML(reader io.Reader, out interface{}, sugar *zap.SugaredLogger, mimeType string) error {
 	decoder := xml.NewDecoder(reader)
 	if err := decoder.Decode(out); err != nil {
 		sugar.Error("XML Unmarshal error", zap.Error(err))

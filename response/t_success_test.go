@@ -22,7 +22,7 @@ func TestHandleDeleteRequest_Success(t *testing.T) {
 		},
 	}
 
-	err := handleDeleteRequest(resp, nil)
+	err := successfulDeleteRequest(resp, nil)
 
 	assert.NoError(t, err, "handleDeleteRequest should not return an error for successful DELETE requests")
 }
@@ -40,7 +40,7 @@ func TestHandleDeleteRequest_Failure(t *testing.T) {
 		},
 	}
 
-	err := handleDeleteRequest(resp, nil)
+	err := successfulDeleteRequest(resp, nil)
 
 	assert.Error(t, err, "handleDeleteRequest should return an error for failed DELETE requests")
 }
