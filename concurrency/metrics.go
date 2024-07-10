@@ -215,39 +215,37 @@ func (ch *ConcurrencyHandler) MonitorResponseTimeVariability(responseTime time.D
 	ch.Metrics.ResponseTimeVariability.Lock()
 	defer ch.Metrics.ResponseTimeVariability.Unlock()
 
-	responseTimesLock.Lock() // Ensure safe concurrent access
+	responseTimesLock.Lock()
 	responseTimes = append(responseTimes, responseTime)
 	if len(responseTimes) > 10 {
-		responseTimes = responseTimes[1:] // Maintain last 10 measurements
+		responseTimes = responseTimes[1:]
 	}
 	responseTimesLock.Unlock()
 
 	stdDev := calculateStdDev(responseTimes)
 	averageResponseTime := calculateAverage(responseTimes)
 
-	// Check if conditions suggest a need to scale down
 	if stdDev > ch.Metrics.ResponseTimeVariability.StdDevThreshold && averageResponseTime > AcceptableAverageResponseTime {
 		ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount++
 		if ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount >= debounceScaleDownThreshold {
 			ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount = 0
-			return -1 // Suggest decrease concurrency
+			return -1
 		}
 	} else {
-		ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount = 0 // Reset counter if conditions are not met
+		ch.Metrics.ResponseTimeVariability.DebounceScaleDownCount = 0
 	}
 
-	// Check if conditions suggest a need to scale up
 	if stdDev <= ch.Metrics.ResponseTimeVariability.StdDevThreshold && averageResponseTime <= AcceptableAverageResponseTime {
 		ch.Metrics.ResponseTimeVariability.DebounceScaleUpCount++
 		if ch.Metrics.ResponseTimeVariability.DebounceScaleUpCount >= debounceScaleDownThreshold {
 			ch.Metrics.ResponseTimeVariability.DebounceScaleUpCount = 0
-			return 1 // Suggest increase concurrency
+			return 1
 		}
 	} else {
-		ch.Metrics.ResponseTimeVariability.DebounceScaleUpCount = 0 // Reset counter if conditions are not met
+		ch.Metrics.ResponseTimeVariability.DebounceScaleUpCount = 0
 	}
 
-	return 0 // Default to no change
+	return 0
 }
 
 // calculateAverage computes the average response time from a slice of time.Duration values.

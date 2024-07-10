@@ -57,6 +57,6 @@ const (
 
 	debounceScaleDownThreshold = 5 // Number of consecutive triggers before scaling down
 
-	//
+	// TODO this comment
 	AcceptableAverageResponseTime = 100 * time.Millisecond
 )

@@ -5,11 +5,9 @@ import "go.uber.org/zap"
 
 // ScaleDown reduces the concurrency level by one, down to the minimum limit.
 func (ch *ConcurrencyHandler) ScaleDown() {
-	// Lock to ensure thread safety
 	ch.Lock()
 	defer ch.Unlock()
 
-	// We must consider the capacity rather than the length of the semaphore channel
 	currentSize := cap(ch.sem)
 	if currentSize > MinConcurrency {
 		newSize := currentSize - 1
@@ -22,7 +20,6 @@ func (ch *ConcurrencyHandler) ScaleDown() {
 
 // ScaleUp increases the concurrency level by one, up to the maximum limit.
 func (ch *ConcurrencyHandler) ScaleUp() {
-	// Lock to ensure thread safety
 	ch.Lock()
 	defer ch.Unlock()
 
@@ -49,19 +46,15 @@ func (ch *ConcurrencyHandler) ScaleUp() {
 func (ch *ConcurrencyHandler) ResizeSemaphore(newSize int) {
 	newSem := make(chan struct{}, newSize)
 
-	// Transfer tokens from the old semaphore to the new one.
 	for {
 		select {
 		case token := <-ch.sem:
 			select {
 			case newSem <- token:
-				// Token transferred to new semaphore.
 			default:
-				// New semaphore is full, put token back to the old one to allow ongoing operations to complete.
 				ch.sem <- token
 			}
 		default:
-			// No more tokens to transfer.
 			close(ch.sem)
 			ch.sem = newSem
 			return
