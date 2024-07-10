@@ -30,32 +30,31 @@ type UploadState struct {
 // logging throughout the process.
 
 // Parameters:
-// - method: A string representing the HTTP method to be used for the request. This method should be either POST or PUT
-//   as these are the only methods that support multipart/form-data requests.
-// - endpoint: The target API endpoint for the request. This should be a relative path that will be appended to the base URL
-//   configured for the HTTP client.
-// - files: A map where the key is the field name and the value is a slice of file paths to be included in the request.
-// - formDataFields: A map of additional form fields to be included in the multipart request, where the key is the field name
-//   and the value is the field value.
-// - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
-//   content type (e.g., "image/jpeg").
-// - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
-//   and the value is an http.Header containing the headers for that part.
-// - out: A pointer to an output variable where the response will be deserialized. This should be a pointer to a struct that
-//   matches the expected response schema.
-
+//   - method: A string representing the HTTP method to be used for the request. This method should be either POST or PUT
+//     as these are the only methods that support multipart/form-data requests.
+//   - endpoint: The target API endpoint for the request. This should be a relative path that will be appended to the base URL
+//     configured for the HTTP client.
+//   - files: A map where the key is the field name and the value is a slice of file paths to be included in the request.
+//   - formDataFields: A map of additional form fields to be included in the multipart request, where the key is the field name
+//     and the value is the field value.
+//   - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
+//     content type (e.g., "image/jpeg").
+//   - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
+//     and the value is an http.Header containing the headers for that part.
+//   - out: A pointer to an output variable where the response will be deserialized. This should be a pointer to a struct that
+//     matches the expected response schema.
+//
 // Returns:
-// - *http.Response: The HTTP response received from the server. In case of successful execution, this response contains
-//   the status code, headers, and body of the response. In case of errors, this response may contain the last received
-//   HTTP response that led to the failure.
-// - error: An error object indicating failure during request execution. This could be due to network issues, server errors,
-//   or a failure in request serialization/deserialization.
-
+//   - *http.Response: The HTTP response received from the server. In case of successful execution, this response contains
+//     the status code, headers, and body of the response. In case of errors, this response may contain the last received
+//     HTTP response that led to the failure.
+//   - error: An error object indicating failure during request execution. This could be due to network issues, server errors,
+//     or a failure in request serialization/deserialization.
+//
 // Usage:
 // This function is suitable for executing multipart/form-data HTTP requests, particularly for file uploads along with
 // additional form fields. It ensures proper authentication, sets necessary headers, and logs the process for debugging
 // and monitoring purposes.
-
 // Example:
 // var result MyResponseType
 // resp, err := client.DoMultiPartRequest("POST", "/api/upload", files, formDataFields, fileContentTypes, formDataPartHeaders, &result)
@@ -142,19 +141,18 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 // This function constructs the body of a multipart/form-data request using an io.Pipe, allowing the request to be sent in chunks.
 // It supports custom content types and headers for each part of the multipart request, and logs the process for debugging
 // and monitoring purposes.
-
 // Parameters:
-// - files: A map where the key is the field name and the value is a slice of file paths to be included in the request.
-//   Each file path corresponds to a file that will be included in the multipart request.
-// - formDataFields: A map of additional form fields to be included in the multipart request, where the key is the field name
-//   and the value is the field value. These are regular form fields that accompany the file uploads.
-// - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
-//   content type (e.g., "image/jpeg").
-// - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
-//   and the value is an http.Header containing the headers for that part.
-// - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
-//   and errors encountered during the construction of the multipart request body.
-
+//   - files: A map where the key is the field name and the value is a slice of file paths to be included in the request.
+//     Each file path corresponds to a file that will be included in the multipart request.
+//   - formDataFields: A map of additional form fields to be included in the multipart request, where the key is the field name
+//     and the value is the field value. These are regular form fields that accompany the file uploads.
+//   - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
+//     content type (e.g., "image/jpeg").
+//   - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
+//     and the value is an http.Header containing the headers for that part.
+//   - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
+//     and errors encountered during the construction of the multipart request body.
+//
 // Returns:
 //   - io.Reader: The constructed multipart request body reader. This reader streams the multipart form data payload ready to be sent.
 //   - string: The content type of the multipart request body. This includes the boundary string used by the multipart writer.
@@ -200,18 +198,17 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 
 // addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
 // This function opens the specified file, sets the appropriate content type and headers, and adds it to the multipart writer.
-
 // Parameters:
-// - writer: The multipart writer used to construct the multipart request body.
-// - fieldName: The field name for the file part.
-// - filePath: The path to the file to be included in the request.
-// - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
-//   content type (e.g., "image/jpeg").
-// - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
-//   and the value is an http.Header containing the headers for that part.
-// - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
-//   and errors encountered during the addition of the file part.
-
+//   - writer: The multipart writer used to construct the multipart request body.
+//   - fieldName: The field name for the file part.
+//   - filePath: The path to the file to be included in the request.
+//   - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
+//     content type (e.g., "image/jpeg").
+//   - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
+//     and the value is an http.Header containing the headers for that part.
+//   - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
+//     and errors encountered during the addition of the file part.
+//
 // Returns:
 //   - error: An error object indicating failure during the addition of the file part. This could be due to issues such as
 //     file reading errors or multipart writer errors.
@@ -258,14 +255,13 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 
 // addFormField adds a form field to the multipart writer with the provided key and value.
 // This function adds a regular form field (non-file) to the multipart request body.
-
 // Parameters:
-// - writer: The multipart writer used to construct the multipart request body.
-// - key: The field name for the form field.
-// - val: The value of the form field.
-// - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
-//   and errors encountered during the addition of the form field.
-
+//   - writer: The multipart writer used to construct the multipart request body.
+//   - key: The field name for the form field.
+//   - val: The value of the form field.
+//   - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
+//     and errors encountered during the addition of the form field.
+//
 // Returns:
 //   - error: An error object indicating failure during the addition of the form field. This could be due to issues such as
 //     multipart writer errors.
@@ -285,14 +281,13 @@ func addFormField(writer *multipart.Writer, key, val string, sugar *zap.SugaredL
 // setFormDataPartHeader creates a textproto.MIMEHeader for a form data field with the provided field name, file name, content type, and custom headers.
 // This function constructs the MIME headers for a multipart form data part, including the content disposition, content type,
 // and any custom headers specified.
-
 // Parameters:
-// - fieldname: The name of the form field.
-// - filename: The name of the file being uploaded (if applicable).
-// - contentType: The content type of the form data part (e.g., "image/jpeg").
-// - customHeaders: A map of custom headers to be added to the form data part. The key is the header name and the value is the
-//   header value.
-
+//   - fieldname: The name of the form field.
+//   - filename: The name of the file being uploaded (if applicable).
+//   - contentType: The content type of the form data part (e.g., "image/jpeg").
+//   - customHeaders: A map of custom headers to be added to the form data part. The key is the header name and the value is the
+//     header value.
+//
 // Returns:
 // - textproto.MIMEHeader: The constructed MIME header for the form data part.
 func setFormDataPartHeader(fieldname, filename, contentType string, customHeaders http.Header) textproto.MIMEHeader {
@@ -311,21 +306,18 @@ func setFormDataPartHeader(fieldname, filename, contentType string, customHeader
 // chunkFileUpload reads the file upload into chunks and writes it to the writer.
 // This function reads the file in chunks and writes it to the provided writer, allowing for progress logging during the upload.
 // The chunk size is set to 8192 KB (8 MB) by default. This is a common chunk size used for file uploads to cloud storage services.
-
 // Azure Blob Storage has a minimum chunk size of 4 MB and a maximum of 100 MB for block blobs.
 // GCP Cloud Storage has a minimum chunk size of 256 KB and a maximum of 5 GB.
 // AWS S3 has a minimum chunk size of 5 MB and a maximum of 5 GB.
-
 // The function also calculates the total number of chunks and logs the chunk number during the upload process.
-
 // Parameters:
-// - file: The file to be uploaded.
-// - writer: The writer to which the file content will be written.
-// - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
-//   and errors encountered during the file upload.
-// - updateProgress: A function to update the upload progress, typically used for logging purposes.
-// - uploadState: A pointer to an UploadState struct used to track the progress of the file upload for resumable uploads.
-
+//   - file: The file to be uploaded.
+//   - writer: The writer to which the file content will be written.
+//   - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
+//     and errors encountered during the file upload.
+//   - updateProgress: A function to update the upload progress, typically used for logging purposes.
+//   - uploadState: A pointer to an UploadState struct used to track the progress of the file upload for resumable uploads.
+//
 // Returns:
 //   - error: An error object indicating failure during the file upload. This could be due to issues such as file reading errors
 //     or writer errors.
@@ -397,13 +389,12 @@ func chunkFileUpload(file *os.File, writer io.Writer, updateProgress func(int64)
 
 // logUploadProgress logs the upload progress based on the percentage of the total file size.
 // This function returns a closure that logs the upload progress each time it is called, updating the percentage completed.
-
 // Parameters:
-// - file: The file being uploaded. used for logging the file name.
-// - fileSize: The total size of the file being uploaded.
-// - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
-//   and errors encountered during the upload.
-
+//   - file: The file being uploaded. used for logging the file name.
+//   - fileSize: The total size of the file being uploaded.
+//   - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
+//     and errors encountered during the upload.
+//
 // Returns:
 // - func(int64): A function that takes the number of bytes written as an argument and logs the upload progress.
 // logUploadProgress logs the upload progress based on the percentage of the total file size.

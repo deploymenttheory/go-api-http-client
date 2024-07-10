@@ -1,6 +1,8 @@
 // httpmethod/httpmethod.go
 package httpclient
 
+import "net/http"
+
 /* Ref: https://www.rfc-editor.org/rfc/rfc7231#section-8.1.3
 
 +---------+------+------------+
@@ -17,11 +19,9 @@ package httpclient
 +---------+------+------------+
 */
 
-import "net/http"
-
 // IsIdempotentHTTPMethod checks if the given HTTP method is idempotent.
 func IsIdempotentHTTPMethod(method string) bool {
-	methods := map[string]bool{
+	methodsMap := map[string]bool{
 		http.MethodGet:     true,
 		http.MethodPut:     true,
 		http.MethodDelete:  true,
@@ -33,5 +33,5 @@ func IsIdempotentHTTPMethod(method string) bool {
 		http.MethodConnect: false,
 	}
 
-	return methods[method]
+	return methodsMap[method]
 }
