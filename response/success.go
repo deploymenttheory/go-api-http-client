@@ -49,6 +49,7 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	var handler contentHandler
 	var ok bool
 
+	sugar.Debugw("things", "LOGHERE")
 	if handler, ok = responseUnmarshallers[contentType]; ok {
 		return handler(bodyReader, out, sugar, contentType)
 	}
