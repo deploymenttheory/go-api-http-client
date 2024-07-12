@@ -125,6 +125,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 		}
 
 		// Success
+		c.Sugar.Debugf("LOGHERE RETRIES STATUS CODE: %v", resp.StatusCode)
 		if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusBadRequest {
 			if resp.StatusCode == http.StatusPermanentRedirect || resp.StatusCode == http.StatusTemporaryRedirect {
 				c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
@@ -224,6 +225,7 @@ func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}
 		return nil, err
 	}
 
+	c.Sugar.Debugf("LOGHERE NO RETRIES STATUS CODE: %v", resp.StatusCode)
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusBadRequest {
 		if resp.StatusCode == http.StatusPermanentRedirect || resp.StatusCode == http.StatusTemporaryRedirect {
 			c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
