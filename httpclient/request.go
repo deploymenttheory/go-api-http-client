@@ -218,7 +218,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	ctx := context.Background()
 
-	c.Sugar.Debug("Executing request without retries", zap.String("method", method), zap.String("endpoint", endpoint))
+	c.Sugar.Debugw("Executing request without retries", "method", method, "endpoint", endpoint)
 
 	resp, err := c.request(ctx, method, endpoint, body)
 	if err != nil {
