@@ -225,8 +225,11 @@ func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}
 		return nil, err
 	}
 
-	c.Sugar.Debugf("LOGHERE NO RETRIES STATUS CODE: %v", resp.StatusCode)
+	c.Sugar.Debug("LOGHERE")
+	c.Sugar.Debugf("Status Code: %v", resp.StatusCode)
+
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusBadRequest {
+		c.Sugar.Debug("FLAG 1 - Request Considered Successful")
 		if resp.StatusCode == http.StatusPermanentRedirect || resp.StatusCode == http.StatusTemporaryRedirect {
 			c.Sugar.Warn("Redirect response received", zap.Int("status_code", resp.StatusCode), zap.String("location", resp.Header.Get("Location")))
 		}
@@ -234,6 +237,8 @@ func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}
 
 		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
 	}
+
+	c.Sugar.Debug("FLAG 2 - Request Considered NOT Successful")
 
 	return nil, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
