@@ -52,7 +52,9 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	sugar.Debug("LOGHERE-HandleApiSuccessResponse")
 	sugar.Debugw("Headers:", "content-type", contentType, "content-disposition", contentDisposition)
 
-	if handler, ok = responseUnmarshallers[contentType]; ok {
+	contentTypeNoParams, _ := parseHeader(contentType)
+
+	if handler, ok = responseUnmarshallers[contentTypeNoParams]; ok {
 		return handler(bodyReader, out, sugar, contentType)
 	}
 
@@ -125,7 +127,7 @@ func handleBinaryData(reader io.Reader, sugar *zap.SugaredLogger, out interface{
 	}
 
 	if contentDisposition != "" {
-		_, params := parseDispositionHeader(contentDisposition)
+		_, params := parseHeader(contentDisposition)
 		if filename, ok := params["filename"]; ok {
 			sugar.Debug("Extracted filename from Content-Disposition", zap.String("filename", filename))
 		}
