@@ -39,8 +39,8 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	}
 
 	// TODO do we need to redact some auth headers here? I think so.
-	sugar.Debug("HTTP Response Headers", zap.Any("Headers", resp.Header))
-	sugar.Debug("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
+	sugar.Debugw("HTTP Response Headers", zap.Any("Headers", resp.Header))
+	sugar.Debugw("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
 
 	bodyReader := bytes.NewReader(bodyBytes)
 	contentType := resp.Header.Get("Content-Type")
@@ -49,7 +49,9 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	var handler contentHandler
 	var ok bool
 
-	sugar.Debugw("things", "LOGHERE")
+	sugar.Debug("LOGHERE-HandleApiSuccessResponse")
+	sugar.Debugw("Headers:", "content-type", contentType, "content-disposition", contentDisposition)
+
 	if handler, ok = responseUnmarshallers[contentType]; ok {
 		return handler(bodyReader, out, sugar, contentType)
 	}
@@ -59,7 +61,7 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	}
 
 	errMsg := fmt.Sprintf("unexpected MIME type: %s", contentType)
-	sugar.Error("Unmarshal error", zap.String("content type", contentType), zap.Error(errors.New(errMsg)))
+	sugar.Errorw("Unmarshal error", zap.String("content type", contentType), zap.Error(errors.New(errMsg)))
 	return errors.New(errMsg)
 
 }
