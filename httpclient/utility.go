@@ -84,8 +84,6 @@ func validatePassword(password string) error {
 	return nil
 }
 
-// environment variable mapping helpers
-
 // getEnvAsString reads an environment variable as a string, with a fallback default value.
 func getEnvAsString(name string, defaultVal string) string {
 	if value, exists := os.LookupEnv(name); exists {

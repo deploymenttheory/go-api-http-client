@@ -112,7 +112,6 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		return nil, err
 	}
 
-	// sugar the request details
 	c.Sugar.Info("Created HTTP Multipart request", zap.String("method", method), zap.String("url", url), zap.String("content_type", contentType))
 
 	(*c.Integration).PrepRequestParamsAndAuth(req)

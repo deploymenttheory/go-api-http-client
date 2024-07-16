@@ -20,7 +20,7 @@ import "net/http"
 */
 
 // IsIdempotentHTTPMethod checks if the given HTTP method is idempotent.
-func IsIdempotentHTTPMethod(method string) bool {
+func isIdempotentHTTPMethod(method string) bool {
 	methodsMap := map[string]bool{
 		http.MethodGet:     true,
 		http.MethodPut:     true,
