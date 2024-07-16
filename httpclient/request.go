@@ -67,8 +67,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 	return c.requestWithRetries(method, endpoint, body, out)
 }
 
-// region comment
-// executeRequestWithRetries executes an HTTP request using the specified method, endpoint, request body, and output variable.
+// requestWithRetries executes an HTTP request using the specified method, endpoint, request body, and output variable.
 // It is designed for idempotent HTTP methods (GET, PUT, DELETE), where the request can be safely retried in case of
 // transient errors or rate limiting. The function implements a retry mechanism that respects the client's configuration
 // for maximum retry attempts and total retry duration. Each retry attempt uses exponential backoff with jitter to avoid
@@ -97,7 +96,6 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // - The function respects the client's concurrency token, acquiring and releasing it as needed to ensure safe concurrent
 // operations.
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
-// endregion
 func (c *Client) requestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
 	var resp *http.Response
 	var err error
@@ -183,7 +181,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 	return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
 
-// executeRequest executes an HTTP request using the specified method, endpoint, and request body without implementing
+// requestNoRetries executes an HTTP request using the specified method, endpoint, and request body without implementing
 // retry logic. It is primarily designed for non-idempotent HTTP methods like POST and PATCH, where the request should
 // not be automatically retried within this function due to the potential side effects of re-submitting the same data.
 // Parameters:
@@ -234,7 +232,7 @@ func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}
 	return nil, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
 
-// TODO function comment
+// request is a base leve private function which the contextual functions above utilise to make requests // TODO improve this comment probably.
 func (c *Client) request(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 
 	if c.config.EnableConcurrencyManagement {
