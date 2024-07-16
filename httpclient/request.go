@@ -59,17 +59,12 @@ import (
 //   - The decision to retry requests is based on the idempotency of the HTTP method and the client's retry configuration,
 //     including maximum retry attempts and total retry duration.
 func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
-	if !c.config.RetryEligiableRequests {
+
+	if !c.config.RetryEligiableRequests || !isIdempotentHTTPMethod(method) {
 		return c.requestNoRetries(method, endpoint, body, out)
 	}
 
-	if IsIdempotentHTTPMethod(method) {
-		return c.requestWithRetries(method, endpoint, body, out)
-	} else if !IsIdempotentHTTPMethod(method) {
-		return c.requestNoRetries(method, endpoint, body, out)
-	}
-
-	return nil, fmt.Errorf("unsupported http method: %s", method)
+	return c.requestWithRetries(method, endpoint, body, out)
 }
 
 // region comment
