@@ -2,12 +2,10 @@
 package httpclient
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -36,52 +34,6 @@ func validateFilePath(path string) (string, error) {
 
 	return path, nil
 
-}
-
-// validateClientID checks if a client ID is a valid UUID.
-func validateValidClientID(clientID string) error {
-	uuidRegex := `^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`
-	if regexp.MustCompile(uuidRegex).MatchString(clientID) {
-		return nil
-	}
-	return errors.New("clientID failed regex check")
-}
-
-func validateClientSecret(clientSecret string) error {
-	if len(clientSecret) < 16 {
-		return errors.New("client secret must be at least 16 characters long")
-	}
-
-	if matched, _ := regexp.MatchString(`[a-z]`, clientSecret); !matched {
-		return errors.New("client secret must contain at least one lowercase letter")
-	}
-
-	if matched, _ := regexp.MatchString(`[A-Z]`, clientSecret); !matched {
-		return errors.New("client secret must contain at least one uppercase letter")
-	}
-
-	if matched, _ := regexp.MatchString(`\d`, clientSecret); !matched {
-		return errors.New("client secret must contain at least one digit")
-	}
-
-	return nil
-}
-
-// validateUsername checks if a username meets the minimum requirements.
-func validateUsername(username string) error {
-	usernameRegex := `^[a-zA-Z0-9!@#$%^&*()_\-\+=\[\]{\}\\|;:'",<.>/?]+$`
-	if !regexp.MustCompile(usernameRegex).MatchString(username) {
-		return errors.New("username failed regex test")
-	}
-	return nil
-}
-
-// validatePassword checks if a password meets the minimum requirements.
-func validatePassword(password string) error {
-	if len(password) < 8 {
-		return errors.New("password not long enough")
-	}
-	return nil
 }
 
 // getEnvAsString reads an environment variable as a string, with a fallback default value.
