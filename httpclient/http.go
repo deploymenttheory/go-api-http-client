@@ -39,6 +39,7 @@ func (c *ProdExecutor) SetRedirectPolicy(policy *func(req *http.Request, via []*
 
 type MockExecutor struct {
 	LockedResponseCode int
+	ResponseBody       string
 }
 
 func (m *MockExecutor) CloseIdleConnections() {
@@ -54,7 +55,7 @@ func (m *MockExecutor) Do(req *http.Request) (*http.Response, error) {
 
 	response := &http.Response{
 		StatusCode: m.LockedResponseCode,
-		Body:       io.NopCloser(bytes.NewBufferString("nil")),
+		Body:       io.NopCloser(bytes.NewBufferString(m.ResponseBody)),
 		Header:     make(http.Header),
 	}
 
