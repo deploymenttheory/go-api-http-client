@@ -51,7 +51,7 @@ func (m *MockExecutor) Do(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("unknown response code requested: %d", m.LockedResponseCode)
 	}
 
-	response := &http.Response{StatusCode: m.LockedResponseCode}
+	response := &http.Response{StatusCode: m.LockedResponseCode, Body: nil}
 
 	return response, nil
 }
