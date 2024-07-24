@@ -29,3 +29,11 @@ func (c *prodClient) Cookies(url *url.URL) []*http.Cookie {
 func (c *prodClient) SetRedirectPolicy(policy *func(req *http.Request, via []*http.Request) error) {
 	c.CheckRedirect = *policy
 }
+
+type testClient struct {
+}
+
+func (m *testClient) Do(req *http.Request) (*http.Response, error) {
+	// do some stuff which makes a response you like
+	return nil, nil
+}
