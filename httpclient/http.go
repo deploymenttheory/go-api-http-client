@@ -6,27 +6,27 @@ import (
 	"time"
 )
 
-type prodClient struct {
+type ProdClient struct {
 	*http.Client
 }
 
-func (c *prodClient) SetCookieJar(jar http.CookieJar) {
+func (c *ProdClient) SetCookieJar(jar http.CookieJar) {
 	c.Jar = jar
 }
 
-func (c *prodClient) SetCookies(url *url.URL, cookies []*http.Cookie) {
+func (c *ProdClient) SetCookies(url *url.URL, cookies []*http.Cookie) {
 	c.Jar.SetCookies(url, cookies)
 }
 
-func (c *prodClient) SetCustomTimeout(timeout time.Duration) {
+func (c *ProdClient) SetCustomTimeout(timeout time.Duration) {
 	c.Timeout = timeout
 }
 
-func (c *prodClient) Cookies(url *url.URL) []*http.Cookie {
+func (c *ProdClient) Cookies(url *url.URL) []*http.Cookie {
 	return c.Jar.Cookies(url)
 }
 
-func (c *prodClient) SetRedirectPolicy(policy *func(req *http.Request, via []*http.Request) error) {
+func (c *ProdClient) SetRedirectPolicy(policy *func(req *http.Request, via []*http.Request) error) {
 	c.CheckRedirect = *policy
 }
 
