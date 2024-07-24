@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"time"
 
@@ -120,6 +121,13 @@ func (c *ClientConfig) Build() (*Client, error) {
 	c.Sugar.Debug("configuration valid")
 
 	httpClient := &prodClient{}
+
+	cookieJar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	httpClient.SetCookieJar(cookieJar)
 
 	if c.CustomRedirectPolicy != nil {
 		httpClient.SetRedirectPolicy(c.CustomRedirectPolicy)
