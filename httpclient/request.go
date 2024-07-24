@@ -27,7 +27,7 @@ import (
 //   - endpoint: The target API endpoint for the request. This should be a relative path that will be appended to the base URL
 //     configured for the HTTP client.
 //   - body: The payload for the request, which will be serialized into the request body. The serialization format (e.g., JSON, XML)
-//     is determined by the content-type header and the specific implementation of the API handler used by the client.
+//     is determined by the content-type header and the	 specific implementation of the API handler used by the client.
 //   - out: A pointer to an output variable where the response will be deserialized. The function expects this to be a pointer to
 //     a struct that matches the expected response schema.
 //
@@ -238,7 +238,7 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body inte
 	if c.config.EnableConcurrencyManagement {
 		_, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to acquire concurrency permit: %v", err)
+			return nil, fmt.Errorf("failed to acquire concurrency permit: %v", err)
 
 		}
 
