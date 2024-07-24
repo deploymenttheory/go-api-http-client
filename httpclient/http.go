@@ -1,6 +1,7 @@
 package httpclient
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,7 +52,11 @@ func (m *MockExecutor) Do(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("unknown response code requested: %d", m.LockedResponseCode)
 	}
 
-	response := &http.Response{StatusCode: m.LockedResponseCode, Body: nil}
+	response := &http.Response{
+		StatusCode: m.LockedResponseCode,
+		Body:       io.NopCloser(bytes.NewBufferString("nil")),
+		Header:     make(http.Header),
+	}
 
 	return response, nil
 }
