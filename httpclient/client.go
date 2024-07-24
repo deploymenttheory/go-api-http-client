@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type httpExecutor interface {
+type HTTPExecutor interface {
 	// Inherited
 	CloseIdleConnections()
 	Do(req *http.Request) (*http.Response, error)
@@ -40,7 +40,7 @@ type httpExecutor interface {
 type Client struct {
 	config      *ClientConfig
 	Integration *APIIntegration
-	http        httpExecutor
+	http        HTTPExecutor
 	Sugar       *zap.SugaredLogger
 	Concurrency *concurrency.ConcurrencyHandler
 }
