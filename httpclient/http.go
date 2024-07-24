@@ -10,41 +10,41 @@ import (
 
 // Production
 
-type ProdClient struct {
+type ProdExecutor struct {
 	*http.Client
 }
 
-func (c *ProdClient) SetCookieJar(jar http.CookieJar) {
+func (c *ProdExecutor) SetCookieJar(jar http.CookieJar) {
 	c.Jar = jar
 }
 
-func (c *ProdClient) SetCookies(url *url.URL, cookies []*http.Cookie) {
+func (c *ProdExecutor) SetCookies(url *url.URL, cookies []*http.Cookie) {
 	c.Jar.SetCookies(url, cookies)
 }
 
-func (c *ProdClient) SetCustomTimeout(timeout time.Duration) {
+func (c *ProdExecutor) SetCustomTimeout(timeout time.Duration) {
 	c.Timeout = timeout
 }
 
-func (c *ProdClient) Cookies(url *url.URL) []*http.Cookie {
+func (c *ProdExecutor) Cookies(url *url.URL) []*http.Cookie {
 	return c.Jar.Cookies(url)
 }
 
-func (c *ProdClient) SetRedirectPolicy(policy *func(req *http.Request, via []*http.Request) error) {
+func (c *ProdExecutor) SetRedirectPolicy(policy *func(req *http.Request, via []*http.Request) error) {
 	c.CheckRedirect = *policy
 }
 
 // Mocking
 
-type mockClient struct {
+type MockExecutor struct {
 	lockedResponseCode int
 }
 
-func (m *mockClient) CloseIdleConnections() {
+func (m *MockExecutor) CloseIdleConnections() {
 	panic("invalid function call")
 }
 
-func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
+func (m *MockExecutor) Do(req *http.Request) (*http.Response, error) {
 	statusString := http.StatusText(m.lockedResponseCode)
 
 	if statusString == "" {
@@ -56,30 +56,30 @@ func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
 	return response, nil
 }
 
-func (m *mockClient) Get(_ string) (*http.Response, error) {
+func (m *MockExecutor) Get(_ string) (*http.Response, error) {
 	return m.Do(nil)
 }
 
-func (m *mockClient) Head(_ string) (*http.Response, error) {
+func (m *MockExecutor) Head(_ string) (*http.Response, error) {
 	return m.Do(nil)
 }
 
-func (m *mockClient) Post(_ string, _ string, _ io.Reader) (*http.Response, error) {
+func (m *MockExecutor) Post(_ string, _ string, _ io.Reader) (*http.Response, error) {
 	return m.Do(nil)
 }
 
-func (m *mockClient) PostForm(_ string, _ url.Values) (*http.Response, error) {
+func (m *MockExecutor) PostForm(_ string, _ url.Values) (*http.Response, error) {
 	return m.Do(nil)
 }
 
-func (m *mockClient) SetCookieJar(jar http.CookieJar) {}
+func (m *MockExecutor) SetCookieJar(jar http.CookieJar) {}
 
-func (m *mockClient) SetCookies(url *url.URL, cookies []*http.Cookie) {}
+func (m *MockExecutor) SetCookies(url *url.URL, cookies []*http.Cookie) {}
 
-func (m *mockClient) SetCustomTimeout(time.Duration) {}
+func (m *MockExecutor) SetCustomTimeout(time.Duration) {}
 
-func (m *mockClient) Cookies(*url.URL) []*http.Cookie {
+func (m *MockExecutor) Cookies(*url.URL) []*http.Cookie {
 	return nil
 }
 
-func (m *mockClient) SetRedirectPolicy(*func(req *http.Request, via []*http.Request) error) {}
+func (m *MockExecutor) SetRedirectPolicy(*func(req *http.Request, via []*http.Request) error) {}
