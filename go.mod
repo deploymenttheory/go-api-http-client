@@ -6,7 +6,7 @@ require (
 	github.com/antchfx/xmlquery v1.4.1
 	github.com/google/uuid v1.6.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/net v0.26.0
+	golang.org/x/net v0.27.0
 )
 
 require (
