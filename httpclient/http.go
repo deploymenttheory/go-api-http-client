@@ -37,7 +37,7 @@ func (c *ProdExecutor) SetRedirectPolicy(policy *func(req *http.Request, via []*
 // Mocking
 
 type MockExecutor struct {
-	lockedResponseCode int
+	LockedResponseCode int
 }
 
 func (m *MockExecutor) CloseIdleConnections() {
@@ -45,13 +45,13 @@ func (m *MockExecutor) CloseIdleConnections() {
 }
 
 func (m *MockExecutor) Do(req *http.Request) (*http.Response, error) {
-	statusString := http.StatusText(m.lockedResponseCode)
+	statusString := http.StatusText(m.LockedResponseCode)
 
 	if statusString == "" {
-		return nil, fmt.Errorf("unknown response code requested: %d", m.lockedResponseCode)
+		return nil, fmt.Errorf("unknown response code requested: %d", m.LockedResponseCode)
 	}
 
-	response := &http.Response{StatusCode: m.lockedResponseCode}
+	response := &http.Response{StatusCode: m.LockedResponseCode}
 
 	return response, nil
 }
