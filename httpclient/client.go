@@ -9,22 +9,37 @@ package httpclient
 
 import (
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
 	"go.uber.org/zap"
 )
 
-const ()
+type httpExecutor interface {
+	// Inherited
+	CloseIdleConnections()
+	Do(req *http.Request) (*http.Response, error)
+	Get(url string) (resp *http.Response, err error)
+	Head(url string) (resp *http.Response, err error)
+	Post(url string, contentType string, body io.Reader) (resp *http.Response, err error)
+	PostForm(url string, data url.Values) (resp *http.Response, err error)
 
-// TODO all struct comments
+	// Additional
+	SetCookieJar(jar http.CookieJar)
+	SetCookies(url *url.URL, cookies []*http.Cookie)
+	SetCustomTimeout(time.Duration)
+	Cookies(*url.URL) []*http.Cookie
+	SetRedirectPolicy(*func(req *http.Request, via []*http.Request) error)
+}
 
 // Master struct/object
 type Client struct {
 	config      *ClientConfig
 	Integration *APIIntegration
-	http        *http.Client
+	http        httpExecutor
 	Sugar       *zap.SugaredLogger
 	Concurrency *concurrency.ConcurrencyHandler
 }
@@ -104,12 +119,10 @@ func (c *ClientConfig) Build() (*Client, error) {
 
 	c.Sugar.Debug("configuration valid")
 
-	httpClient := &http.Client{
-		Timeout: c.CustomTimeout,
-	}
+	httpClient := &prodClient{}
 
 	if c.CustomRedirectPolicy != nil {
-		httpClient.CheckRedirect = *c.CustomRedirectPolicy
+		httpClient.SetRedirectPolicy(c.CustomRedirectPolicy)
 	}
 
 	// TODO refactor concurrency

@@ -14,7 +14,7 @@ func (c *Client) loadCustomCookies() error {
 		return err
 	}
 
-	c.http.Jar = cookieJar
+	c.http.SetCookieJar(cookieJar)
 
 	cookieUrl, err := url.Parse((*c.Integration).GetFQDN())
 	c.Sugar.Debug("cookie URL set globally to: %s", cookieUrl)
@@ -22,12 +22,12 @@ func (c *Client) loadCustomCookies() error {
 		return err
 	}
 
-	c.http.Jar.SetCookies(cookieUrl, c.config.CustomCookies)
+	c.http.SetCookies(cookieUrl, c.config.CustomCookies)
 
 	if c.config.HideSensitiveData {
 		c.Sugar.Debug("[REDACTED] cookies set successfully")
 	} else {
-		c.Sugar.Debug("custom cookies set: %v", c.http.Jar.Cookies(cookieUrl))
+		c.Sugar.Debug("custom cookies set: %v", c.http.Cookies(cookieUrl))
 	}
 
 	return nil
