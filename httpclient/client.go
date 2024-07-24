@@ -120,7 +120,9 @@ func (c *ClientConfig) Build() (*Client, error) {
 
 	c.Sugar.Debug("configuration valid")
 
-	httpClient := &prodClient{}
+	httpClient := &prodClient{
+		&http.Client{},
+	}
 
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {
