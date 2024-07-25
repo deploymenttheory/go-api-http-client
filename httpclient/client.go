@@ -19,7 +19,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// HTTPExecutor is an interface which wraps http.Client
 type HTTPExecutor interface {
+
 	// Inherited
 	CloseIdleConnections()
 	Do(req *http.Request) (*http.Response, error)
