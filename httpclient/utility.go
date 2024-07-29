@@ -16,7 +16,7 @@ import (
 const ConfigFileExtension = ".json"
 
 // validateFilePath checks if a file path is valid.
-func validateFilePath(path string) (string, error) {
+func validateConfigFilePath(path string) (string, error) {
 	cleanPath := filepath.Clean(path)
 
 	absPath, err := filepath.EvalSymlinks(cleanPath)
