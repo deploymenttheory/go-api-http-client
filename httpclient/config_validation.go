@@ -31,7 +31,7 @@ const (
 
 // LoadConfigFromFile loads http client configuration settings from a JSON file.
 func LoadConfigFromFile(filepath string) (*ClientConfig, error) {
-	absPath, err := validateFilePath(filepath)
+	absPath, err := validateConfigFilePath(filepath)
 	if err != nil {
 		return nil, fmt.Errorf("invalid file path: %v", err)
 	}
