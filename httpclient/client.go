@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// HTTPExecutor is an interface which wraps http.Client
+// HTTPExecutor is an interface which wraps http.Client to allow mocking.
 type HTTPExecutor interface {
 
 	// Inherited
@@ -52,7 +52,7 @@ type ClientConfig struct {
 	// Interface which implements the APIIntegration patterns. Integration handles all server/endpoint specific configuration, auth and vars.
 	Integration APIIntegration
 
-	// TODO
+	// Sugar is the logger from Zap.
 	Sugar *zap.SugaredLogger
 
 	// Wether or not empty values will be set or an error thrown for missing items.
