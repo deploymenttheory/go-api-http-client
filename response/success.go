@@ -39,8 +39,8 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	}
 
 	// TODO do we need to redact some auth headers here? I think so.
-	sugar.Debugw("HTTP Response Headers", zap.Any("Headers", resp.Header))
-	sugar.Debugw("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
+	// sugar.Debugw("HTTP Response Headers", zap.Any("Headers", resp.Header))
+	// sugar.Debugw("Raw HTTP Response", zap.String("Body", string(bodyBytes)))
 
 	bodyReader := bytes.NewReader(bodyBytes)
 	contentType := resp.Header.Get("Content-Type")
