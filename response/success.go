@@ -49,9 +49,6 @@ func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.S
 	var handler contentHandler
 	var ok bool
 
-	sugar.Debug("LOGHERE-HandleApiSuccessResponse")
-	sugar.Debugw("Headers:", "content-type", contentType, "content-disposition", contentDisposition)
-
 	contentTypeNoParams, _ := parseHeader(contentType)
 
 	if handler, ok = responseUnmarshallers[contentTypeNoParams]; ok {
