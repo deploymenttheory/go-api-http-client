@@ -3,6 +3,7 @@ package httpclient
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -119,6 +120,12 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	req.Header.Set("Content-Type", contentType)
 
 	startTime := time.Now()
+
+	// Debugging
+	jsonData, _ := json.MarshalIndent(req, "", "	")
+	c.Sugar.Debug("LOGHERE")
+	c.Sugar.Debug(string(jsonData))
+
 	resp, requestErr := c.http.Do(req)
 	duration := time.Since(startTime)
 
