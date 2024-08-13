@@ -164,18 +164,18 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 	go func() {
 		defer func() {
 			if err := writer.Close(); err != nil {
-				sugar.Error("Failed to close multipart writer", zap.Error(err))
+				sugar.Errorw("Failed to close multipart writer", zap.Error(err))
 			}
 			if err := pw.Close(); err != nil {
-				sugar.Error("Failed to close pipe writer", zap.Error(err))
+				sugar.Errorw("Failed to close pipe writer", zap.Error(err))
 			}
 		}()
 
 		for fieldName, filePaths := range files {
 			for _, filePath := range filePaths {
-				sugar.Debug("Adding file part", zap.String("field_name", fieldName), zap.String("file_path", filePath))
+				sugar.Debugw("Adding file part", zap.String("field_name", fieldName), zap.String("file_path", filePath))
 				if err := addFilePart(writer, fieldName, filePath, fileContentTypes, formDataPartHeaders, sugar); err != nil {
-					sugar.Error("Failed to add file part", zap.Error(err))
+					sugar.Errorw("Failed to add file part", zap.Error(err))
 					pw.CloseWithError(err)
 					return
 				}
@@ -183,9 +183,9 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 		}
 
 		for key, val := range formDataFields {
-			sugar.Debug("Adding form field", zap.String("field_name", key), zap.String("field_value", val))
+			sugar.Debugw("Adding form field", zap.String("field_name", key), zap.String("field_value", val))
 			if err := addFormField(writer, key, val, sugar); err != nil {
-				sugar.Error("Failed to add form field", zap.Error(err))
+				sugar.Errorw("Failed to add form field", zap.Error(err))
 				pw.CloseWithError(err)
 				return
 			}
@@ -214,7 +214,7 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, sugar *zap.SugaredLogger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		sugar.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
+		sugar.Errorw("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
 	defer file.Close()
@@ -229,7 +229,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 
 	part, err := writer.CreatePart(header)
 	if err != nil {
-		sugar.Error("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
+		sugar.Errorw("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
 		return err
 	}
 
@@ -238,14 +238,14 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 
 	fileSize, err := file.Stat()
 	if err != nil {
-		sugar.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
+		sugar.Errorw("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
 
 	progressLogger := logUploadProgress(file, fileSize.Size(), sugar)
 	uploadState := &UploadState{}
 	if err := chunkFileUpload(file, encoder, progressLogger, uploadState, sugar); err != nil {
-		sugar.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
+		sugar.Errorw("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
 
