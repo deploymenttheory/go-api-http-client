@@ -3,7 +3,6 @@ package httpclient
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -123,12 +122,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	// Debugging
 	c.Sugar.Debug("LOGHERE")
-	jsonData, err := json.MarshalIndent(req, "", "	")
-	if err != nil {
-		c.Sugar.Debugf("error marshalling: %v", err)
-	} else {
-		c.Sugar.Debug(string(jsonData))
-	}
+	c.Sugar.Debugf("%+v", req)
 
 	resp, requestErr := c.http.Do(req)
 	duration := time.Since(startTime)
