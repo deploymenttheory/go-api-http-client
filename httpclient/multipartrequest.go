@@ -78,7 +78,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	if c.config.CustomTimeout > 0 {
 		ctx, cancel = context.WithTimeout(context.Background(), c.config.CustomTimeout)
-		c.Sugar.Info("Using timeout context for multipart request", zap.Duration("custom_timeout_seconds", c.config.CustomTimeout))
+		c.Sugar.Infow("Using timeout context for multipart request", zap.Duration("custom_timeout_seconds", c.config.CustomTimeout))
 	} else {
 		ctx = context.Background()
 		cancel = func() {}
@@ -94,40 +94,41 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		var err error
 		body, contentType, err = createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, c.Sugar)
 		if err != nil {
-			c.Sugar.Error("Failed to create streaming multipart request body", zap.Error(err))
+			c.Sugar.Errorw("Failed to create streaming multipart request body", zap.Error(err))
 		} else {
-			c.Sugar.Info("Successfully created streaming multipart request body", zap.String("content_type", contentType))
+			c.Sugar.Infow("Successfully created streaming multipart request body", zap.String("content_type", contentType))
 		}
 		return err
 	}
 
 	if err := createBody(); err != nil {
-		c.Sugar.Error("Failed to create streaming multipart request body", zap.Error(err))
+		c.Sugar.Errorw("Failed to create streaming multipart request body", zap.Error(err))
 		return nil, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
-		c.Sugar.Error("Failed to create HTTP request", zap.Error(err))
+		c.Sugar.Errorw("Failed to create HTTP request", zap.Error(err))
 		return nil, err
 	}
 
-	c.Sugar.Info("Created HTTP Multipart request", zap.String("method", method), zap.String("url", url), zap.String("content_type", contentType))
+	c.Sugar.Infow("Created HTTP Multipart request", zap.String("method", method), zap.String("url", url), zap.String("content_type", contentType))
 
 	(*c.Integration).PrepRequestParamsAndAuth(req)
 
 	req.Header.Set("Content-Type", contentType)
 
 	startTime := time.Now()
+
 	resp, requestErr := c.http.Do(req)
 	duration := time.Since(startTime)
 
 	if requestErr != nil {
-		c.Sugar.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(requestErr))
+		c.Sugar.Errorw("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(requestErr))
 		return nil, requestErr
 	}
 
-	c.Sugar.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Duration("duration", duration))
+	c.Sugar.Debugw("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Duration("duration", duration))
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
@@ -164,18 +165,18 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 	go func() {
 		defer func() {
 			if err := writer.Close(); err != nil {
-				sugar.Error("Failed to close multipart writer", zap.Error(err))
+				sugar.Errorw("Failed to close multipart writer", zap.Error(err))
 			}
 			if err := pw.Close(); err != nil {
-				sugar.Error("Failed to close pipe writer", zap.Error(err))
+				sugar.Errorw("Failed to close pipe writer", zap.Error(err))
 			}
 		}()
 
 		for fieldName, filePaths := range files {
 			for _, filePath := range filePaths {
-				sugar.Debug("Adding file part", zap.String("field_name", fieldName), zap.String("file_path", filePath))
+				sugar.Debugw("Adding file part", zap.String("field_name", fieldName), zap.String("file_path", filePath))
 				if err := addFilePart(writer, fieldName, filePath, fileContentTypes, formDataPartHeaders, sugar); err != nil {
-					sugar.Error("Failed to add file part", zap.Error(err))
+					sugar.Errorw("Failed to add file part", zap.Error(err))
 					pw.CloseWithError(err)
 					return
 				}
@@ -183,9 +184,9 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 		}
 
 		for key, val := range formDataFields {
-			sugar.Debug("Adding form field", zap.String("field_name", key), zap.String("field_value", val))
+			sugar.Debugw("Adding form field", zap.String("field_name", key), zap.String("field_value", val))
 			if err := addFormField(writer, key, val, sugar); err != nil {
-				sugar.Error("Failed to add form field", zap.Error(err))
+				sugar.Errorw("Failed to add form field", zap.Error(err))
 				pw.CloseWithError(err)
 				return
 			}
@@ -214,7 +215,7 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, sugar *zap.SugaredLogger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		sugar.Error("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
+		sugar.Errorw("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
 	defer file.Close()
@@ -229,7 +230,7 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 
 	part, err := writer.CreatePart(header)
 	if err != nil {
-		sugar.Error("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
+		sugar.Errorw("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
 		return err
 	}
 
@@ -238,14 +239,14 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 
 	fileSize, err := file.Stat()
 	if err != nil {
-		sugar.Error("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
+		sugar.Errorw("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
 
 	progressLogger := logUploadProgress(file, fileSize.Size(), sugar)
 	uploadState := &UploadState{}
 	if err := chunkFileUpload(file, encoder, progressLogger, uploadState, sugar); err != nil {
-		sugar.Error("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
+		sugar.Errorw("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
 		return err
 	}
 
@@ -267,11 +268,11 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 func addFormField(writer *multipart.Writer, key, val string, sugar *zap.SugaredLogger) error {
 	fieldWriter, err := writer.CreateFormField(key)
 	if err != nil {
-		sugar.Error("Failed to create form field", zap.String("key", key), zap.Error(err))
+		sugar.Errorw("Failed to create form field", zap.String("key", key), zap.Error(err))
 		return err
 	}
 	if _, err := fieldWriter.Write([]byte(val)); err != nil {
-		sugar.Error("Failed to write form field", zap.String("key", key), zap.Error(err))
+		sugar.Errorw("Failed to write form field", zap.String("key", key), zap.Error(err))
 		return err
 	}
 	return nil
@@ -362,7 +363,7 @@ func chunkFileUpload(file *os.File, writer io.Writer, updateProgress func(int64)
 
 		if chunkWritten >= chunkSize {
 			currentChunk++
-			sugar.Debug("File Upload Chunk Sent",
+			sugar.Debugw("File Upload Chunk Sent",
 				zap.String("file_name", fileName),
 				zap.Int64("chunk_number", currentChunk),
 				zap.Int64("total_chunks", totalChunks),
@@ -375,7 +376,7 @@ func chunkFileUpload(file *os.File, writer io.Writer, updateProgress func(int64)
 	// sugar any remaining bytes that were written but didn't reach the sugar threshold
 	if chunkWritten > 0 {
 		currentChunk++
-		sugar.Debug("Final Upload Chunk Sent",
+		sugar.Debugw("Final Upload Chunk Sent",
 			zap.String("file_name", fileName),
 			zap.Int64("chunk_number", currentChunk),
 			zap.Int64("total_chunks", totalChunks),
@@ -411,7 +412,7 @@ func logUploadProgress(file *os.File, fileSize int64, sugar *zap.SugaredLogger) 
 		if percentage >= lastLoggedPercentage+logInterval {
 			elapsedTime := time.Since(startTime)
 
-			sugar.Info("Upload progress",
+			sugar.Infow("Upload progress",
 				zap.String("file_name", fileName),
 				zap.Float64("uploaded_MB's", float64(uploaded)/1048576), // sugar in MB (1024 * 1024)
 				zap.Float64("total_filesize_in_MB", float64(fileSize)/1048576),
