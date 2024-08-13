@@ -122,9 +122,13 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	startTime := time.Now()
 
 	// Debugging
-	jsonData, _ := json.MarshalIndent(req, "", "	")
 	c.Sugar.Debug("LOGHERE")
-	c.Sugar.Debug(string(jsonData))
+	jsonData, err := json.MarshalIndent(req, "", "	")
+	if err != nil {
+		c.Sugar.Debugf("error marshalling: %v", err)
+	} else {
+		c.Sugar.Debug(string(jsonData))
+	}
 
 	resp, requestErr := c.http.Do(req)
 	duration := time.Since(startTime)
