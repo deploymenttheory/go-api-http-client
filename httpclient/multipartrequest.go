@@ -122,7 +122,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	// Debugging
 	c.Sugar.Debug("LOGHERE")
-	c.Sugar.Debugf("%+v", req)
+	c.Sugar.Debugf("%+v", req.Header.Get("Content-Type"))
 
 	resp, requestErr := c.http.Do(req)
 	duration := time.Since(startTime)
