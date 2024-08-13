@@ -120,6 +120,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 
 	startTime := time.Now()
 
+	req.Header.Add("Content-Type", "image/png")
 	// Debugging
 	c.Sugar.Debug("LOGHERE")
 	c.Sugar.Debugf("%+v", req.Header.Get("Content-Type"))
