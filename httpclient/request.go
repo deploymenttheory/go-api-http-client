@@ -284,7 +284,7 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body inte
 
 	c.CheckDeprecationHeader(resp)
 
-	c.Sugar.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode))
+	c.Sugar.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Any("raw_response", resp))
 
 	time.Sleep(c.config.MandatoryRequestDelay)
 
