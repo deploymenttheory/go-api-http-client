@@ -6,7 +6,7 @@ require (
 	github.com/antchfx/xmlquery v1.4.1
 	github.com/google/uuid v1.6.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/net v0.29.0
+	golang.org/x/net v0.30.0
 )
 
 require (
@@ -14,5 +14,5 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
+	golang.org/x/text v0.19.0 // indirect
 )
