@@ -428,10 +428,16 @@ func logUploadProgress(file *os.File, fileSize int64, sugar *zap.SugaredLogger) 
 // This is designed for APIs that expect a very specific multipart format, where the payload
 // needs to be constructed manually rather than using the standard multipart writer.
 func (c *Client) DoImageMultiPartUpload(method, endpoint string, fileName string, base64Data string, customBoundary string, out interface{}) (*http.Response, error) {
-	if method != http.MethodPost && method != http.MethodPut {
-		c.Sugar.Error("HTTP method not supported for multipart request", zap.String("method", method))
-		return nil, fmt.Errorf("unsupported HTTP method: %s", method)
-	}
+	c.Sugar.Infow("Starting DoImageMultiPartUpload",
+		zap.String("method", method),
+		zap.String("endpoint", endpoint),
+		zap.String("fileName", fileName),
+		zap.String("originalBoundary", customBoundary))
+
+	// Remove any leading hyphens from the boundary when setting in header
+	cleanBoundary := strings.TrimPrefix(customBoundary, "-----")
+	c.Sugar.Debugw("Processed boundary",
+		zap.String("cleanBoundary", cleanBoundary))
 
 	// Format the multipart payload with the specified boundary
 	payload := fmt.Sprintf("%s\r\n"+
@@ -445,24 +451,55 @@ func (c *Client) DoImageMultiPartUpload(method, endpoint string, fileName string
 		base64Data,
 		customBoundary)
 
+	// Log the payload structure (not the full base64 data)
+	payloadPreview := fmt.Sprintf("%s\r\n"+
+		"Content-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\n"+
+		"Content-Type: image/png\r\n\r\n"+
+		"data:image/png;name=%s;base64,[BASE64_DATA_LENGTH: %d]\r\n"+
+		"%s--",
+		customBoundary,
+		fileName,
+		fileName,
+		len(base64Data),
+		customBoundary)
+
+	c.Sugar.Debugw("Constructed payload",
+		zap.String("payloadStructure", payloadPreview),
+		zap.Int("totalPayloadLength", len(payload)))
+
 	url := (*c.Integration).GetFQDN() + endpoint
+	c.Sugar.Debugw("Constructed URL", zap.String("fullURL", url))
 
 	// Create the request with the formatted payload
 	req, err := http.NewRequest(method, url, strings.NewReader(payload))
 	if err != nil {
-		c.Sugar.Errorw("Failed to create request", zap.Error(err))
+		c.Sugar.Errorw("Failed to create request",
+			zap.Error(err),
+			zap.String("method", method),
+			zap.String("url", url))
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
+	// Set headers with clean boundary
+	contentTypeHeader := fmt.Sprintf("multipart/form-data; boundary=---%s", cleanBoundary)
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", strings.TrimPrefix(customBoundary, "---")))
+	req.Header.Add("Content-Type", contentTypeHeader)
+
+	c.Sugar.Debugw("Request headers before auth",
+		zap.Any("headers", req.Header),
+		zap.String("contentType", contentTypeHeader))
 
 	(*c.Integration).PrepRequestParamsAndAuth(req)
+
+	c.Sugar.Debugw("Request headers after auth",
+		zap.Any("headers", req.Header))
 
 	c.Sugar.Infow("Sending custom multipart request",
 		zap.String("method", method),
 		zap.String("url", url),
-		zap.String("filename", fileName))
+		zap.String("filename", fileName),
+		zap.String("contentType", req.Header.Get("Content-Type")),
+		zap.String("accept", req.Header.Get("Accept")))
 
 	startTime := time.Now()
 	resp, err := c.http.Do(req)
@@ -472,7 +509,8 @@ func (c *Client) DoImageMultiPartUpload(method, endpoint string, fileName string
 		c.Sugar.Errorw("Failed to send request",
 			zap.String("method", method),
 			zap.String("endpoint", endpoint),
-			zap.Error(err))
+			zap.Error(err),
+			zap.Duration("requestDuration", duration))
 		return nil, fmt.Errorf("failed to send request: %v", err)
 	}
 
@@ -482,7 +520,12 @@ func (c *Client) DoImageMultiPartUpload(method, endpoint string, fileName string
 		zap.Int("status_code", resp.StatusCode),
 		zap.Duration("duration", duration))
 
+	// Log response headers
+	c.Sugar.Debugw("Response headers",
+		zap.Any("headers", resp.Header))
+
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		c.Sugar.Info("Request succeeded, processing response")
 		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
 	}
 
