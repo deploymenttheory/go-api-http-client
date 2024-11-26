@@ -1,6 +1,7 @@
 package httpclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -432,108 +434,101 @@ func (c *Client) DoImageMultiPartUpload(method, endpoint string, fileName string
 		zap.String("method", method),
 		zap.String("endpoint", endpoint),
 		zap.String("fileName", fileName),
-		zap.String("originalBoundary", customBoundary))
+		zap.String("boundary", customBoundary))
 
-	// Remove any leading hyphens from the boundary when setting in header
-	cleanBoundary := strings.TrimPrefix(customBoundary, "-----")
-	c.Sugar.Debugw("Processed boundary",
-		zap.String("cleanBoundary", cleanBoundary))
+	// URL encode the filename for both the Content-Disposition and data prefix
+	encodedFileName := url.QueryEscape(fileName)
+	c.Sugar.Debugw("URL encoded filename", zap.String("encodedFileName", encodedFileName))
 
-	// Format the multipart payload with the specified boundary
+	// Construct payload exactly like the example
 	payload := fmt.Sprintf("%s\r\n"+
 		"Content-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\n"+
 		"Content-Type: image/png\r\n\r\n"+
 		"data:image/png;name=%s;base64,%s\r\n"+
-		"%s--",
+		"%s-",
 		customBoundary,
-		fileName,
-		fileName,
+		encodedFileName,
+		encodedFileName,
 		base64Data,
 		customBoundary)
 
-	// Log the payload structure (not the full base64 data)
-	payloadPreview := fmt.Sprintf("%s\r\n"+
-		"Content-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\n"+
-		"Content-Type: image/png\r\n\r\n"+
-		"data:image/png;name=%s;base64,[BASE64_DATA_LENGTH: %d]\r\n"+
-		"%s--",
-		customBoundary,
-		fileName,
-		fileName,
-		len(base64Data),
-		customBoundary)
+	// Create truncated version of payload for logging
+	truncatedPayload := payload
+	if len(base64Data) > 100 {
+		// Find the position of base64 data in the payload
+		base64Start := strings.Index(payload, ";base64,") + 8
+		if base64Start > 0 {
+			truncatedPayload = payload[:base64Start] + "[BASE64_DATA_LENGTH: " +
+				fmt.Sprintf("%d", len(base64Data)) + "]\r\n" +
+				customBoundary + "-"
+		}
+	}
 
-	c.Sugar.Debugw("Constructed payload",
-		zap.String("payloadStructure", payloadPreview),
-		zap.Int("totalPayloadLength", len(payload)))
+	c.Sugar.Debugw("Constructed request payload",
+		zap.String("payload", truncatedPayload))
 
 	url := (*c.Integration).GetFQDN() + endpoint
-	c.Sugar.Debugw("Constructed URL", zap.String("fullURL", url))
+	c.Sugar.Debugw("Full request URL", zap.String("url", url))
 
-	// Create the request with the formatted payload
+	// Create request with string payload
 	req, err := http.NewRequest(method, url, strings.NewReader(payload))
 	if err != nil {
-		c.Sugar.Errorw("Failed to create request",
-			zap.Error(err),
-			zap.String("method", method),
-			zap.String("url", url))
+		c.Sugar.Errorw("Failed to create request", zap.Error(err))
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
-	// Clear existing headers and set only what we need
-	req.Header = http.Header{}
-	contentTypeHeader := fmt.Sprintf("multipart/form-data; boundary=---%s", cleanBoundary)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", contentTypeHeader)
+	// Set headers exactly as in example
+	req.Header.Set("accept", "application/json")
+	req.Header.Set("content-type", fmt.Sprintf("multipart/form-data; boundary=%s", strings.TrimPrefix(customBoundary, "---")))
 
-	c.Sugar.Debugw("Request headers before auth",
+	c.Sugar.Debugw("Initial headers",
 		zap.Any("headers", req.Header),
-		zap.String("contentType", contentTypeHeader))
+		zap.String("accept", req.Header.Get("accept")),
+		zap.String("content-type", req.Header.Get("content-type")))
 
-	preservedAccept := req.Header.Get("Accept")
-	preservedContentType := req.Header.Get("Content-Type")
+	// Store initial headers
+	contentType := req.Header.Get("content-type")
+	accept := req.Header.Get("accept")
 
+	// Apply auth
 	(*c.Integration).PrepRequestParamsAndAuth(req)
 
-	// Restore our specific headers
-	req.Header.Set("Accept", preservedAccept)
-	req.Header.Set("Content-Type", preservedContentType)
+	// Restore and log final headers
+	req.Header.Set("accept", accept)
+	req.Header.Set("content-type", contentType)
 
-	c.Sugar.Debugw("Request headers after auth and restoration",
-		zap.Any("headers", req.Header))
+	c.Sugar.Infow("Final request headers",
+		zap.Any("headers", req.Header),
+		zap.String("accept", req.Header.Get("accept")),
+		zap.String("content-type", req.Header.Get("content-type")))
 
-	c.Sugar.Infow("Sending custom multipart request",
-		zap.String("method", method),
-		zap.String("url", url),
-		zap.String("filename", fileName),
-		zap.String("contentType", req.Header.Get("Content-Type")),
-		zap.String("accept", req.Header.Get("Accept")))
-
-	startTime := time.Now()
+	// Send the request
 	resp, err := c.http.Do(req)
-	duration := time.Since(startTime)
-
 	if err != nil {
-		c.Sugar.Errorw("Failed to send request",
-			zap.String("method", method),
-			zap.String("endpoint", endpoint),
-			zap.Error(err),
-			zap.Duration("requestDuration", duration))
 		return nil, fmt.Errorf("failed to send request: %v", err)
 	}
 
-	c.Sugar.Debugw("Request sent successfully",
-		zap.String("method", method),
-		zap.String("endpoint", endpoint),
-		zap.Int("status_code", resp.StatusCode),
-		zap.Duration("duration", duration))
+	c.Sugar.Debugw("Response received",
+		zap.Int("statusCode", resp.StatusCode),
+		zap.Any("responseHeaders", resp.Header))
 
-	c.Sugar.Debugw("Response headers",
-		zap.Any("headers", resp.Header))
-
+	// Handle response
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		c.Sugar.Info("Request succeeded, processing response")
 		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
+	}
+
+	// For error responses, try to log the response body
+	if resp.Body != nil {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			c.Sugar.Warnw("Failed to read error response body", zap.Error(err))
+		} else {
+			c.Sugar.Errorw("Request failed",
+				zap.Int("statusCode", resp.StatusCode),
+				zap.String("responseBody", string(bodyBytes)))
+			// Create new reader with same data for error handler
+			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
 	}
 
 	return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
