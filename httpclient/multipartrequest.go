@@ -10,6 +10,7 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -421,4 +422,69 @@ func logUploadProgress(file *os.File, fileSize int64, sugar *zap.SugaredLogger) 
 			lastLoggedPercentage = percentage
 		}
 	}
+}
+
+// DoImageMultiPartUpload performs a multipart request with a specifically formatted payload.
+// This is designed for APIs that expect a very specific multipart format, where the payload
+// needs to be constructed manually rather than using the standard multipart writer.
+func (c *Client) DoImageMultiPartUpload(method, endpoint string, fileName string, base64Data string, customBoundary string, out interface{}) (*http.Response, error) {
+	if method != http.MethodPost && method != http.MethodPut {
+		c.Sugar.Error("HTTP method not supported for multipart request", zap.String("method", method))
+		return nil, fmt.Errorf("unsupported HTTP method: %s", method)
+	}
+
+	// Format the multipart payload with the specified boundary
+	payload := fmt.Sprintf("%s\r\n"+
+		"Content-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\n"+
+		"Content-Type: image/png\r\n\r\n"+
+		"data:image/png;name=%s;base64,%s\r\n"+
+		"%s--",
+		customBoundary,
+		fileName,
+		fileName,
+		base64Data,
+		customBoundary)
+
+	url := (*c.Integration).GetFQDN() + endpoint
+
+	// Create the request with the formatted payload
+	req, err := http.NewRequest(method, url, strings.NewReader(payload))
+	if err != nil {
+		c.Sugar.Errorw("Failed to create request", zap.Error(err))
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", strings.TrimPrefix(customBoundary, "---")))
+
+	(*c.Integration).PrepRequestParamsAndAuth(req)
+
+	c.Sugar.Infow("Sending custom multipart request",
+		zap.String("method", method),
+		zap.String("url", url),
+		zap.String("filename", fileName))
+
+	startTime := time.Now()
+	resp, err := c.http.Do(req)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		c.Sugar.Errorw("Failed to send request",
+			zap.String("method", method),
+			zap.String("endpoint", endpoint),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to send request: %v", err)
+	}
+
+	c.Sugar.Debugw("Request sent successfully",
+		zap.String("method", method),
+		zap.String("endpoint", endpoint),
+		zap.Int("status_code", resp.StatusCode),
+		zap.Duration("duration", duration))
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
+	}
+
+	return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
