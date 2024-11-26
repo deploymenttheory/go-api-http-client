@@ -480,18 +480,26 @@ func (c *Client) DoImageMultiPartUpload(method, endpoint string, fileName string
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
-	// Set headers with clean boundary
+	// Clear existing headers and set only what we need
+	req.Header = http.Header{}
 	contentTypeHeader := fmt.Sprintf("multipart/form-data; boundary=---%s", cleanBoundary)
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", contentTypeHeader)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", contentTypeHeader)
 
 	c.Sugar.Debugw("Request headers before auth",
 		zap.Any("headers", req.Header),
 		zap.String("contentType", contentTypeHeader))
 
+	preservedAccept := req.Header.Get("Accept")
+	preservedContentType := req.Header.Get("Content-Type")
+
 	(*c.Integration).PrepRequestParamsAndAuth(req)
 
-	c.Sugar.Debugw("Request headers after auth",
+	// Restore our specific headers
+	req.Header.Set("Accept", preservedAccept)
+	req.Header.Set("Content-Type", preservedContentType)
+
+	c.Sugar.Debugw("Request headers after auth and restoration",
 		zap.Any("headers", req.Header))
 
 	c.Sugar.Infow("Sending custom multipart request",
@@ -520,7 +528,6 @@ func (c *Client) DoImageMultiPartUpload(method, endpoint string, fileName string
 		zap.Int("status_code", resp.StatusCode),
 		zap.Duration("duration", duration))
 
-	// Log response headers
 	c.Sugar.Debugw("Response headers",
 		zap.Any("headers", resp.Header))
 
