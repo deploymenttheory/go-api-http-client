@@ -1,7 +1,6 @@
 package httpclient
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -9,10 +8,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -307,88 +304,6 @@ func addFormField(writer *multipart.Writer, key, val string, sugar *zap.SugaredL
 	return nil
 }
 
-// addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
-// This function opens the specified file, sets the appropriate content type and headers, and adds it to the multipart writer.
-// Parameters:
-//   - writer: The multipart writer used to construct the multipart request body.
-//   - fieldName: The field name for the file part.
-//   - filePath: The path to the file to be included in the request.
-//   - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
-//     content type (e.g., "image/jpeg").
-//   - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
-//     and the value is an http.Header containing the headers for that part.
-//   - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
-//     and errors encountered during the addition of the file part.
-//
-// Returns:
-//   - error: An error object indicating failure during the addition of the file part. This could be due to issues such as
-//     file reading errors or multipart writer errors.
-// func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, sugar *zap.SugaredLogger) error {
-// 	file, err := os.Open(filePath)
-// 	if err != nil {
-// 		sugar.Errorw("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
-// 		return err
-// 	}
-// 	defer file.Close()
-
-// 	// Default fileContentType
-// 	contentType := "application/octet-stream"
-// 	if ct, ok := fileContentTypes[fieldName]; ok {
-// 		contentType = ct
-// 	}
-
-// 	header := setFormDataPartHeader(fieldName, filepath.Base(filePath), contentType, formDataPartHeaders[fieldName])
-
-// 	part, err := writer.CreatePart(header)
-// 	if err != nil {
-// 		sugar.Errorw("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
-// 		return err
-// 	}
-
-// 	encoder := base64.NewEncoder(base64.StdEncoding, part)
-// 	defer encoder.Close()
-
-// 	fileSize, err := file.Stat()
-// 	if err != nil {
-// 		sugar.Errorw("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
-// 		return err
-// 	}
-
-// 	progressLogger := logUploadProgress(file, fileSize.Size(), sugar)
-// 	uploadState := &UploadState{}
-// 	if err := chunkFileUpload(file, encoder, progressLogger, uploadState, sugar); err != nil {
-// 		sugar.Errorw("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
-// setFormDataPartHeader creates a textproto.MIMEHeader for a form data field with the provided field name, file name, content type, and custom headers.
-// This function constructs the MIME headers for a multipart form data part, including the content disposition, content type,
-// and any custom headers specified.
-// Parameters:
-//   - fieldname: The name of the form field.
-//   - filename: The name of the file being uploaded (if applicable).
-//   - contentType: The content type of the form data part (e.g., "image/jpeg").
-//   - customHeaders: A map of custom headers to be added to the form data part. The key is the header name and the value is the
-//     header value.
-//
-// Returns:
-// - textproto.MIMEHeader: The constructed MIME header for the form data part.
-// func setFormDataPartHeader(fieldname, filename, contentType string, customHeaders http.Header) textproto.MIMEHeader {
-// 	header := textproto.MIMEHeader{}
-// 	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldname, filename))
-// 	header.Set("Content-Type", contentType)
-// 	header.Set("Content-Transfer-Encoding", "base64")
-// 	for key, values := range customHeaders {
-// 		for _, value := range values {
-// 			header.Add(key, value)
-// 		}
-// 	}
-// 	return header
-// }
-
 // chunkFileUpload reads the file upload into chunks and writes it to the writer.
 // This function reads the file in chunks and writes it to the provided writer, allowing for progress logging during the upload.
 // The chunk size is set to 8192 KB (8 MB) by default. This is a common chunk size used for file uploads to cloud storage services.
@@ -507,112 +422,4 @@ func logUploadProgress(file *os.File, fileSize int64, sugar *zap.SugaredLogger) 
 			lastLoggedPercentage = percentage
 		}
 	}
-}
-
-// DoImageMultiPartUpload performs a multipart request with a specifically formatted payload.
-// This is designed for APIs that expect a very specific multipart format, where the payload
-// needs to be constructed manually rather than using the standard multipart writer.
-func (c *Client) DoImageMultiPartUpload(method, endpoint string, fileName string, base64Data string, customBoundary string, out interface{}) (*http.Response, error) {
-	c.Sugar.Infow("Starting DoImageMultiPartUpload",
-		zap.String("method", method),
-		zap.String("endpoint", endpoint),
-		zap.String("fileName", fileName),
-		zap.String("boundary", customBoundary))
-
-	// URL encode the filename for both the Content-Disposition and data prefix
-	encodedFileName := url.QueryEscape(fileName)
-	c.Sugar.Debugw("URL encoded filename", zap.String("encodedFileName", encodedFileName))
-
-	// Construct payload exactly like the example
-	payload := fmt.Sprintf("%s\r\n"+
-		"Content-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\n"+
-		"Content-Type: image/png\r\n\r\n"+
-		"data:image/png;name=%s;base64,%s\r\n"+
-		"%s-",
-		customBoundary,
-		encodedFileName,
-		encodedFileName,
-		base64Data,
-		customBoundary)
-
-	// Create truncated version of payload for logging
-	truncatedPayload := payload
-	if len(base64Data) > 100 {
-		// Find the position of base64 data in the payload
-		base64Start := strings.Index(payload, ";base64,") + 8
-		if base64Start > 0 {
-			truncatedPayload = payload[:base64Start] + "[BASE64_DATA_LENGTH: " +
-				fmt.Sprintf("%d", len(base64Data)) + "]\r\n" +
-				customBoundary + "-"
-		}
-	}
-
-	c.Sugar.Debugw("Constructed request payload",
-		zap.String("payload", truncatedPayload))
-
-	url := (*c.Integration).GetFQDN() + endpoint
-	c.Sugar.Debugw("Full request URL", zap.String("url", url))
-
-	// Create request with string payload
-	req, err := http.NewRequest(method, url, strings.NewReader(payload))
-	if err != nil {
-		c.Sugar.Errorw("Failed to create request", zap.Error(err))
-		return nil, fmt.Errorf("failed to create request: %v", err)
-	}
-
-	// Set headers exactly as in example
-	req.Header.Set("accept", "application/json")
-	req.Header.Set("content-type", fmt.Sprintf("multipart/form-data; boundary=%s", strings.TrimPrefix(customBoundary, "---")))
-
-	c.Sugar.Debugw("Initial headers",
-		zap.Any("headers", req.Header),
-		zap.String("accept", req.Header.Get("accept")),
-		zap.String("content-type", req.Header.Get("content-type")))
-
-	// Store initial headers
-	contentType := req.Header.Get("content-type")
-	accept := req.Header.Get("accept")
-
-	// Apply auth
-	(*c.Integration).PrepRequestParamsAndAuth(req)
-
-	// Restore and log final headers
-	req.Header.Set("accept", accept)
-	req.Header.Set("content-type", contentType)
-
-	c.Sugar.Infow("Final request headers",
-		zap.Any("headers", req.Header),
-		zap.String("accept", req.Header.Get("accept")),
-		zap.String("content-type", req.Header.Get("content-type")))
-
-	// Send the request
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %v", err)
-	}
-
-	c.Sugar.Debugw("Response received",
-		zap.Int("statusCode", resp.StatusCode),
-		zap.Any("responseHeaders", resp.Header))
-
-	// Handle response
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
-	}
-
-	// For error responses, try to log the response body
-	if resp.Body != nil {
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			c.Sugar.Warnw("Failed to read error response body", zap.Error(err))
-		} else {
-			c.Sugar.Errorw("Request failed",
-				zap.Int("statusCode", resp.StatusCode),
-				zap.String("responseBody", string(bodyBytes)))
-			// Create new reader with same data for error handler
-			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-		}
-	}
-
-	return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
