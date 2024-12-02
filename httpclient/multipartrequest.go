@@ -67,7 +67,11 @@ type UploadState struct {
 //	}
 //
 // // Use `result` or `resp` as needed
-func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, out interface{}) (*http.Response, error) {
+func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, encodingType string, out interface{}) (*http.Response, error) {
+	if encodingType != "raw" && encodingType != "base64" {
+		c.Sugar.Errorw("Invalid encoding type specified", zap.String("encodingType", encodingType))
+		return nil, fmt.Errorf("invalid encoding type: %s. Must be 'raw' or 'base64'", encodingType)
+	}
 
 	if method != http.MethodPost && method != http.MethodPut {
 		c.Sugar.Error("HTTP method not supported for multipart request", zap.String("method", method))
@@ -92,20 +96,21 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	var body io.Reader
 	var contentType string
 
-	// Create multipart body in a function to ensure it runs again on retry
 	createBody := func() error {
 		var err error
-		body, contentType, err = createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, c.Sugar)
+		body, contentType, err = createStreamingMultipartRequestBody(files, formDataFields, fileContentTypes, formDataPartHeaders, encodingType, c.Sugar)
 		if err != nil {
 			c.Sugar.Errorw("Failed to create streaming multipart request body", zap.Error(err))
 		} else {
-			c.Sugar.Infow("Successfully created streaming multipart request body", zap.String("content_type", contentType))
+			c.Sugar.Infow("Successfully created streaming multipart request body",
+				zap.String("content_type", contentType),
+				zap.String("encoding", encodingType))
 		}
 		return err
 	}
 
 	if err := createBody(); err != nil {
-		c.Sugar.Errorw("Failed to create streaming multipart request body", zap.Error(err))
+		c.Sugar.Errorw("Failed to create multipart request body", zap.Error(err))
 		return nil, err
 	}
 
@@ -115,23 +120,33 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 		return nil, err
 	}
 
-	c.Sugar.Infow("Created HTTP Multipart request", zap.String("method", method), zap.String("url", url), zap.String("content_type", contentType))
+	c.Sugar.Infow("Created HTTP Multipart request",
+		zap.String("method", method),
+		zap.String("url", url),
+		zap.String("content_type", contentType),
+		zap.String("encoding", encodingType))
 
 	(*c.Integration).PrepRequestParamsAndAuth(req)
-
 	req.Header.Set("Content-Type", contentType)
 
 	startTime := time.Now()
 
-	resp, requestErr := c.http.Do(req)
+	resp, err := c.http.Do(req)
 	duration := time.Since(startTime)
 
-	if requestErr != nil {
-		c.Sugar.Errorw("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(requestErr))
-		return nil, requestErr
+	if err != nil {
+		c.Sugar.Errorw("Failed to send request",
+			zap.String("method", method),
+			zap.String("endpoint", endpoint),
+			zap.Error(err))
+		return nil, err
 	}
 
-	c.Sugar.Debugw("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Duration("duration", duration))
+	c.Sugar.Debugw("Request sent successfully",
+		zap.String("method", method),
+		zap.String("endpoint", endpoint),
+		zap.Int("status_code", resp.StatusCode),
+		zap.Duration("duration", duration))
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
@@ -161,7 +176,7 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 //   - string: The content type of the multipart request body. This includes the boundary string used by the multipart writer.
 //   - error: An error object indicating failure during the construction of the multipart request body. This could be due to issues
 //     such as file reading errors or multipart writer errors.
-func createStreamingMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, sugar *zap.SugaredLogger) (io.Reader, string, error) {
+func createStreamingMultipartRequestBody(files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, encodingType string, sugar *zap.SugaredLogger) (io.Reader, string, error) {
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
 
@@ -177,8 +192,11 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 
 		for fieldName, filePaths := range files {
 			for _, filePath := range filePaths {
-				sugar.Debugw("Adding file part", zap.String("field_name", fieldName), zap.String("file_path", filePath))
-				if err := addFilePart(writer, fieldName, filePath, fileContentTypes, formDataPartHeaders, sugar); err != nil {
+				sugar.Debugw("Adding file part",
+					zap.String("field_name", fieldName),
+					zap.String("file_path", filePath),
+					zap.String("encoding", encodingType))
+				if err := addFilePartWithEncoding(writer, fieldName, filePath, fileContentTypes, formDataPartHeaders, encodingType, sugar); err != nil {
 					sugar.Errorw("Failed to add file part", zap.Error(err))
 					pw.CloseWithError(err)
 					return
@@ -199,23 +217,9 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 	return pr, writer.FormDataContentType(), nil
 }
 
-// addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
-// This function opens the specified file, sets the appropriate content type and headers, and adds it to the multipart writer.
-// Parameters:
-//   - writer: The multipart writer used to construct the multipart request body.
-//   - fieldName: The field name for the file part.
-//   - filePath: The path to the file to be included in the request.
-//   - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
-//     content type (e.g., "image/jpeg").
-//   - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
-//     and the value is an http.Header containing the headers for that part.
-//   - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
-//     and errors encountered during the addition of the file part.
-//
-// Returns:
-//   - error: An error object indicating failure during the addition of the file part. This could be due to issues such as
-//     file reading errors or multipart writer errors.
-func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, sugar *zap.SugaredLogger) error {
+// addFilePartWithEncoding adds a file part to the multipart writer with specified encoding.
+// Supports both raw file content and base64 encoding based on encodingType parameter.
+func addFilePartWithEncoding(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, encodingType string, sugar *zap.SugaredLogger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		sugar.Errorw("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
@@ -223,22 +227,22 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 	}
 	defer file.Close()
 
-	// Default fileContentType
 	contentType := "application/octet-stream"
 	if ct, ok := fileContentTypes[fieldName]; ok {
 		contentType = ct
 	}
 
-	header := setFormDataPartHeader(fieldName, filepath.Base(filePath), contentType, formDataPartHeaders[fieldName])
+	header := createFilePartHeader(fieldName, filePath, contentType, formDataPartHeaders[fieldName], encodingType)
+	sugar.Debugw("Created file part header",
+		zap.String("fieldName", fieldName),
+		zap.String("contentType", contentType),
+		zap.String("encoding", encodingType))
 
 	part, err := writer.CreatePart(header)
 	if err != nil {
 		sugar.Errorw("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
 		return err
 	}
-
-	encoder := base64.NewEncoder(base64.StdEncoding, part)
-	defer encoder.Close()
 
 	fileSize, err := file.Stat()
 	if err != nil {
@@ -248,12 +252,34 @@ func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileConte
 
 	progressLogger := logUploadProgress(file, fileSize.Size(), sugar)
 	uploadState := &UploadState{}
-	if err := chunkFileUpload(file, encoder, progressLogger, uploadState, sugar); err != nil {
-		sugar.Errorw("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
-		return err
+
+	var writeTarget io.Writer = part
+	if encodingType == "base64" {
+		encoder := base64.NewEncoder(base64.StdEncoding, part)
+		defer encoder.Close()
+		writeTarget = encoder
+		sugar.Debugw("Using base64 encoding for file upload", zap.String("fieldName", fieldName))
+	} else {
+		sugar.Debugw("Using raw encoding for file upload", zap.String("fieldName", fieldName))
 	}
 
-	return nil
+	return chunkFileUpload(file, writeTarget, progressLogger, uploadState, sugar)
+}
+
+// createFilePartHeader creates the MIME header for a file part with the specified encoding type.
+func createFilePartHeader(fieldname, filename, contentType string, customHeaders http.Header, encodingType string) textproto.MIMEHeader {
+	header := textproto.MIMEHeader{}
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldname, filepath.Base(filename)))
+	header.Set("Content-Type", contentType)
+	if encodingType == "base64" {
+		header.Set("Content-Transfer-Encoding", "base64")
+	}
+	for key, values := range customHeaders {
+		for _, value := range values {
+			header.Add(key, value)
+		}
+	}
+	return header
 }
 
 // addFormField adds a form field to the multipart writer with the provided key and value.
@@ -281,6 +307,63 @@ func addFormField(writer *multipart.Writer, key, val string, sugar *zap.SugaredL
 	return nil
 }
 
+// addFilePart adds a base64 encoded file part to the multipart writer with the provided field name and file path.
+// This function opens the specified file, sets the appropriate content type and headers, and adds it to the multipart writer.
+// Parameters:
+//   - writer: The multipart writer used to construct the multipart request body.
+//   - fieldName: The field name for the file part.
+//   - filePath: The path to the file to be included in the request.
+//   - fileContentTypes: A map specifying the content type for each file part. The key is the field name and the value is the
+//     content type (e.g., "image/jpeg").
+//   - formDataPartHeaders: A map specifying custom headers for each part of the multipart form data. The key is the field name
+//     and the value is an http.Header containing the headers for that part.
+//   - sugar: An instance of a logger implementing the logger.Logger interface, used to sugar informational messages, warnings,
+//     and errors encountered during the addition of the file part.
+//
+// Returns:
+//   - error: An error object indicating failure during the addition of the file part. This could be due to issues such as
+//     file reading errors or multipart writer errors.
+// func addFilePart(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, sugar *zap.SugaredLogger) error {
+// 	file, err := os.Open(filePath)
+// 	if err != nil {
+// 		sugar.Errorw("Failed to open file", zap.String("filePath", filePath), zap.Error(err))
+// 		return err
+// 	}
+// 	defer file.Close()
+
+// 	// Default fileContentType
+// 	contentType := "application/octet-stream"
+// 	if ct, ok := fileContentTypes[fieldName]; ok {
+// 		contentType = ct
+// 	}
+
+// 	header := setFormDataPartHeader(fieldName, filepath.Base(filePath), contentType, formDataPartHeaders[fieldName])
+
+// 	part, err := writer.CreatePart(header)
+// 	if err != nil {
+// 		sugar.Errorw("Failed to create form file part", zap.String("fieldName", fieldName), zap.Error(err))
+// 		return err
+// 	}
+
+// 	encoder := base64.NewEncoder(base64.StdEncoding, part)
+// 	defer encoder.Close()
+
+// 	fileSize, err := file.Stat()
+// 	if err != nil {
+// 		sugar.Errorw("Failed to get file info", zap.String("filePath", filePath), zap.Error(err))
+// 		return err
+// 	}
+
+// 	progressLogger := logUploadProgress(file, fileSize.Size(), sugar)
+// 	uploadState := &UploadState{}
+// 	if err := chunkFileUpload(file, encoder, progressLogger, uploadState, sugar); err != nil {
+// 		sugar.Errorw("Failed to copy file content", zap.String("filePath", filePath), zap.Error(err))
+// 		return err
+// 	}
+
+// 	return nil
+// }
+
 // setFormDataPartHeader creates a textproto.MIMEHeader for a form data field with the provided field name, file name, content type, and custom headers.
 // This function constructs the MIME headers for a multipart form data part, including the content disposition, content type,
 // and any custom headers specified.
@@ -293,18 +376,18 @@ func addFormField(writer *multipart.Writer, key, val string, sugar *zap.SugaredL
 //
 // Returns:
 // - textproto.MIMEHeader: The constructed MIME header for the form data part.
-func setFormDataPartHeader(fieldname, filename, contentType string, customHeaders http.Header) textproto.MIMEHeader {
-	header := textproto.MIMEHeader{}
-	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldname, filename))
-	header.Set("Content-Type", contentType)
-	header.Set("Content-Transfer-Encoding", "base64")
-	for key, values := range customHeaders {
-		for _, value := range values {
-			header.Add(key, value)
-		}
-	}
-	return header
-}
+// func setFormDataPartHeader(fieldname, filename, contentType string, customHeaders http.Header) textproto.MIMEHeader {
+// 	header := textproto.MIMEHeader{}
+// 	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldname, filename))
+// 	header.Set("Content-Type", contentType)
+// 	header.Set("Content-Transfer-Encoding", "base64")
+// 	for key, values := range customHeaders {
+// 		for _, value := range values {
+// 			header.Add(key, value)
+// 		}
+// 	}
+// 	return header
+// }
 
 // chunkFileUpload reads the file upload into chunks and writes it to the writer.
 // This function reads the file in chunks and writes it to the provided writer, allowing for progress logging during the upload.
