@@ -67,7 +67,7 @@ type UploadState struct {
 func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, encodingType string, out interface{}) (*http.Response, error) {
 	if encodingType != "byte" && encodingType != "base64" {
 		c.Sugar.Errorw("Invalid encoding type specified", zap.String("encodingType", encodingType))
-		return nil, fmt.Errorf("invalid encoding type: %s. Must be 'raw' or 'base64'", encodingType)
+		return nil, fmt.Errorf("invalid encoding type: %s. Must be 'byte' for rawBytes or 'base64' for base64 encoded content", encodingType)
 	}
 
 	if method != http.MethodPost && method != http.MethodPut {
