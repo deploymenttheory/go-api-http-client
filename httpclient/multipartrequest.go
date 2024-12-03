@@ -67,7 +67,7 @@ type UploadState struct {
 func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]string, formDataFields map[string]string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, encodingType string, out interface{}) (*http.Response, error) {
 	if encodingType != "byte" && encodingType != "base64" {
 		c.Sugar.Errorw("Invalid encoding type specified", zap.String("encodingType", encodingType))
-		return nil, fmt.Errorf("invalid encoding type: %s. Must be 'raw' or 'base64'", encodingType)
+		return nil, fmt.Errorf("invalid encoding type: %s. Must be 'byte' for rawBytes or 'base64' for base64 encoded content", encodingType)
 	}
 
 	if method != http.MethodPost && method != http.MethodPut {
@@ -215,7 +215,17 @@ func createStreamingMultipartRequestBody(files map[string][]string, formDataFiel
 }
 
 // addFilePartWithEncoding adds a file part to the multipart writer with specified encoding.
-// Supports both raw file content and base64 encoding based on encodingType parameter.
+// Parameters:
+//   - writer: The multipart writer used to construct the request body
+//   - fieldName: The name of the form field for this file part
+//   - filePath: Path to the file to be uploaded
+//   - fileContentTypes: Map of content types for each file field
+//   - formDataPartHeaders: Map of custom headers for each form field
+//   - encodingType: The encoding to use ('byte' for raw bytes or 'base64' for base64 encoding)
+//   - sugar: Logger for progress and debug information
+//
+// Returns:
+//   - error: Any error encountered during the file part creation or upload process
 func addFilePartWithEncoding(writer *multipart.Writer, fieldName, filePath string, fileContentTypes map[string]string, formDataPartHeaders map[string]http.Header, encodingType string, sugar *zap.SugaredLogger) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -264,6 +274,15 @@ func addFilePartWithEncoding(writer *multipart.Writer, fieldName, filePath strin
 }
 
 // createFilePartHeader creates the MIME header for a file part with the specified encoding type.
+// Parameters:
+//   - fieldname: The name of the form field
+//   - filename: The name of the file being uploaded
+//   - contentType: The content type of the file
+//   - customHeaders: Additional headers to include in the part
+//   - encodingType: The encoding being used ('byte' or 'base64')
+//
+// Returns:
+//   - textproto.MIMEHeader: The constructed MIME header for the file part
 func createFilePartHeader(fieldname, filename, contentType string, customHeaders http.Header, encodingType string) textproto.MIMEHeader {
 	header := textproto.MIMEHeader{}
 	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldname, filepath.Base(filename)))
