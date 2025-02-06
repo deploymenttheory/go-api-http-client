@@ -3,7 +3,7 @@ module github.com/deploymenttheory/go-api-http-client
 go 1.22.4
 
 require (
-	github.com/antchfx/xmlquery v1.4.3
+	github.com/antchfx/xmlquery v1.4.4
 	github.com/google/uuid v1.6.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.34.0
