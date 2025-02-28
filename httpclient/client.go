@@ -79,7 +79,7 @@ type ClientConfig struct {
 	// RetryEligiableRequests when false bypasses any retry logic for a simpler request flow.
 	RetryEligiableRequests bool `json:"retry_eligiable_requests"`
 
-	HTTPExecutor http.Client
+	HTTP http.Client
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
@@ -103,7 +103,7 @@ func (c *ClientConfig) Build() (*Client, error) {
 
 	c.Sugar.Debug("configuration valid")
 
-	httpClient := c.HTTPExecutor
+	httpClient := c.HTTP
 
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {
