@@ -9,40 +9,19 @@ package httpclient
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/cookiejar"
-	"net/url"
 	"time"
 
 	"github.com/deploymenttheory/go-api-http-client/concurrency"
 	"go.uber.org/zap"
 )
 
-// HTTPExecutor is an interface which wraps http.Client to allow mocking.
-type HTTPExecutor interface {
-
-	// Inherited
-	CloseIdleConnections()
-	Do(req *http.Request) (*http.Response, error)
-	Get(url string) (resp *http.Response, err error)
-	Head(url string) (resp *http.Response, err error)
-	Post(url string, contentType string, body io.Reader) (resp *http.Response, err error)
-	PostForm(url string, data url.Values) (resp *http.Response, err error)
-
-	// Additional
-	SetCookieJar(jar http.CookieJar)
-	SetCookies(url *url.URL, cookies []*http.Cookie)
-	SetCustomTimeout(time.Duration)
-	Cookies(*url.URL) []*http.Cookie
-	SetRedirectPolicy(*func(req *http.Request, via []*http.Request) error)
-}
-
 // Master struct/object
 type Client struct {
 	config      *ClientConfig
 	Integration *APIIntegration
-	http        HTTPExecutor
+	http        *http.Client
 	Sugar       *zap.SugaredLogger
 	Concurrency *concurrency.ConcurrencyHandler
 }
@@ -100,7 +79,7 @@ type ClientConfig struct {
 	// RetryEligiableRequests when false bypasses any retry logic for a simpler request flow.
 	RetryEligiableRequests bool `json:"retry_eligiable_requests"`
 
-	HTTPExecutor HTTPExecutor
+	HTTPExecutor http.Client
 }
 
 // BuildClient creates a new HTTP client with the provided configuration.
@@ -131,10 +110,10 @@ func (c *ClientConfig) Build() (*Client, error) {
 		return nil, err
 	}
 
-	httpClient.SetCookieJar(cookieJar)
+	httpClient.Jar = cookieJar
 
 	if c.CustomRedirectPolicy != nil {
-		httpClient.SetRedirectPolicy(c.CustomRedirectPolicy)
+		httpClient.CheckRedirect = *c.CustomRedirectPolicy
 	}
 
 	// TODO refactor concurrency
@@ -150,7 +129,7 @@ func (c *ClientConfig) Build() (*Client, error) {
 
 	client := &Client{
 		Integration: &c.Integration,
-		http:        httpClient,
+		http:        &httpClient,
 		config:      c,
 		Sugar:       c.Sugar,
 		Concurrency: concurrencyHandler,

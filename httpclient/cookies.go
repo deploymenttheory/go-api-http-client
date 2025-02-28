@@ -12,12 +12,12 @@ func (c *Client) loadCustomCookies() error {
 		return err
 	}
 
-	c.http.SetCookies(cookieUrl, c.config.CustomCookies)
+	c.http.Jar.SetCookies(cookieUrl, c.config.CustomCookies)
 
 	if c.config.HideSensitiveData {
 		c.Sugar.Debug("[REDACTED] cookies set successfully")
 	} else {
-		c.Sugar.Debug("custom cookies set: %v", c.http.Cookies(cookieUrl))
+		c.Sugar.Debug("custom cookies set: %v", c.http.Jar.Cookies(cookieUrl))
 	}
 
 	return nil
