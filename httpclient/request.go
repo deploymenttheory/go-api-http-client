@@ -273,7 +273,7 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body inte
 	req = req.WithContext(ctx)
 
 	// TEMPORARY HARD CODED TIMEOUT
-	c.http.Timeout = 3 * time.Second
+	c.http.Timeout = 5 * time.Second
 	////////////////////////////////
 
 	resp, err := c.http.Do(req)
