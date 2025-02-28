@@ -271,6 +271,11 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body inte
 	startTime := time.Now()
 
 	req = req.WithContext(ctx)
+
+	// TEMPORARY HARD CODED TIMEOUT
+	c.http.Timeout = 3 * time.Second
+	////////////////////////////////
+
 	resp, err := c.http.Do(req)
 	if err != nil {
 		c.Sugar.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
