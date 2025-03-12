@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const DefaultTimeout time.Duration = 5 * time.Second
+const DefaultTimeout time.Duration = 10 * time.Second
 
 // Master struct/object
 type Client struct {
@@ -134,8 +134,6 @@ func (c *ClientConfig) Build() (*Client, error) {
 			concurrencyMetrics,
 		)
 	}
-
-
 
 	client := &Client{
 		Integration: &c.Integration,
