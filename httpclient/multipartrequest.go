@@ -80,6 +80,8 @@ func (c *Client) DoMultiPartRequest(method, endpoint string, files map[string][]
 	var ctx context.Context
 	var cancel context.CancelFunc
 
+	c.Sugar.Debugf("TIMEOUT: %v", c.config.CustomTimeout)
+
 	if c.config.CustomTimeout > 0 {
 		ctx, cancel = context.WithTimeout(context.Background(), c.config.CustomTimeout)
 		c.Sugar.Infow("Using timeout context for multipart request", zap.Duration("custom_timeout_seconds", c.config.CustomTimeout))
