@@ -55,7 +55,7 @@ type ClientConfig struct {
 	EnableDynamicRateLimiting bool `json:"enable_dynamic_rate_limiting"`
 
 	// CustomTimeout // TODO also because I don't know.
-	CustomTimeout time.Duration
+	Timeout time.Duration
 
 	// TokenRefreshBufferPeriod is the duration of time before the token expires in which it's deemed
 	// more sensible to replace the token rather then carry on using it.
@@ -107,11 +107,11 @@ func (c *ClientConfig) Build() (*Client, error) {
 
 	httpClient := c.HTTP
 
-	if c.CustomTimeout == 0 {
-		c.CustomTimeout = DefaultTimeout
+	if c.Timeout == 0 {
+		httpClient.Timeout = DefaultTimeout
+	} else {
+		httpClient.Timeout = c.Timeout
 	}
-
-	httpClient.Timeout = c.CustomTimeout
 
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {
