@@ -66,7 +66,7 @@ func LoadConfigFromEnv() (*ClientConfig, error) {
 		MaxRetryAttempts:            getEnvAsInt("MAX_RETRY_ATTEMPTS", DefaultMaxRetryAttempts),
 		MaxConcurrentRequests:       getEnvAsInt("MAX_CONCURRENT_REQUESTS", DefaultMaxConcurrentRequests),
 		EnableDynamicRateLimiting:   getEnvAsBool("ENABLE_DYNAMIC_RATE_LIMITING", DefaultEnableDynamicRateLimiting),
-		CustomTimeout:               getEnvAsDuration("CUSTOM_TIMEOUT", DefaultCustomTimeout),
+		Timeout:                     getEnvAsDuration("CUSTOM_TIMEOUT", DefaultCustomTimeout),
 		TokenRefreshBufferPeriod:    getEnvAsDuration("TOKEN_REFRESH_BUFFER_PERIOD", DefaultTokenRefreshBufferPeriod),
 		TotalRetryDuration:          getEnvAsDuration("TOTAL_RETRY_DURATION", DefaultTotalRetryDuration),
 		EnableConcurrencyManagement: getEnvAsBool("ENABLE_CONCURRENCY_MANAGEMENT", DefaultEnableConcurrencyManagement),
@@ -111,7 +111,7 @@ func (c ClientConfig) validateClientConfig() error {
 		}
 	}
 
-	if c.CustomTimeout.Seconds() < 0 {
+	if c.Timeout.Seconds() < 0 {
 		return errors.New("timeout cannot be less than 0 seconds")
 	}
 
@@ -139,7 +139,7 @@ func (c *ClientConfig) SetDefaultValuesClientConfig() {
 	setDefaultInt(&c.MaxRetryAttempts, DefaultMaxRetryAttempts, 1)
 	setDefaultInt(&c.MaxConcurrentRequests, DefaultMaxConcurrentRequests, 1)
 	setDefaultBool(&c.EnableDynamicRateLimiting, DefaultEnableDynamicRateLimiting)
-	setDefaultDuration(&c.CustomTimeout, DefaultCustomTimeout)
+	setDefaultDuration(&c.Timeout, DefaultCustomTimeout)
 	setDefaultDuration(&c.TokenRefreshBufferPeriod, DefaultTokenRefreshBufferPeriod)
 	setDefaultDuration(&c.TotalRetryDuration, DefaultTotalRetryDuration)
 	setDefaultBool(&c.EnableConcurrencyManagement, DefaultEnableConcurrencyManagement)
