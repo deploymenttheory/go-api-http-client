@@ -1,7 +1,8 @@
 module github.com/deploymenttheory/go-api-http-client
 
-go 1.22.4
-toolchain go1.24.1
+go 1.23.0
+
+toolchain go1.24.2
 
 require (
 	github.com/antchfx/xmlquery v1.4.4
