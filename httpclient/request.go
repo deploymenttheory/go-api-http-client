@@ -259,6 +259,8 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body inte
 	url := (*c.Integration).ConstructURL(endpoint)
 
 	req, err := http.NewRequest(method, url, requestDataBytes)
+	//@TODO: Delete
+	fmt.Print("THIS IS THE LOG PLEASE DELETE ME: &v", req)
 	if err != nil {
 		return nil, err
 	}
