@@ -74,14 +74,15 @@ func HandleAPIErrorResponse(resp *http.Response, sugar *zap.SugaredLogger) *APIE
 
 // parseJSONResponse attempts to parse the JSON error response and update the APIError structure.
 func parseJSONResponse(bodyBytes []byte, apiError *APIError) {
+	apiError.RawResponse = string(bodyBytes)
+
 	if err := json.Unmarshal(bodyBytes, apiError); err != nil {
-		apiError.RawResponse = string(bodyBytes)
 	} else {
 		if apiError.Message == "" {
 			apiError.Message = "An unknown error occurred"
 		}
-
 	}
+
 }
 
 // parseXMLResponse dynamically parses XML error responses and accumulates potential error messages.
