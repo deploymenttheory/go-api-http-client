@@ -17,12 +17,22 @@ import (
 
 // APIError represents an api error response.
 type APIError struct {
-	StatusCode  int      `json:"status_code"`       // HTTP status code
-	Method      string   `json:"method"`            // HTTP method used for the request
-	URL         string   `json:"url"`               // The URL of the HTTP request
+	StatusCode  int      `json:"status_code"` // HTTP status code
+	Method      string   `json:"method"`      // HTTP method used for the request
+	URL         string   `json:"url"`         // The URL of the HTTP request
+	HTTPStatus  int      `json:"httpStatus,omitempty"`
+	Errors      []Errors `json:"errors,omitempty"`
 	Message     string   `json:"message"`           // Summary of the error
 	Details     []string `json:"details,omitempty"` // Detailed error messages, if any
 	RawResponse string   `json:"raw_response"`      // Raw response body for debugging
+}
+
+// Errors represents individual error details within an API error response.
+type Errors struct {
+	Code        string  `json:"code,omitempty"`
+	Field       string  `json:"field,omitempty"`
+	Description string  `json:"description,omitempty"`
+	ID          *string `json:"id,omitempty"`
 }
 
 // Error returns a string representation of the APIError, making it compatible with the error interface.
