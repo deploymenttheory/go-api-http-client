@@ -60,7 +60,7 @@ jobs:
         if: ${{ steps.metadata.outputs.package-ecosystem == 'gomod' }}
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         if: ${{ steps.metadata.outputs.package-ecosystem == 'gomod' }}
         with:
           go-version: 'stable'
