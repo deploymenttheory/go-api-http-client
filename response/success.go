@@ -17,7 +17,7 @@ import (
 )
 
 // contentHandler defines the signature for unmarshaling content from an io.Reader.
-type contentHandler func(io.Reader, interface{}, *zap.SugaredLogger, string) error
+type contentHandler func(io.Reader, any, *zap.SugaredLogger, string) error
 
 // responseUnmarshallers maps MIME types to the corresponding contentHandler functions.
 var responseUnmarshallers = map[string]contentHandler{
@@ -27,7 +27,7 @@ var responseUnmarshallers = map[string]contentHandler{
 }
 
 // HandleAPISuccessResponse reads the response body, logs the raw response details, and unmarshals the response based on the content type.
-func HandleAPISuccessResponse(resp *http.Response, out interface{}, sugar *zap.SugaredLogger) error {
+func HandleAPISuccessResponse(resp *http.Response, out any, sugar *zap.SugaredLogger) error {
 	if resp.Request.Method == "DELETE" {
 		return successfulDeleteRequest(resp, sugar)
 	}
@@ -75,7 +75,7 @@ func successfulDeleteRequest(resp *http.Response, sugar *zap.SugaredLogger) erro
 }
 
 // unmarshalJSON unmarshals JSON content from an io.Reader into the provided output structure.
-func handlerUnmarshalJSON(reader io.Reader, out interface{}, sugar *zap.SugaredLogger, mimeType string) error {
+func handlerUnmarshalJSON(reader io.Reader, out any, sugar *zap.SugaredLogger, mimeType string) error {
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(out); err != nil {
 		sugar.Error("JSON Unmarshal error", zap.Error(err))
@@ -86,7 +86,7 @@ func handlerUnmarshalJSON(reader io.Reader, out interface{}, sugar *zap.SugaredL
 }
 
 // unmarshalXML unmarshals XML content from an io.Reader into the provided output structure.
-func handlerUnmarshalXML(reader io.Reader, out interface{}, sugar *zap.SugaredLogger, mimeType string) error {
+func handlerUnmarshalXML(reader io.Reader, out any, sugar *zap.SugaredLogger, mimeType string) error {
 	decoder := xml.NewDecoder(reader)
 	if err := decoder.Decode(out); err != nil {
 		sugar.Error("XML Unmarshal error", zap.Error(err))
@@ -102,7 +102,7 @@ func isBinaryData(contentType, contentDisposition string) bool {
 }
 
 // handleBinaryData reads binary data from an io.Reader and stores it in *[]byte or streams it to an io.Writer.
-func handleBinaryData(reader io.Reader, sugar *zap.SugaredLogger, out interface{}, contentDisposition string) error {
+func handleBinaryData(reader io.Reader, sugar *zap.SugaredLogger, out any, contentDisposition string) error {
 	switch out := out.(type) {
 	case *[]byte:
 		data, err := io.ReadAll(reader)

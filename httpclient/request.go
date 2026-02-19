@@ -58,7 +58,7 @@ import (
 //     within the client's concurrency model.
 //   - The decision to retry requests is based on the idempotency of the HTTP method and the client's retry configuration,
 //     including maximum retry attempts and total retry duration.
-func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*http.Response, error) {
+func (c *Client) DoRequest(method, endpoint string, body, out any) (*http.Response, error) {
 
 	if !c.config.RetryEligiableRequests || !isIdempotentHTTPMethod(method) {
 		return c.requestNoRetries(method, endpoint, body, out)
@@ -96,7 +96,7 @@ func (c *Client) DoRequest(method, endpoint string, body, out interface{}) (*htt
 // - The function respects the client's concurrency token, acquiring and releasing it as needed to ensure safe concurrent
 // operations.
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
-func (c *Client) requestWithRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
+func (c *Client) requestWithRetries(method, endpoint string, body, out any) (*http.Response, error) {
 	var resp *http.Response
 	var err error
 	var retryCount int
@@ -207,7 +207,7 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out interface
 //     execution.
 //   - The function logs detailed information about the request execution, including the method, endpoint, status code, and
 //     any errors encountered.
-func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}) (*http.Response, error) {
+func (c *Client) requestNoRetries(method, endpoint string, body, out any) (*http.Response, error) {
 	ctx := context.Background()
 
 	c.Sugar.Debugw("Executing request without retries", "method", method, "endpoint", endpoint)
@@ -232,7 +232,7 @@ func (c *Client) requestNoRetries(method, endpoint string, body, out interface{}
 }
 
 // request is a base leve private function which the contextual functions above utilise to make requests // TODO improve this comment probably.
-func (c *Client) request(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
+func (c *Client) request(ctx context.Context, method, endpoint string, body any) (*http.Response, error) {
 
 	if c.config.EnableConcurrencyManagement {
 		_, requestID, err := c.Concurrency.AcquireConcurrencyPermit(ctx)
