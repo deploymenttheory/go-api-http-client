@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2.4.0
+        uses: dependabot/fetch-metadata@v2.5.0
         with:
           github-token: "${{ secrets.DEPENDABOT_PAT }}"  # Using PAT for enhanced features, alert-lookup, and compat-lookup
           alert-lookup: true    # Enable security alert information
@@ -56,11 +56,11 @@ jobs:
           fi
 
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         if: ${{ steps.metadata.outputs.package-ecosystem == 'gomod' }}
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         if: ${{ steps.metadata.outputs.package-ecosystem == 'gomod' }}
         with:
           go-version: 'stable'
