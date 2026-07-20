@@ -112,7 +112,11 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out any) (*ht
 	for time.Now().Before(totalRetryDeadline) {
 
 		// Resp
-		resp, requestErr := c.request(ctx, method, endpoint, body)
+		// Assigns to the resp declared above rather than shadowing it: the
+		// post-loop error path reports on the last response received, and a
+		// shadowed copy would leave it nil once the retries are exhausted.
+		var requestErr error
+		resp, requestErr = c.request(ctx, method, endpoint, body)
 		if requestErr != nil {
 			return nil, requestErr
 		}
@@ -175,6 +179,12 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out any) (*ht
 
 	if err != nil {
 		return nil, err
+	}
+
+	// The loop can end without a response: the retry budget may be spent, or
+	// the total retry deadline may have passed before a first attempt was made.
+	if resp == nil {
+		return nil, fmt.Errorf("request to %s %s produced no response after %d retries", method, endpoint, retryCount)
 	}
 
 	return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
