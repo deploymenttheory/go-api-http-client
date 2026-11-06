@@ -28,6 +28,11 @@ var responseUnmarshallers = map[string]contentHandler{
 
 // HandleAPISuccessResponse reads the response body, logs the raw response details, and unmarshals the response based on the content type.
 func HandleAPISuccessResponse(resp *http.Response, out any, sugar *zap.SugaredLogger) error {
+	// 204 and HEAD responses have no representation to decode. Callers passing
+	// nil also explicitly opt out of decoding a successful response body.
+	if resp.StatusCode == http.StatusNoContent || resp.Request.Method == http.MethodHead || out == nil {
+		return nil
+	}
 	if resp.Request.Method == "DELETE" {
 		return successfulDeleteRequest(resp, sugar)
 	}
