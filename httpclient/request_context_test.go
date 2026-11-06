@@ -54,3 +54,66 @@ func TestDoRequestWithContextCancelsBackoff(t *testing.T) {
 		t.Fatal("cancelled backoff must not issue another request")
 	}
 }
+
+func TestDoRequestWithContextDeadlineReplacesDefaultTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		select {
+		case <-time.After(60 * time.Millisecond):
+			w.WriteHeader(http.StatusNoContent)
+		case <-req.Context().Done():
+		}
+	}))
+	defer server.Close()
+	client := newTestClient(server.URL)
+	// Scale the implicit ten-second timeout down to keep the regression fast.
+	client.http.Timeout = 20 * time.Millisecond
+	client.config.Timeout = 0
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	resp, err := client.DoRequestWithContext(ctx, http.MethodPut, "/slow-write", nil, nil)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
+	if err != nil {
+		t.Fatalf("operation deadline must allow a write longer than the implicit default: %v", err)
+	}
+	if client.http.Timeout != 20*time.Millisecond {
+		t.Fatal("context request changed the shared HTTP client timeout")
+	}
+}
+
+func TestDoRequestWithContextPreservesExplicitTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
+		<-req.Context().Done()
+	}))
+	defer server.Close()
+	client := newTestClient(server.URL)
+	client.http.Timeout = 20 * time.Millisecond
+	client.config.Timeout = 20 * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	resp, err := client.DoRequestWithContext(ctx, http.MethodPut, "/slow-write", nil, nil)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
+	if !errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
+		t.Fatalf("explicit client timeout should expire before the operation context: %v", err)
+	}
+}
+
+func TestDoRequestWithoutDeadlinePreservesDefaultTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
+		<-req.Context().Done()
+	}))
+	defer server.Close()
+	client := newTestClient(server.URL)
+	client.http.Timeout = 20 * time.Millisecond
+	client.config.Timeout = 0
+	resp, err := client.DoRequest(http.MethodGet, "/slow-read", nil, nil)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("legacy requests must retain their default timeout: %v", err)
+	}
+}
