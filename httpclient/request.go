@@ -59,12 +59,21 @@ import (
 //   - The decision to retry requests is based on the idempotency of the HTTP method and the client's retry configuration,
 //     including maximum retry attempts and total retry duration.
 func (c *Client) DoRequest(method, endpoint string, body, out any) (*http.Response, error) {
+	return c.DoRequestWithContext(context.Background(), method, endpoint, body, out)
+}
 
+// DoRequestWithContext executes a request with the caller's cancellation and deadline.
+func (c *Client) DoRequestWithContext(
+	ctx context.Context, method, endpoint string, body, out any,
+) (*http.Response, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("request cancelled: %w", err)
+	}
 	if !c.config.RetryEligiableRequests || !isIdempotentHTTPMethod(method) {
-		return c.requestNoRetries(method, endpoint, body, out)
+		return c.requestNoRetriesWithContext(ctx, method, endpoint, body, out)
 	}
 
-	return c.requestWithRetries(method, endpoint, body, out)
+	return c.requestWithRetriesWithContext(ctx, method, endpoint, body, out)
 }
 
 // requestWithRetries executes an HTTP request using the specified method, endpoint, request body, and output variable.
@@ -96,12 +105,12 @@ func (c *Client) DoRequest(method, endpoint string, body, out any) (*http.Respon
 // - The function respects the client's concurrency token, acquiring and releasing it as needed to ensure safe concurrent
 // operations.
 // - The retry mechanism employs exponential backoff with jitter to mitigate the impact of retries on the server.
-func (c *Client) requestWithRetries(method, endpoint string, body, out any) (*http.Response, error) {
+func (c *Client) requestWithRetriesWithContext(
+	ctx context.Context, method, endpoint string, body, out any,
+) (*http.Response, error) {
 	var resp *http.Response
 	var err error
 	var retryCount int
-
-	ctx := context.Background()
 
 	c.Sugar.Debug("Executing request with retries", zap.String("method", method), zap.String("endpoint", endpoint))
 
@@ -110,6 +119,9 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out any) (*ht
 	// Timer
 	totalRetryDeadline := time.Now().Add(c.config.TotalRetryDuration)
 	for time.Now().Before(totalRetryDeadline) {
+		if err := ctx.Err(); err != nil {
+			return resp, fmt.Errorf("request cancelled before retry: %w", err)
+		}
 
 		// Resp
 		// Assigns to the resp declared above rather than shadowing it: the
@@ -149,7 +161,9 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out any) (*ht
 			waitDuration := ratehandler.ParseRateLimitHeaders(resp, c.Sugar)
 			if waitDuration > 0 {
 				c.Sugar.Warn("Rate limit encountered, waiting before retrying", zap.Duration("waitDuration", waitDuration))
-				time.Sleep(waitDuration)
+				if err := waitForContext(ctx, waitDuration); err != nil {
+					return resp, err
+				}
 				continue
 			}
 		}
@@ -163,7 +177,9 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out any) (*ht
 			}
 			waitDuration := ratehandler.CalculateBackoff(retryCount)
 			c.Sugar.Warn("Retrying request due to transient error", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("retryCount", retryCount), zap.Duration("waitDuration", waitDuration), zap.Error(err))
-			time.Sleep(waitDuration)
+			if err := waitForContext(ctx, waitDuration); err != nil {
+				return resp, err
+			}
 			continue
 		}
 
@@ -218,7 +234,12 @@ func (c *Client) requestWithRetries(method, endpoint string, body, out any) (*ht
 //   - The function logs detailed information about the request execution, including the method, endpoint, status code, and
 //     any errors encountered.
 func (c *Client) requestNoRetries(method, endpoint string, body, out any) (*http.Response, error) {
-	ctx := context.Background()
+	return c.requestNoRetriesWithContext(context.Background(), method, endpoint, body, out)
+}
+
+func (c *Client) requestNoRetriesWithContext(
+	ctx context.Context, method, endpoint string, body, out any,
+) (*http.Response, error) {
 
 	c.Sugar.Debugw("Executing request without retries", "method", method, "endpoint", endpoint)
 
@@ -238,7 +259,7 @@ func (c *Client) requestNoRetries(method, endpoint string, body, out any) (*http
 		return resp, response.HandleAPISuccessResponse(resp, out, c.Sugar)
 	}
 
-	return nil, response.HandleAPIErrorResponse(resp, c.Sugar)
+	return resp, response.HandleAPIErrorResponse(resp, c.Sugar)
 }
 
 // request is a base leve private function which the contextual functions above utilise to make requests // TODO improve this comment probably.
@@ -297,7 +318,23 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body any)
 
 	c.Sugar.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Any("raw_response", resp))
 
-	time.Sleep(c.config.MandatoryRequestDelay)
+	if err := waitForContext(ctx, c.config.MandatoryRequestDelay); err != nil {
+		return resp, err
+	}
 
 	return resp, nil
+}
+
+func waitForContext(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("request cancelled while waiting: %w", ctx.Err())
+	case <-timer.C:
+		return nil
+	}
 }

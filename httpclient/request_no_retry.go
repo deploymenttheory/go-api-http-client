@@ -1,6 +1,8 @@
 package httpclient
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 )
 
@@ -29,4 +31,14 @@ import (
 // closing the response body when it is non-nil.
 func (c *Client) DoRequestNoRetry(method, endpoint string, body, out any) (*http.Response, error) {
 	return c.requestNoRetries(method, endpoint, body, out)
+}
+
+// DoRequestNoRetryWithContext executes one request within the caller's context.
+func (c *Client) DoRequestNoRetryWithContext(
+	ctx context.Context, method, endpoint string, body, out any,
+) (*http.Response, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("request cancelled: %w", err)
+	}
+	return c.requestNoRetriesWithContext(ctx, method, endpoint, body, out)
 }
