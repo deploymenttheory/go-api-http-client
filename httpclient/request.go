@@ -326,7 +326,12 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body any)
 
 	c.CheckDeprecationHeader(resp)
 
-	c.Sugar.Debug("Request sent successfully", zap.String("method", method), zap.String("endpoint", endpoint), zap.Int("status_code", resp.StatusCode), zap.Any("raw_response", resp))
+	logFields := []any{"method", method, "endpoint", endpoint, "status_code", resp.StatusCode}
+	if !c.config.HideSensitiveData {
+		logFields = append(logFields, "raw_response", resp)
+	}
+	// A raw response includes its request and therefore proxy/token header values.
+	c.Sugar.Debugw("Request sent successfully", logFields...)
 
 	if err := waitForContext(ctx, c.config.MandatoryRequestDelay); err != nil {
 		return resp, err
