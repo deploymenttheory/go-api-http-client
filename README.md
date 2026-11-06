@@ -24,6 +24,33 @@ The plugin is required to provide the necessary API-specific handlers and config
 
 This SDK requires an existing Go environment to build and run. If you do not have Go installed, you can download and install it from the [official Go website](https://golang.org/doc/install).
 
+## Reverse-proxy headers
+
+Use one `RequestHeaderConfig` for the integration's token bootstrap client and the API client. This supports a proxy requiring Basic credentials in `Authorization` while the integration's automatically refreshed bearer token is sent in a different header.
+
+```go
+headers := httpclient.RequestHeaderConfig{
+    BearerTokenHeader: "X-Jamf-Authorization",
+    CustomHeaders: map[string]string{
+        "Authorization": proxyBasicAuthorization,
+    },
+}
+bootstrap, err := headers.HTTPClient(http.Client{Timeout: 60 * time.Second}, baseURL)
+if err != nil {
+    return err
+}
+// Pass bootstrap to the API integration's authentication constructor.
+client, err := (&httpclient.ClientConfig{
+    Integration: integration,
+    RequestHeaders: headers,
+    HideSensitiveData: true,
+}).Build()
+```
+
+Bearer tokens are relocated for each request, so token refresh remains owned by the integration. The default token header is `Authorization`. Static headers cannot overwrite the managed token header; invalid or duplicate header names and invalid values are rejected without printing the values.
+
+The policy clones requests and configuration headers, preserves the supplied transport and timeout, and only applies headers to the configured origin. Configured clients reject cross-origin redirects to prevent forwarding proxy credentials or custom token headers. Ordinary clients without header options keep their existing behavior. With sensitive logging hidden, raw responses containing request headers are not logged.
+
 
 
 ## SDK Support

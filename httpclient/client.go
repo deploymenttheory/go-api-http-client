@@ -45,6 +45,9 @@ type ClientConfig struct {
 	// CustomCookies allows implementation of persistent, session wide cookies.
 	CustomCookies []*http.Cookie
 
+	// RequestHeaders applies the same origin-scoped header policy used for token bootstrap.
+	RequestHeaders RequestHeaderConfig
+
 	// MaxRetry Attempts limits the amount of retries the client will perform on requests which are deemd retriable.
 	MaxRetryAttempts int `json:"max_retry_attempts"`
 
@@ -122,6 +125,10 @@ func (c *ClientConfig) Build() (*Client, error) {
 
 	if c.CustomRedirectPolicy != nil {
 		httpClient.CheckRedirect = *c.CustomRedirectPolicy
+	}
+	httpClient, err = c.RequestHeaders.HTTPClient(httpClient, c.Integration.GetFQDN())
+	if err != nil {
+		return nil, fmt.Errorf("configure request headers: %w", err)
 	}
 
 	// TODO refactor concurrency
