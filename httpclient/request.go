@@ -63,6 +63,8 @@ func (c *Client) DoRequest(method, endpoint string, body, out any) (*http.Respon
 }
 
 // DoRequestWithContext executes a request with the caller's cancellation and deadline.
+// A deadline replaces the implicit default timeout; an explicit ClientConfig.Timeout
+// still limits the request independently.
 func (c *Client) DoRequestWithContext(
 	ctx context.Context, method, endpoint string, body, out any,
 ) (*http.Response, error) {
@@ -303,7 +305,15 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body any)
 
 	req = req.WithContext(ctx)
 
-	resp, err := c.http.Do(req)
+	requestClient := c.http
+	if _, hasDeadline := ctx.Deadline(); hasDeadline && c.config.Timeout == 0 {
+		// A caller's deadline replaces the implicit default without changing the
+		// shared client. An explicitly configured HTTP timeout remains a limit.
+		clientCopy := *c.http
+		clientCopy.Timeout = 0
+		requestClient = &clientCopy
+	}
+	resp, err := requestClient.Do(req)
 	if err != nil {
 		c.Sugar.Error("Failed to send request", zap.String("method", method), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
